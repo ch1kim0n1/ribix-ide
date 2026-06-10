@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useAccessor } from '../util/services.js';
 import { IRibixMissionService } from '../../../ribixMissionService.js';
 import { IRibixAgentService } from '../../../ribixAgentService.js';
+import { IRibixOrchestrationService } from '../../../ribixOrchestrationService.js';
 import { Mission, PlanTask } from '../../../../common/ribixTypes.js';
 import { ribixTaskTree } from './ribixTaskTree.js';
 import { ribixAgentActivityFeed } from './ribixAgentActivityFeed.js';
@@ -21,6 +22,7 @@ export const ribixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialo
 	const accessor = useAccessor();
 	const missionService = accessor.get(IRibixMissionService);
 	const agentService = accessor.get(IRibixAgentService);
+	const orchestrationService = accessor.get(IRibixOrchestrationService);
 	const [tasks, setTasks] = useState<PlanTask[]>(mission.tasks);
 	const [isApproving, setIsApproving] = useState(false);
 
@@ -32,6 +34,8 @@ export const ribixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialo
 		setIsApproving(true);
 		try {
 			await missionService.approvePlan(mission.id, tasks);
+			// Spawn agents — this is what actually starts execution
+			await orchestrationService.executeMission(mission.id);
 			onClose();
 		} catch (error) {
 			console.error('Failed to approve plan:', error);

@@ -14,6 +14,8 @@ import { IVoidSCMService } from '../common/voidSCMTypes.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IRibixAuthService } from './ribixAuthService.js';
+import { IRibixPlanningService } from './ribixPlanningService.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { RibixApiClient } from '../common/ribixApiClient.js';
 
 export interface IRibixMissionService {
@@ -29,6 +31,8 @@ export interface IRibixMissionService {
 
 	// Transitions
 	submitForPlanning(id: string): Promise<void>;
+	setPlanReady(id: string, tasks: PlanTask[]): Promise<void>;
+	setReviewing(id: string): Promise<void>;
 	approvePlan(id: string, modifiedTasks?: PlanTask[]): Promise<void>;
 	abortMission(id: string): Promise<void>;
 	completeMission(id: string, result: Mission['result']): Promise<void>;
@@ -54,6 +58,8 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
 		@IMainProcessService mainProcessService: IMainProcessService,
 		@IRibixAuthService private readonly authService: IRibixAuthService,
+		@IRibixPlanningService private readonly planningService: IRibixPlanningService,
+		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 	) {
 		super();
 		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
@@ -133,6 +139,41 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 		}
 
 		mission.state = 'planning';
+		await this.saveMission(mission);
+
+		// Kick off the planning service — produces task graph and transitions to plan_ready
+		this.planningService.plan(id, mission.outcome, {
+			attachedFiles: [],
+			attachedSelections: [],
+			issueUrls: [],
+			notes: '',
+		}).then(tasks => {
+			this.setPlanReady(id, tasks).catch(e => console.error('setPlanReady failed:', e));
+		}).catch(e => {
+			console.error('Planning failed:', e);
+			const m = this.getMission(id);
+			if (m) { m.state = 'failed'; this.saveMission(m); }
+		});
+	}
+
+	async setPlanReady(id: string, tasks: PlanTask[]): Promise<void> {
+		const mission = this.getMission(id);
+		if (!mission) throw new Error(`Mission ${id} not found`);
+		if (mission.state !== 'planning') {
+			throw new Error(`Cannot set plan ready: mission is in state ${mission.state}`);
+		}
+		mission.tasks = tasks;
+		mission.state = 'plan_ready';
+		await this.saveMission(mission);
+	}
+
+	async setReviewing(id: string): Promise<void> {
+		const mission = this.getMission(id);
+		if (!mission) throw new Error(`Mission ${id} not found`);
+		if (mission.state !== 'executing') {
+			throw new Error(`Cannot set reviewing: mission is in state ${mission.state}`);
+		}
+		mission.state = 'reviewing';
 		await this.saveMission(mission);
 	}
 
@@ -366,8 +407,14 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 	}
 
 	private async getWorkspacePath(): Promise<string | null> {
-		// This would need to be implemented to get the actual workspace path
-		// For now, return null as a placeholder
+		try {
+			const workspace = this.workspaceContextService.getWorkspace();
+			if (workspace.folders.length > 0) {
+				return workspace.folders[0].uri.fsPath;
+			}
+		} catch (e) {
+			console.error('Failed to get workspace path:', e);
+		}
 		return null;
 	}
 }

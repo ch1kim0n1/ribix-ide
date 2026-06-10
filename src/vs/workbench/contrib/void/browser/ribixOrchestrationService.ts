@@ -367,10 +367,11 @@ class RibixOrchestrationService extends Disposable implements IRibixOrchestratio
 	}
 
 	private async transitionToReviewing(missionId: string): Promise<void> {
-		// This would transition the mission to REVIEWING state
-		// For now, this is a placeholder - the actual transition would be handled by the mission service
-		// or we might need to add a transition method to the mission service
-
+		try {
+			await this.missionService.setReviewing(missionId);
+		} catch (e) {
+			console.error('Failed to transition mission to reviewing:', e);
+		}
 		this.emitProgress(missionId);
 	}
 

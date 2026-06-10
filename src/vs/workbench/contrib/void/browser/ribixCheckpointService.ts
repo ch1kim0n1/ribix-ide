@@ -13,6 +13,7 @@ import { VoidFileSnapshot } from '../common/editCodeServiceTypes.js';
 import { IVoidModelService } from '../common/voidModelService.js';
 import { IEditCodeService } from './editCodeServiceInterface.js';
 import { EndOfLinePreference } from '../../../../editor/common/model.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 
 export type MissionCheckpoint = {
 	id: string;
@@ -44,6 +45,8 @@ export interface IRibixCheckpointService {
 
 export const IRibixCheckpointService = createDecorator<IRibixCheckpointService>('ribixCheckpointService');
 
+const CHECKPOINT_STORAGE_KEY = 'ribix.checkpoints';
+
 class RibixCheckpointService extends Disposable implements IRibixCheckpointService {
 	readonly _serviceBrand: undefined;
 
@@ -53,10 +56,15 @@ class RibixCheckpointService extends Disposable implements IRibixCheckpointServi
 	private checkpoints: MissionCheckpoint[] = [];
 
 	constructor(
+		@IStorageService private readonly storageService: IStorageService,
 		@IVoidModelService private readonly voidModelService: IVoidModelService,
 		@IEditCodeService private readonly editCodeService: IEditCodeService,
 	) {
 		super();
+		const stored = this.storageService.get(CHECKPOINT_STORAGE_KEY, StorageScope.WORKSPACE);
+		if (stored) {
+			try { this.checkpoints = JSON.parse(stored as string); } catch { this.checkpoints = []; }
+		}
 	}
 
 	async checkpoint(missionId: string, agentId: string, filePath: string): Promise<MissionCheckpoint> {
@@ -86,6 +94,7 @@ class RibixCheckpointService extends Disposable implements IRibixCheckpointServi
 		};
 
 		this.checkpoints.push(checkpoint);
+		this.saveCheckpoints();
 		this._onDidChangeCheckpoints.fire();
 
 		return checkpoint;
@@ -98,6 +107,7 @@ class RibixCheckpointService extends Disposable implements IRibixCheckpointServi
 		}
 
 		await this.restoreSnapshot(checkpoint.filePath, checkpoint.snapshot);
+		this.saveCheckpoints();
 	}
 
 	async rollbackAgent(agentId: string): Promise<void> {
@@ -107,6 +117,7 @@ class RibixCheckpointService extends Disposable implements IRibixCheckpointServi
 		for (const checkpoint of agentCheckpoints.reverse()) {
 			await this.restoreSnapshot(checkpoint.filePath, checkpoint.snapshot);
 		}
+		this.saveCheckpoints();
 	}
 
 	async rollbackMission(missionId: string): Promise<void> {
@@ -118,6 +129,7 @@ class RibixCheckpointService extends Disposable implements IRibixCheckpointServi
 		for (const checkpoint of missionCheckpoints.reverse()) {
 			await this.restoreSnapshot(checkpoint.filePath, checkpoint.snapshot);
 		}
+		this.saveCheckpoints();
 	}
 
 	getCheckpoints(missionId?: string, agentId?: string, filePath?: string): MissionCheckpoint[] {
@@ -141,6 +153,11 @@ class RibixCheckpointService extends Disposable implements IRibixCheckpointServi
 
 	getCheckpoint(checkpointId: string): MissionCheckpoint | null {
 		return this.checkpoints.find(cp => cp.id === checkpointId) || null;
+	}
+
+	private saveCheckpoints(): void {
+		const toSave = this.checkpoints.slice(-200);
+		this.storageService.store(CHECKPOINT_STORAGE_KEY, JSON.stringify(toSave), StorageScope.WORKSPACE, StorageTarget.USER);
 	}
 
 	private async restoreSnapshot(filePath: string, snapshot: VoidFileSnapshot): Promise<void> {

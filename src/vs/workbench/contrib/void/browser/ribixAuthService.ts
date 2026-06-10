@@ -50,6 +50,9 @@ export interface IRibixAuthService {
 
 	// Session management
 	refreshToken(): Promise<RibixConfig>;
+
+	// OAuth callback — called by the URL protocol handler when ribix-ide://oauth/callback fires
+	handleOAuthCallback(code: string, state: string): Promise<void>;
 }
 
 export const IRibixAuthService = createDecorator<IRibixAuthService>('ribixAuthService');

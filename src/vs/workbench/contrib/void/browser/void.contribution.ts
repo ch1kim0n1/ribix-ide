@@ -87,6 +87,9 @@ import './ribixPlanningService.js'
 // register Ribix auth service
 import './ribixAuthService.js'
 
+// register Ribix auth actions (Sign In / Sign Out commands + OAuth callback handler)
+import './ribixAuthActions.js'
+
 // register Ribix diff annotation widget
 import './ribixDiffAnnotationWidget.js'
 

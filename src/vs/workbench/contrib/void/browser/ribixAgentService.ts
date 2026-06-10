@@ -33,6 +33,7 @@ export interface IRibixAgentService {
 	getAgent(agentId: string): AgentInstance | null;
 	getAgentsForMission(missionId: string): AgentInstance[];
 	getAllActiveAgents(): AgentInstance[];
+	getAllKnownAgents(): AgentInstance[];
 	abortAgent(agentId: string): Promise<void>;
 
 	// Events
@@ -116,6 +117,10 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 		return Array.from(this.agents.values()).filter(agent =>
 			['idle', 'planning', 'executing', 'blocked'].includes(agent.status)
 		);
+	}
+
+	getAllKnownAgents(): AgentInstance[] {
+		return Array.from(this.agents.values());
 	}
 
 	async abortAgent(agentId: string): Promise<void> {

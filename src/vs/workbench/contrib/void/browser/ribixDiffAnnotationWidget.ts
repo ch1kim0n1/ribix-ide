@@ -217,7 +217,7 @@ class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotati
 
 	private handleAgentChanges(): void {
 		// Check for new file writes from agents
-		const agents = this.agentService.getAllActiveAgents();
+		const agents = this.agentService.getAllKnownAgents();
 		for (const agent of agents) {
 			// Track files written by this agent
 			for (const filePath of agent.filesWritten) {

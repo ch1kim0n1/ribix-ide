@@ -49,6 +49,7 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 
 	private entries: MemoryEntry[] = [];
 	private workspaceId: string | null = null;
+	private _initPromise: Promise<void>;
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -56,9 +57,9 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 		@IRibixAuthService private readonly ribixAuthService: IRibixAuthService,
 	) {
 		super();
-		this.loadEntries();
-		// Sync from org on workspace open
-		this.syncFromOrg();
+		this._initPromise = this.loadEntries().then(() => {
+			this.syncFromOrg().catch(() => {});
+		});
 	}
 
 	private async loadEntries(): Promise<void> {
@@ -79,10 +80,12 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 	}
 
 	async getEntries(type: MemoryEntryType, workspaceId: string): Promise<MemoryEntry[]> {
+		await this._initPromise;
 		return this.entries.filter(entry => entry.type === type && entry.workspaceId === workspaceId);
 	}
 
 	async searchEntries(query: string, workspaceId: string): Promise<MemoryEntry[]> {
+		await this._initPromise;
 		const lowerQuery = query.toLowerCase();
 		return this.entries.filter(entry => {
 			if (entry.workspaceId !== workspaceId) return false;
@@ -130,6 +133,7 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 	}
 
 	async getWorkspaceId(): Promise<string> {
+		await this._initPromise;
 		if (this.workspaceId) {
 			return this.workspaceId;
 		}
@@ -141,7 +145,7 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 				const workspaceUri = workspaceFolders.folders[0].uri;
 
 				// Use workspace URI as stable workspace identifier
-				this.workspaceId = this.simpleHash(workspaceUri.toString());
+				this.workspaceId = await this.stableHash(workspaceUri.toString());
 				return this.workspaceId;
 			}
 		} catch (e) {
@@ -153,14 +157,12 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 		return this.workspaceId;
 	}
 
-	private simpleHash(str: string): string {
-		let hash = 0;
-		for (let i = 0; i < str.length; i++) {
-			const char = str.charCodeAt(i);
-			hash = ((hash << 5) - hash) + char;
-			hash = hash & hash; // Convert to 32bit integer
-		}
-		return Math.abs(hash).toString(16);
+	private async stableHash(str: string): Promise<string> {
+		const encoder = new TextEncoder();
+		const data = encoder.encode(str);
+		const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+		const hashArray = Array.from(new Uint8Array(hashBuffer));
+		return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
 	}
 
 	async syncFromOrg(): Promise<void> {

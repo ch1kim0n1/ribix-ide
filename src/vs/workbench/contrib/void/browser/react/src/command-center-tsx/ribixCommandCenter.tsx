@@ -4,17 +4,19 @@
  *--------------------------------------------------------------------------------------*/
 
 import { useState } from 'react';
-import { useIsDark } from '../util/services.js';
+import { useIsDark, useAccessor } from '../util/services.js';
 import '../styles.css';
 import { ribixMissionsPanel } from './ribixMissionsPanel.js';
 import { ribixAgentsPanel } from './ribixAgentsPanel.js';
 import { ribixMemoryPanel } from './ribixMemoryPanel.js';
 import ErrorBoundary from '../sidebar-tsx/ErrorBoundary.js';
+import { RIBIX_SIGN_IN_ACTION_ID } from '../../../ribixAuthActions.js';
 
-type TabType = 'missions' | 'agents' | 'memory';
+type TabType = 'missions' | 'agents' | 'memory' | 'settings';
 
 export const ribixCommandCenter = ({ className }: { className: string }) => {
 	const isDark = useIsDark();
+	const accessor = useAccessor();
 	const [activeTab, setActiveTab] = useState<TabType>('missions');
 
 	return (
@@ -61,6 +63,16 @@ export const ribixCommandCenter = ({ className }: { className: string }) => {
 					>
 						Memory
 					</button>
+					<button
+						onClick={() => setActiveTab('settings')}
+						className={`px-4 py-3 text-sm font-medium transition-colors ${
+							activeTab === 'settings'
+								? 'text-[var(--ribix-gold, #C6AA58)] border-b-2 border-[var(--ribix-gold, #C6AA58)]'
+								: 'text-[var(--ribix-text-secondary, #8A9E8A)] hover:text-[var(--ribix-text-primary, #F5F0E8)]'
+						}`}
+					>
+						Settings
+					</button>
 				</div>
 
 				{/* Tab Content */}
@@ -69,6 +81,38 @@ export const ribixCommandCenter = ({ className }: { className: string }) => {
 						{activeTab === 'missions' && <ribixMissionsPanel />}
 						{activeTab === 'agents' && <ribixAgentsPanel />}
 						{activeTab === 'memory' && <ribixMemoryPanel />}
+						{activeTab === 'settings' && (
+							<div className="p-4 flex flex-col gap-6">
+								<div>
+									<h3 className="text-sm font-semibold text-[var(--ribix-gold, #C6AA58)] mb-2">Model Configuration</h3>
+									<p className="text-sm text-[var(--ribix-text-secondary, #8A9E8A)]">
+										LLM model settings (provider, API keys, model selection) are managed in the Quick Edit sidebar under the settings panel.
+									</p>
+								</div>
+								<div>
+									<h3 className="text-sm font-semibold text-[var(--ribix-gold, #C6AA58)] mb-2">Ribix Configuration</h3>
+									<p className="text-sm text-[var(--ribix-text-secondary, #8A9E8A)]">
+										Ribix-specific settings (max missions, branch prefix, and more) are available in VS Code settings under <span className="text-[var(--ribix-text-primary, #F5F0E8)]">"Ribix Command Center"</span>.
+									</p>
+								</div>
+								<div>
+									<h3 className="text-sm font-semibold text-[var(--ribix-gold, #C6AA58)] mb-2">Account</h3>
+									<button
+										onClick={() => {
+											const commandService = accessor.get('ICommandService');
+											commandService.executeCommand(RIBIX_SIGN_IN_ACTION_ID);
+										}}
+										className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+										style={{
+											backgroundColor: 'var(--ribix-gold, #C6AA58)',
+											color: 'var(--ribix-bg-primary, #01311F)',
+										}}
+									>
+										Sign In
+									</button>
+								</div>
+							</div>
+						)}
 					</ErrorBoundary>
 				</div>
 			</div>

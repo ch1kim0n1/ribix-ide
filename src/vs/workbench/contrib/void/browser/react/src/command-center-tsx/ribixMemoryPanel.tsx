@@ -16,6 +16,8 @@ export const ribixMemoryPanel = () => {
 	const [activeSection, setActiveSection] = useState<MemorySection>('codebase');
 	const [entries, setEntries] = useState<MemoryEntry[]>([]);
 	const [searchQuery, setSearchQuery] = useState('');
+	const [addingNote, setAddingNote] = useState(false);
+	const [noteText, setNoteText] = useState('');
 
 	useEffect(() => {
 		loadMemoryEntries();
@@ -64,24 +66,34 @@ export const ribixMemoryPanel = () => {
 		}
 	};
 
-	const handleAddNote = async () => {
-		const note = prompt('Enter your note:');
-		if (note) {
-			try {
-				const workspaceId = await memoryService.getWorkspaceId();
-				await memoryService.writeEntry({
-					type: 'codebase_pattern' as any,
-					workspaceId,
-					content: note,
-					metadata: {},
-					confidence: 1,
-					source: 'engineer',
-				});
-				await loadMemoryEntries();
-			} catch (error) {
-				console.error('Failed to add note:', error);
-			}
+	const handleAddNote = () => {
+		setNoteText('');
+		setAddingNote(true);
+	};
+
+	const handleNoteSubmit = async () => {
+		if (!noteText.trim()) return;
+		try {
+			const workspaceId = await memoryService.getWorkspaceId();
+			await memoryService.writeEntry({
+				type: 'codebase_pattern' as any,
+				workspaceId,
+				content: noteText.trim(),
+				metadata: {},
+				confidence: 1,
+				source: 'engineer',
+			});
+			setAddingNote(false);
+			setNoteText('');
+			await loadMemoryEntries();
+		} catch (error) {
+			console.error('Failed to add note:', error);
 		}
+	};
+
+	const handleNoteCancel = () => {
+		setAddingNote(false);
+		setNoteText('');
 	};
 
 	const getStatusColor = (source: string) => {
@@ -121,17 +133,50 @@ export const ribixMemoryPanel = () => {
 				}}
 			/>
 
-			{/* Add Note Button */}
-			<button
-				onClick={handleAddNote}
-				className="w-full mb-4 px-4 py-2 rounded-lg font-medium transition-colors"
-				style={{
-					backgroundColor: 'var(--ribix-gold, #C6AA58)',
-					color: 'var(--ribix-bg-primary, #01311F)',
-				}}
-			>
-				Add Note
-			</button>
+			{/* Add Note Button / Inline Form */}
+			{addingNote ? (
+				<div className="mb-4 p-3 rounded-lg border" style={{ backgroundColor: 'var(--ribix-bg-primary, #01311F)', borderColor: 'var(--ribix-border, #1E4A32)' }}>
+					<textarea
+						autoFocus
+						value={noteText}
+						onChange={(e) => setNoteText(e.target.value)}
+						placeholder="Enter your note..."
+						rows={3}
+						className="w-full mb-2 px-3 py-2 rounded-lg border focus:outline-none resize-none text-sm"
+						style={{
+							backgroundColor: 'var(--ribix-bg-secondary, #012B1A)',
+							borderColor: 'var(--ribix-border, #1E4A32)',
+							color: 'var(--ribix-text-primary, #F5F0E8)',
+						}}
+					/>
+					<div className="flex gap-2">
+						<button
+							onClick={handleNoteSubmit}
+							className="flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+							style={{ backgroundColor: 'var(--ribix-gold, #C6AA58)', color: 'var(--ribix-bg-primary, #01311F)' }}
+						>
+							Save
+						</button>
+						<button
+							onClick={handleNoteCancel}
+							className="flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-[var(--ribix-text-secondary, #8A9E8A)] hover:text-[var(--ribix-text-primary, #F5F0E8)]"
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+			) : (
+				<button
+					onClick={handleAddNote}
+					className="w-full mb-4 px-4 py-2 rounded-lg font-medium transition-colors"
+					style={{
+						backgroundColor: 'var(--ribix-gold, #C6AA58)',
+						color: 'var(--ribix-bg-primary, #01311F)',
+					}}
+				>
+					Add Note
+				</button>
+			)}
 
 			{/* Memory Entries List */}
 			<div className="flex-1 overflow-auto">

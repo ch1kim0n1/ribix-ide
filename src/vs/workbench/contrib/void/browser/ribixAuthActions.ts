@@ -8,6 +8,10 @@ import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js
 import { localize2 } from '../../../../nls.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IRibixAuthService } from './ribixAuthService.js';
+import { IURLService, IURLHandler, IOpenURLOptions } from '../../../../platform/url/common/url.js';
+import { URI } from '../../../../base/common/uri.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 
 export const RIBIX_SIGN_IN_ACTION_ID = 'ribix.auth.signIn';
 export const RIBIX_SIGN_OUT_ACTION_ID = 'ribix.auth.signOut';
@@ -34,6 +38,38 @@ registerAction2(class extends Action2 {
 		}
 	}
 });
+
+// Register OAuth callback URL handler so ribix-ide://oauth/callback completes sign-in
+class RibixOAuthURLHandlerContribution extends Disposable implements IURLHandler {
+	static readonly ID = 'ribix.oauthUrlHandler';
+
+	constructor(
+		@IRibixAuthService private readonly authService: IRibixAuthService,
+		@IURLService urlService: IURLService,
+	) {
+		super();
+		this._register(urlService.registerHandler(this));
+	}
+
+	async handleURL(uri: URI, _options?: IOpenURLOptions): Promise<boolean> {
+		if (uri.scheme !== 'ribix-ide' || uri.path !== '/oauth/callback') {
+			return false;
+		}
+		const params = new URLSearchParams(uri.query);
+		const code = params.get('code');
+		const state = params.get('state');
+		if (code && state) {
+			await this.authService.handleOAuthCallback(code, state);
+		}
+		return true;
+	}
+}
+
+registerWorkbenchContribution2(
+	RibixOAuthURLHandlerContribution.ID,
+	RibixOAuthURLHandlerContribution,
+	WorkbenchPhase.BlockStartup
+);
 
 registerAction2(class extends Action2 {
 	constructor() {
