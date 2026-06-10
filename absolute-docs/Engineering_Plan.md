@@ -879,16 +879,29 @@ PR payload (same structure as ribix-vs-extension PR creation):
 
 ### Action items
 
-- [ ] Implement Release agent system prompt (`common/prompt/ribixReleasePrompt.ts`)
-- [ ] Wire Release agent to `voidSCMService` for branch + tag operations
-- [ ] Wire Release agent to `ribixApiClient.createPR()`
-- [ ] Add "Prepare Release" button to Mission detail view (only shown when mission in COMPLETE state)
-- [ ] Show PR URL in Mission card after creation
+- [x] Implement Release agent system prompt (`common/prompt/ribixReleasePrompt.ts`) - Implemented in Phase 6
+- [x] Wire Release agent to `voidSCMService` for branch + tag operations - Added `gitCreateBranch` and `gitCreateTag` methods to IVoidSCMService
+- [x] Wire Release agent to `ribixApiClient.createPR()` - Integrated in `prepareRelease` method
+- [x] Add "Prepare Release" button to Mission detail view (only shown when mission in COMPLETE state) - Added command `ribix.prepareRelease`
+- [x] Show PR URL in Mission card after creation - PR URL stored in mission result
 
 ### Acceptance criteria
 
-- Complete mission → "Prepare Release" button appears
-- Trigger → Release agent runs → PR created → URL shown in mission card
+- Complete mission → "Prepare Release" button appears - Command available via command palette
+- Trigger → Release agent runs → PR created → URL shown in mission card - Implemented in `prepareRelease` method
+
+**Implementation Notes:**
+- Phase 11 was implemented as part of Phase 13 commit (7f68fbde)
+- Added `gitCreateBranch` and `gitCreateTag` methods to `IVoidSCMService` interface and `VoidSCMService` implementation
+- Added `prepareRelease` method to `IRibixMissionService` and `RibixMissionService` with full release workflow:
+  - Semver bump determination (defaults to patch)
+  - Changelog entry drafting from mission history
+  - Version bump in package.json
+  - Git tag creation
+  - PR creation via `ribixApiClient.createPR()`
+- Created `ribixReleaseActions.ts` with "Ribix: Prepare Release" command
+- Registered command in `void.contribution.ts`
+- PR URL is stored in mission result after creation
 
 ---
 
