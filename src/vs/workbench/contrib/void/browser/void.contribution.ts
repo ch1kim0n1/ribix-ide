@@ -72,6 +72,12 @@ import './ribixMemoryService.js'
 // register Ribix mission service
 import './ribixMissionService.js'
 
+// register Ribix agent service
+import './ribixAgentService.js'
+
+// register Ribix orchestration service
+import './ribixOrchestrationService.js'
+
 // register Ribix checkpoint service
 import './ribixCheckpointService.js'
 
