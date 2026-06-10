@@ -4,6 +4,6 @@
  *--------------------------------------------------------------------------------------*/
 
 import { mountFnGenerator } from '../util/mountFnGenerator.js'
-import { ribixCommandCenter } from './ribixCommandCenter.js'
+import { RibixCommandCenter } from './ribixCommandCenter.js'
 
-export const mountCommandCenter = mountFnGenerator(ribixCommandCenter)
+export const mountCommandCenter = mountFnGenerator(RibixCommandCenter)

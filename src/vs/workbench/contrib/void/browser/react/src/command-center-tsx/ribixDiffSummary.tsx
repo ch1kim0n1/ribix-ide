@@ -9,7 +9,7 @@ interface ribixDiffSummaryProps {
 	mission: Mission;
 }
 
-export const ribixDiffSummary = ({ mission }: ribixDiffSummaryProps) => {
+export const RibixDiffSummary = ({ mission }: ribixDiffSummaryProps) => {
 	if (!mission.result) {
 		return (
 			<div className="text-center py-8 text-[var(--ribix-text-secondary, #8A9E8A)]">

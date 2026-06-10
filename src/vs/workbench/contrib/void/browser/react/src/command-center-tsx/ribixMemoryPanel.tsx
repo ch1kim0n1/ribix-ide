@@ -10,7 +10,7 @@ import { MemoryEntry, MemoryEntryType } from '../../../../common/ribixTypes.js';
 
 type MemorySection = 'codebase' | 'patterns' | 'history' | 'vocabulary';
 
-export const ribixMemoryPanel = () => {
+export const RibixMemoryPanel = () => {
 	const accessor = useAccessor();
 	const memoryService = accessor.get(IRibixMemoryService);
 	const [activeSection, setActiveSection] = useState<MemorySection>('codebase');

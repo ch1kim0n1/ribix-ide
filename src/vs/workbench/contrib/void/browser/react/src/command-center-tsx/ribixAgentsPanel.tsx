@@ -7,9 +7,9 @@ import { useState, useEffect } from 'react';
 import { useAccessor } from '../util/services.js';
 import { IRibixAgentService } from '../../../ribixAgentService.js';
 import { AgentInstance } from '../../../../common/ribixTypes.js';
-import { ribixAgentCard } from './ribixAgentCard.js';
+import { RibixAgentCard } from './ribixAgentCard.js';
 
-export const ribixAgentsPanel = () => {
+export const RibixAgentsPanel = () => {
 	const accessor = useAccessor();
 	const agentService = accessor.get(IRibixAgentService);
 	const [agents, setAgents] = useState<AgentInstance[]>([]);
@@ -40,7 +40,7 @@ export const ribixAgentsPanel = () => {
 			) : (
 				<div className="grid grid-cols-1 gap-3">
 					{agents.map((agent) => (
-						<ribixAgentCard key={agent.id} agent={agent} />
+						<RibixAgentCard key={agent.id} agent={agent} />
 					))}
 				</div>
 			)}

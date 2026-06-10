@@ -80,7 +80,7 @@ const formatDuration = (startTime: number, endTime: number | null): string => {
 	}
 };
 
-export const ribixAgentCard = ({ agent }: ribixAgentCardProps) => {
+export const RibixAgentCard = ({ agent }: ribixAgentCardProps) => {
 	const agentName = `${agent.type.charAt(0).toUpperCase() + agent.type.slice(1)}-${agent.id.substring(0, 6)}`;
 	const filesTouched = agent.filesRead.length + agent.filesWritten.length;
 

@@ -7,10 +7,10 @@ import { useState, useEffect } from 'react';
 import { useAccessor } from '../util/services.js';
 import { IRibixMissionService } from '../../../ribixMissionService.js';
 import { Mission } from '../../../../common/ribixTypes.js';
-import { ribixMissionCard } from './ribixMissionCard.js';
-import { ribixPlanReviewDialog } from './ribixPlanReviewDialog.js';
+import { RibixMissionCard } from './ribixMissionCard.js';
+import { RibixPlanReviewDialog } from './ribixPlanReviewDialog.js';
 
-export const ribixMissionsPanel = () => {
+export const RibixMissionsPanel = () => {
 	const accessor = useAccessor();
 	const missionService = accessor.get(IRibixMissionService);
 	const [missions, setMissions] = useState<Mission[]>([]);
@@ -98,7 +98,7 @@ export const ribixMissionsPanel = () => {
 				) : (
 					<div className="space-y-3">
 						{missions.map((mission) => (
-							<ribixMissionCard
+							<RibixMissionCard
 								key={mission.id}
 								mission={mission}
 								onClick={() => handleMissionClick(mission)}
@@ -110,7 +110,7 @@ export const ribixMissionsPanel = () => {
 
 			{/* Mission Detail Dialog */}
 			{selectedMission && (
-				<ribixPlanReviewDialog
+				<RibixPlanReviewDialog
 					mission={selectedMission}
 					onClose={handleCloseDetail}
 				/>

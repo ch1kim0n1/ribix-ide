@@ -40,7 +40,7 @@ const getActionColor = (action: string): string => {
 	}
 };
 
-export const ribixAgentActivityFeed = ({ activities }: ribixAgentActivityFeedProps) => {
+export const RibixAgentActivityFeed = ({ activities }: ribixAgentActivityFeedProps) => {
 	if (activities.length === 0) {
 		return (
 			<div className="text-center py-8 text-[var(--ribix-text-secondary, #8A9E8A)]">

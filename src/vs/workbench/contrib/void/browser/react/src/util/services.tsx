@@ -236,9 +236,14 @@ type ReactAccessor = ReturnType<typeof getReactAccessor>
 
 
 let reactAccessor_: ReactAccessor | null = null
+let instantiationService_: IInstantiationService | null = null
+
 const _registerAccessor = (accessor: ServicesAccessor) => {
 	const reactAccessor = getReactAccessor(accessor)
 	reactAccessor_ = reactAccessor
+	// Store the IInstantiationService instance (not the accessor — the accessor expires after this call).
+	// invokeFunction() on the instantiation service creates a fresh valid accessor on demand.
+	instantiationService_ = accessor.get(IInstantiationService)
 }
 
 // -- services --
@@ -247,7 +252,20 @@ export const useAccessor = () => {
 		throw new Error(`⚠️ Ribix IDE useAccessor was called before _registerServices!`)
 	}
 
-	return { get: <S extends keyof ReactAccessor,>(service: S): ReactAccessor[S] => reactAccessor_![service] }
+	return {
+		// Fast path: pre-resolved services from ReactAccessor map.
+		// Fallback: use invokeFunction for services not in the map (e.g. Ribix services
+		// that can't be eagerly imported without creating circular module dependencies).
+		get: (service: any): any => {
+			const key = typeof service === 'function' && service.toString ? service.toString() : String(service);
+			const known = (reactAccessor_ as any)[key];
+			if (known !== undefined) return known;
+			if (instantiationService_) {
+				return instantiationService_.invokeFunction(a => a.get(service));
+			}
+			return undefined;
+		}
+	}
 }
 
 

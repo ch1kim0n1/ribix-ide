@@ -6,15 +6,15 @@
 import { useState } from 'react';
 import { useIsDark, useAccessor } from '../util/services.js';
 import '../styles.css';
-import { ribixMissionsPanel } from './ribixMissionsPanel.js';
-import { ribixAgentsPanel } from './ribixAgentsPanel.js';
-import { ribixMemoryPanel } from './ribixMemoryPanel.js';
+import { RibixMissionsPanel } from './ribixMissionsPanel.js';
+import { RibixAgentsPanel } from './ribixAgentsPanel.js';
+import { RibixMemoryPanel } from './ribixMemoryPanel.js';
 import ErrorBoundary from '../sidebar-tsx/ErrorBoundary.js';
 import { RIBIX_SIGN_IN_ACTION_ID } from '../../../ribixAuthActions.js';
 
 type TabType = 'missions' | 'agents' | 'memory' | 'settings';
 
-export const ribixCommandCenter = ({ className }: { className: string }) => {
+export const RibixCommandCenter = ({ className }: { className: string }) => {
 	const isDark = useIsDark();
 	const accessor = useAccessor();
 	const [activeTab, setActiveTab] = useState<TabType>('missions');
@@ -78,9 +78,9 @@ export const ribixCommandCenter = ({ className }: { className: string }) => {
 				{/* Tab Content */}
 				<div className="w-full h-[calc(100%-48px)] overflow-auto">
 					<ErrorBoundary>
-						{activeTab === 'missions' && <ribixMissionsPanel />}
-						{activeTab === 'agents' && <ribixAgentsPanel />}
-						{activeTab === 'memory' && <ribixMemoryPanel />}
+						{activeTab === 'missions' && <RibixMissionsPanel />}
+						{activeTab === 'agents' && <RibixAgentsPanel />}
+						{activeTab === 'memory' && <RibixMemoryPanel />}
 						{activeTab === 'settings' && (
 							<div className="p-4 flex flex-col gap-6">
 								<div>

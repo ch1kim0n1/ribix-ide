@@ -9,16 +9,16 @@ import { IRibixMissionService } from '../../../ribixMissionService.js';
 import { IRibixAgentService } from '../../../ribixAgentService.js';
 import { IRibixOrchestrationService } from '../../../ribixOrchestrationService.js';
 import { Mission, PlanTask } from '../../../../common/ribixTypes.js';
-import { ribixTaskTree } from './ribixTaskTree.js';
-import { ribixAgentActivityFeed } from './ribixAgentActivityFeed.js';
-import { ribixDiffSummary } from './ribixDiffSummary.js';
+import { RibixTaskTree } from './ribixTaskTree.js';
+import { RibixAgentActivityFeed } from './ribixAgentActivityFeed.js';
+import { RibixDiffSummary } from './ribixDiffSummary.js';
 
 interface ribixPlanReviewDialogProps {
 	mission: Mission;
 	onClose: () => void;
 }
 
-export const ribixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialogProps) => {
+export const RibixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialogProps) => {
 	const accessor = useAccessor();
 	const missionService = accessor.get(IRibixMissionService);
 	const agentService = accessor.get(IRibixAgentService);
@@ -113,7 +113,7 @@ export const ribixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialo
 								{mission.state === 'planning' ? 'Planning in progress...' : 'No tasks yet.'}
 							</div>
 						) : (
-							<ribixTaskTree
+							<RibixTaskTree
 								tasks={tasks}
 								onRemoveTask={handleRemoveTask}
 								onModifyTask={handleModifyTask}
@@ -128,7 +128,7 @@ export const ribixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialo
 							<h3 className="text-sm font-semibold mb-3 text-[var(--ribix-text-secondary, #8A9E8A)]">
 								Activity Feed
 							</h3>
-							<ribixAgentActivityFeed activities={allActivities} />
+							<RibixAgentActivityFeed activities={allActivities} />
 						</div>
 					)}
 
@@ -138,7 +138,7 @@ export const ribixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialo
 							<h3 className="text-sm font-semibold mb-3 text-[var(--ribix-text-secondary, #8A9E8A)]">
 								Diff Summary
 							</h3>
-							<ribixDiffSummary mission={mission} />
+							<RibixDiffSummary mission={mission} />
 						</div>
 					)}
 				</div>

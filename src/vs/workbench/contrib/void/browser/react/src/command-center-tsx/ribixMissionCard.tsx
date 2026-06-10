@@ -69,7 +69,7 @@ const formatDuration = (startTime: number, endTime: number | null): string => {
 	}
 };
 
-export const ribixMissionCard = ({ mission, onClick }: ribixMissionCardProps) => {
+export const RibixMissionCard = ({ mission, onClick }: ribixMissionCardProps) => {
 	const truncatedOutcome = mission.outcome.length > 80
 		? mission.outcome.substring(0, 80) + '...'
 		: mission.outcome;

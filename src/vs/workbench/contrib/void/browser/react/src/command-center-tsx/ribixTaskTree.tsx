@@ -73,7 +73,7 @@ const getStatusLabel = (status: PlanTask['status']): string => {
 	}
 };
 
-export const ribixTaskTree = ({ tasks, onApproveTask, onRemoveTask, onModifyTask, readonly = false }: ribixTaskTreeProps) => {
+export const RibixTaskTree = ({ tasks, onApproveTask, onRemoveTask, onModifyTask, readonly = false }: ribixTaskTreeProps) => {
 	const handleModifyTask = (taskId: string) => {
 		const task = tasks.find(t => t.id === taskId);
 		if (!task) return;
