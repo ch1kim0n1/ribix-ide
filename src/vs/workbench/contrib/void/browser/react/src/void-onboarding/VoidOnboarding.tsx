@@ -41,12 +41,23 @@ export const VoidOnboarding = () => {
 
 const RibixLogo = () => {
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', userSelect: 'none' }}>
-			<div style={{ fontSize: '80px', fontWeight: '700', color: '#C6AA58', letterSpacing: '-3px', lineHeight: 1 }}>
-				Ribix
-			</div>
-			<div style={{ fontSize: '13px', color: '#8A9E8A', letterSpacing: '6px', textTransform: 'uppercase', fontWeight: 400 }}>
-				IDE
+		<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', userSelect: 'none' }}>
+			{/* Ribix brand mark — primary 512 */}
+			<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 512 512">
+				<circle cx="256" cy="256" r="240" fill="#01311F" stroke="#C6AA58" strokeWidth="12"/>
+				<g transform="translate(256 256) scale(1.15) translate(-256 -256)">
+					<ellipse cx="187.6" cy="213.52" rx="60.96" ry="60.96" fill="#C6AA58"/>
+					<ellipse cx="324.4" cy="213.52" rx="60.96" ry="60.96" fill="#C6AA58"/>
+					<circle cx="187.6" cy="213.52" r="33.12" fill="#01311F"/>
+					<circle cx="324.4" cy="213.52" r="33.12" fill="#01311F"/>
+					<circle cx="198.64" cy="202.48" r="11.04" fill="#F3F2ED"/>
+					<circle cx="335.44" cy="202.48" r="11.04" fill="#F3F2ED"/>
+					<ellipse cx="256" cy="296.56" rx="88.56" ry="66.48" fill="#01311F" stroke="#C6AA58" strokeWidth="6.48"/>
+					<path d="M215.44 315.04 Q256 340.96 296.56 315.04" fill="none" stroke="#C6AA58" strokeWidth="7.128" strokeLinecap="round"/>
+				</g>
+			</svg>
+			<div style={{ fontSize: '36px', fontWeight: '700', color: '#C6AA58', letterSpacing: '-1px', lineHeight: 1 }}>
+				Ribix IDE
 			</div>
 		</div>
 	)
