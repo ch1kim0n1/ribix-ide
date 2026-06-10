@@ -248,13 +248,13 @@ const ReasoningOptionSlider = ({ featureName }: { featureName: FeatureName }) =>
 
 
 const nameOfChatMode = {
-	'normal': 'Chat',
+	'normal': 'Quick Edit',
 	'gather': 'Gather',
 	'agent': 'Agent',
 }
 
 const detailOfChatMode = {
-	'normal': 'Normal chat',
+	'normal': 'Quick edit mode',
 	'gather': 'Reads files, but can\'t edit',
 	'agent': 'Edits files and uses tools',
 }
@@ -3130,6 +3130,9 @@ export const SidebarChat = () => {
 		ref={sidebarRef}
 		className='w-full h-full max-h-full flex flex-col overflow-auto px-4'
 	>
+		<div className='text-void-fg-3 text-xs py-2 px-2 bg-void-bg-1 rounded mb-2'>
+			For full missions, use the Ribix Command Center (left panel)
+		</div>
 		<ErrorBoundary>
 			{landingPageInput}
 		</ErrorBoundary>
@@ -3165,6 +3168,9 @@ export const SidebarChat = () => {
 		ref={sidebarRef}
 		className='w-full h-full flex flex-col overflow-hidden'
 	>
+		<div className='text-void-fg-3 text-xs py-2 px-2 bg-void-bg-1 rounded mb-2'>
+			For full missions, use the Ribix Command Center (left panel)
+		</div>
 
 		<ErrorBoundary>
 			{messagesHTML}

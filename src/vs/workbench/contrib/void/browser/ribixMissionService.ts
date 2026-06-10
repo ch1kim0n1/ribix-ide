@@ -13,6 +13,9 @@ import { MemoryEntry, Mission, MissionState, MissionContext, PlanTask } from './
 import { IVoidSCMService } from './voidSCMTypes.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
+import { IRibixAuthService } from './ribixAuthService.js';
+import { RibixApiClient } from '../common/ribixApiClient.js';
+import { IRibixAgentService } from './ribixAgentService.js';
 
 export interface IRibixMissionService {
 	readonly _serviceBrand: undefined;
@@ -30,6 +33,7 @@ export interface IRibixMissionService {
 	approvePlan(id: string, modifiedTasks?: PlanTask[]): Promise<void>;
 	abortMission(id: string): Promise<void>;
 	completeMission(id: string, result: Mission['result']): Promise<void>;
+	prepareRelease(id: string): Promise<void>;
 
 	// Persistence
 	onDidChangeMissions: Event<void>;
@@ -50,6 +54,8 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 	constructor(
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
 		@IMainProcessService mainProcessService: IMainProcessService,
+		@IRibixAuthService private readonly authService: IRibixAuthService,
+		@IRibixAgentService private readonly agentService: IRibixAgentService,
 	) {
 		super();
 		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));

@@ -369,12 +369,12 @@ export type FeatureName = keyof ModelSelectionOfFeature
 export const displayInfoOfFeatureName = (featureName: FeatureName) => {
 	// editor:
 	if (featureName === 'Autocomplete')
-		return 'Autocomplete'
+		return 'Quick Edit — Inline Completions'
 	else if (featureName === 'Ctrl+K')
 		return 'Quick Edit'
 	// sidebar:
 	else if (featureName === 'Chat')
-		return 'Chat'
+		return 'Quick Edit'
 	else if (featureName === 'Apply')
 		return 'Apply'
 	// source control:
@@ -438,6 +438,16 @@ export const isFeatureNameDisabled = (featureName: FeatureName, settingsState: V
 export type ChatMode = 'agent' | 'gather' | 'normal'
 
 
+export type RibixSettings = {
+	maxConcurrentMissions: number;
+	maxAgentsPerMission: number;
+	defaultPlannerModel: ModelSelection | null;
+	defaultCoderModel: ModelSelection | null;
+	autoOpenCommandCenter: boolean;
+	orgSyncEnabled: boolean;
+	checkpointOnEveryWrite: boolean;
+}
+
 export type GlobalSettings = {
 	autoRefreshModels: boolean;
 	aiInstructions: string;
@@ -452,6 +462,7 @@ export type GlobalSettings = {
 	isOnboardingComplete: boolean;
 	disableSystemMessage: boolean;
 	autoAcceptLLMChanges: boolean;
+	ribix: RibixSettings;
 }
 
 export const defaultGlobalSettings: GlobalSettings = {
@@ -468,6 +479,15 @@ export const defaultGlobalSettings: GlobalSettings = {
 	isOnboardingComplete: false,
 	disableSystemMessage: false,
 	autoAcceptLLMChanges: false,
+	ribix: {
+		maxConcurrentMissions: 3,
+		maxAgentsPerMission: 6,
+		defaultPlannerModel: null,
+		defaultCoderModel: null,
+		autoOpenCommandCenter: true,
+		orgSyncEnabled: true,
+		checkpointOnEveryWrite: true,
+	},
 }
 
 export type GlobalSettingName = keyof GlobalSettings

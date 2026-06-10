@@ -79,4 +79,12 @@ export class VoidSCMService implements IVoidSCMService {
 	gitLog(path: string): Promise<string> {
 		return git('git log --pretty=format:"%h|%s|%ad" --date=short --no-merges -n 5', path)
 	}
+
+	async gitCreateBranch(path: string, branchName: string): Promise<void> {
+		await git(`git checkout -b ${branchName}`, path)
+	}
+
+	async gitCreateTag(path: string, tagName: string, message: string): Promise<void> {
+		await git(`git tag -a ${tagName} -m "${message}"`, path)
+	}
 }

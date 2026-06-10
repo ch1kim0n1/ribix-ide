@@ -31,6 +31,21 @@ export interface IVoidSCMService {
 	 * @param path Path to the git repository
 	 */
 	gitLog(path: string): Promise<string>
+	/**
+	 * Create a new git branch
+	 *
+	 * @param path Path to the git repository
+	 * @param branchName Name of the branch to create
+	 */
+	gitCreateBranch(path: string, branchName: string): Promise<void>
+	/**
+	 * Create a git tag
+	 *
+	 * @param path Path to the git repository
+	 * @param tagName Name of the tag to create
+	 * @param message Tag message
+	 */
+	gitCreateTag(path: string, tagName: string, message: string): Promise<void>
 }
 
 export const IVoidSCMService = createDecorator<IVoidSCMService>('voidSCMService')

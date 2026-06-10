@@ -84,6 +84,9 @@ import './ribixCheckpointService.js'
 // register Ribix planning service
 import './ribixPlanningService.js'
 
+// register Ribix diff annotation widget
+import './ribixDiffAnnotationWidget.js'
+
 // ---------- common (unclear if these actually need to be imported, because they're already imported wherever they're used) ----------
 
 // llmMessage

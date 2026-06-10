@@ -215,3 +215,14 @@
 .void-scrollable-element *::-webkit-scrollbar-corner {
 	background-color: var(--void-bg-3) !important;
 }
+
+/* Ribix Agent-written block decorations */
+.monaco-editor .ribix-agent-written-block {
+	border-left: 3px solid var(--ribix-gold);
+	background-color: rgba(198, 170, 88, 0.05);
+}
+
+.monaco-editor .ribix-agent-block-margin {
+	width: 3px;
+	background-color: var(--ribix-gold);
+}

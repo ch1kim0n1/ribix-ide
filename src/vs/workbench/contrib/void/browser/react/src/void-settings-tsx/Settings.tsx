@@ -31,6 +31,7 @@ type Tab =
 	| 'featureOptions'
 	| 'mcp'
 	| 'general'
+	| 'ribix'
 	| 'all';
 
 
@@ -1042,6 +1043,7 @@ export const Settings = () => {
 		{ tab: 'featureOptions', label: 'Feature Options' },
 		{ tab: 'general', label: 'General' },
 		{ tab: 'mcp', label: 'MCP' },
+		{ tab: 'ribix', label: 'Ribix Command Center' },
 		{ tab: 'all', label: 'All Settings' },
 	];
 	const shouldShowTab = (tab: Tab) => selectedSection === 'all' || selectedSection === tab;
@@ -1548,6 +1550,130 @@ Use Model Context Protocol to provide Agent mode with more tools.
 									</ErrorBoundary>
 								</ErrorBoundary>
 							</div>
+
+								{/* Ribix Command Center section */}
+								<div className={shouldShowTab('ribix') ? `` : 'hidden'}>
+									<ErrorBoundary>
+										<h2 className='text-3xl mb-2'>Ribix Command Center</h2>
+										<h4 className={`text-void-fg-3 mb-4`}>
+											<ChatMarkdownRender inPTag={true} string={`
+	Configure Ribix's multi-agent mission system.
+											`} chatMessageLocation={undefined} />
+										</h4>
+
+										<div className='flex flex-col gap-y-8 my-4'>
+											{/* Mission Configuration */}
+											<div>
+												<h4 className={`text-base`}>Mission Configuration</h4>
+												<div className='text-sm text-void-fg-3 mt-1'>Settings for mission execution and agent management.</div>
+
+												<div className='my-2'>
+													<ErrorBoundary>
+														<div className='flex items-center gap-x-2 my-2'>
+															<span className='text-void-fg-3 text-xs w-48'>Max Concurrent Missions</span>
+															<VoidSimpleInputBox
+																className='w-24'
+																type='number'
+																value={settingsState.globalSettings.ribix.maxConcurrentMissions.toString()}
+																onChange={(newVal) => {
+																	const numVal = parseInt(newVal);
+																	if (!isNaN(numVal) && numVal > 0) {
+																		voidSettingsService.setGlobalSetting('ribix', {
+																			...settingsState.globalSettings.ribix,
+																			maxConcurrentMissions: numVal
+																		});
+																	}
+																}}
+															/>
+														</div>
+													</ErrorBoundary>
+												</div>
+
+												<div className='my-2'>
+													<ErrorBoundary>
+														<div className='flex items-center gap-x-2 my-2'>
+															<span className='text-void-fg-3 text-xs w-48'>Max Agents Per Mission</span>
+															<VoidSimpleInputBox
+																className='w-24'
+																type='number'
+																value={settingsState.globalSettings.ribix.maxAgentsPerMission.toString()}
+																onChange={(newVal) => {
+																	const numVal = parseInt(newVal);
+																	if (!isNaN(numVal) && numVal > 0) {
+																		voidSettingsService.setGlobalSetting('ribix', {
+																			...settingsState.globalSettings.ribix,
+																			maxAgentsPerMission: numVal
+																		});
+																	}
+																}}
+															/>
+														</div>
+													</ErrorBoundary>
+												</div>
+											</div>
+
+											{/* Behavior Settings */}
+											<div>
+												<h4 className={`text-base`}>Behavior</h4>
+												<div className='text-sm text-void-fg-3 mt-1'>Control Ribix Command Center behavior and synchronization.</div>
+
+												<div className='my-2'>
+													<ErrorBoundary>
+														<div className='flex items-center gap-x-2 my-2'>
+															<VoidSwitch
+																size='xs'
+																value={settingsState.globalSettings.ribix.autoOpenCommandCenter}
+																onChange={(newVal) => {
+																	voidSettingsService.setGlobalSetting('ribix', {
+																		...settingsState.globalSettings.ribix,
+																		autoOpenCommandCenter: newVal
+																	});
+																}}
+															/>
+															<span className='text-void-fg-3 text-xs pointer-events-none'>Auto-open Command Center on startup</span>
+														</div>
+													</ErrorBoundary>
+												</div>
+
+												<div className='my-2'>
+													<ErrorBoundary>
+														<div className='flex items-center gap-x-2 my-2'>
+															<VoidSwitch
+																size='xs'
+																value={settingsState.globalSettings.ribix.orgSyncEnabled}
+																onChange={(newVal) => {
+																	voidSettingsService.setGlobalSetting('ribix', {
+																		...settingsState.globalSettings.ribix,
+																		orgSyncEnabled: newVal
+																	});
+																}}
+															/>
+															<span className='text-void-fg-3 text-xs pointer-events-none'>Sync memory to org on mission complete</span>
+														</div>
+													</ErrorBoundary>
+												</div>
+
+												<div className='my-2'>
+													<ErrorBoundary>
+														<div className='flex items-center gap-x-2 my-2'>
+															<VoidSwitch
+																size='xs'
+																value={settingsState.globalSettings.ribix.checkpointOnEveryWrite}
+																onChange={(newVal) => {
+																	voidSettingsService.setGlobalSetting('ribix', {
+																		...settingsState.globalSettings.ribix,
+																		checkpointOnEveryWrite: newVal
+																	});
+																}}
+															/>
+															<span className='text-void-fg-3 text-xs pointer-events-none'>Checkpoint before every agent file write</span>
+														</div>
+													</ErrorBoundary>
+												</div>
+											</div>
+										</div>
+									</ErrorBoundary>
+								</div>
 
 
 

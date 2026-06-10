@@ -132,6 +132,7 @@ import { VoidMainUpdateService } from '../../workbench/contrib/void/electron-mai
 import { LLMMessageChannel } from '../../workbench/contrib/void/electron-main/sendLLMMessageChannel.js';
 import { VoidSCMService } from '../../workbench/contrib/void/electron-main/voidSCMMainService.js';
 import { IVoidSCMService } from '../../workbench/contrib/void/common/voidSCMTypes.js';
+import { RibixAuthChannel } from '../../workbench/contrib/void/electron-main/ribixAuthChannel.js';
 import { MCPChannel } from '../../workbench/contrib/void/electron-main/mcpChannel.js';
 /**
  * The main VS Code application. There will only ever be one instance,
