@@ -88,3 +88,7 @@ import '../common/voidUpdateService.js'
 
 // model service
 import '../common/voidModelService.js'
+
+// Ribix services
+import '../common/ribixTaskQueueService.js'
+import '../common/ribixFileLockService.js'
