@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="160" viewBox="0 0 680 160">
+<rect width="680" height="160" fill="#F3F2ED"/>
+  <circle cx="80" cy="80" r="72" fill="#01311F"/>
+  <!-- eye orbs -->
+  <ellipse cx="59.480000000000004" cy="67.256" rx="18.288" ry="18.288" fill="#C6AA58"/>
+  <ellipse cx="100.52" cy="67.256" rx="18.288" ry="18.288" fill="#C6AA58"/>
+  <!-- pupils -->
+  <circle cx="59.480000000000004" cy="67.256" r="9.936" fill="#01311F"/>
+  <circle cx="100.52" cy="67.256" r="9.936" fill="#01311F"/>
+  <!-- highlights -->
+  <circle cx="62.792" cy="63.944" r="3.312" fill="#F3F2ED"/>
+  <circle cx="103.832" cy="63.944" r="3.312" fill="#F3F2ED"/>
+  <!-- muzzle -->
+  <ellipse cx="80" cy="92.168" rx="26.567999999999998" ry="19.944000000000003" fill="#01311F" stroke="#C6AA58" stroke-width="1.944"/>
+  <!-- smile -->
+  <path d="M67.832 97.712 Q80 105.488 92.168 97.712" fill="none" stroke="#C6AA58" stroke-width="2.1384000000000003" stroke-linecap="round"/>
+<text x="172" y="72" font-family="Georgia, serif" font-size="62" font-weight="700" fill="#01311F" letter-spacing="-1" text-anchor="start">Ribix</text>
+<text x="172" y="102" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#C6AA58" letter-spacing="3" text-anchor="start">BUG INTELLIGENCE</text>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="180" viewBox="0 0 760 180">
+  <rect width="760" height="180" fill="#F3F2ED"/>
+  <circle cx="94" cy="90" r="62" fill="#01311F"/>
+  <ellipse cx="74" cy="76" rx="14" ry="14" fill="#C6AA58"/>
+  <ellipse cx="114" cy="76" rx="14" ry="14" fill="#C6AA58"/>
+  <circle cx="74" cy="76" r="7" fill="#01311F"/>
+  <circle cx="114" cy="76" r="7" fill="#01311F"/>
+  <ellipse cx="94" cy="102" rx="24" ry="17" fill="#01311F" stroke="#C6AA58" stroke-width="4"/>
+  <path d="M84 107 Q94 114 104 107" fill="none" stroke="#C6AA58" stroke-width="4" stroke-linecap="round"/>
+  <text x="182" y="92" font-family="Georgia, serif" font-size="66" font-weight="700" fill="#01311F" text-anchor="start" letter-spacing="-1">Ribix</text>
+  <text x="182" y="120" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#C6AA58" text-anchor="start" letter-spacing="4">BUG INTELLIGENCE</text>
+</svg>
