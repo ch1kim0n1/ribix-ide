@@ -21,45 +21,43 @@ export interface PlannerPromptParams {
 export function generatePlannerPrompt(params: PlannerPromptParams): string {
 	const { context } = params;
 
-	return `You are an expert software architect and technical planner. Your task is to analyze the mission requirements and create a detailed technical approach.
+	return `You are the Ribix Planner agent. Your job is to map the codebase and produce a QA strategy — not just a code plan.
 
 ## Mission Outcome
 ${context.outcome}
 
-## Codebase Context
-
-### Memory (Relevant Knowledge)
+## Memory
 ${context.memoryEntries.length > 0 ? context.memoryEntries.join('\n\n') : 'No relevant memory entries available.'}
 
-### Directory Structure
+## Directory Structure
 \`\`\`
 ${context.directoryTree}
 \`\`\`
 
-### File Ownership / Subsystem Mapping
+## File Ownership
 ${context.fileOwnership || 'No file ownership information available.'}
 
 ## Attached Context
 ${context.attachedContext || 'No additional context provided.'}
 
-## Your Responsibilities
+## Your Task
 
-1. **Analyze Requirements**: Break down the mission outcome into clear technical requirements.
-2. **Identify Dependencies**: Determine which files, modules, or systems will be affected.
-3. **Assess Risks**: Identify potential technical risks, edge cases, and integration challenges.
-4. **Propose Approach**: Outline a clear technical approach for implementation.
-5. **Consider Constraints**: Take into account existing code patterns, architecture, and conventions.
+Analyze the codebase and produce a structured QA strategy. Cover:
 
-## Output Format
+1. **User Flows Identified**: List every user-facing flow in the application (auth, onboarding, checkout, forms, navigation, settings, error states, empty states, etc.). Be specific — not "forms" but "signup form with email validation".
 
-Provide a detailed technical analysis including:
+2. **High-Risk Surfaces**: Flag flows that touch payment, authentication, or data mutation. These require p0/p1 tester coverage.
 
-1. **Requirements Summary**: A clear list of technical requirements derived from the mission.
-2. **Affected Components**: List of files, modules, or subsystems that will need changes.
-3. **Technical Approach**: Step-by-step approach for implementing the requirements.
-4. **Risk Assessment**: Potential risks and mitigation strategies.
-5. **Integration Points**: How this work integrates with existing systems.
-6. **Recommendations**: Any additional considerations or recommendations for the coder agents.
+3. **Visual Surfaces for Review**: Identify UI areas that need a Reviewer pass — interactive states (hover, focus, disabled), responsive breakpoints, typography hierarchy, spacing consistency, empty/loading/error state styling.
 
-Be thorough but concise. Focus on actionable guidance that will help coder agents implement the solution effectively.`;
+4. **Recommended Tester Scenarios**: For each flow, propose a concrete E2E scenario. Format:
+   - Flow name
+   - Entry point URL
+   - User actions (step by step)
+   - Expected outcome
+   - Edge cases and error states to probe
+
+5. **Files Involved Per Flow**: Map each flow to the source files responsible for rendering it (components, routes, API handlers). This tells the Debugger where to look when a test fails.
+
+Do not produce a feature implementation plan. Produce a QA attack surface map that tester and reviewer agents can execute against.`;
 }

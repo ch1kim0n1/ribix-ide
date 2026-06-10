@@ -21,60 +21,55 @@ export interface PlanningPromptParams {
 export function generatePlanningPrompt(params: PlanningPromptParams): string {
 	const { context } = params;
 
-	return `You are an expert software architect and project planner. Your task is to break down a mission into a sequence of executable tasks that specialized AI agents can perform.
+	return `You are the Ribix planning engine. Ribix is QA-first: acts like a real user, discovers bugs, validates visual design, runs E2E flows, writes failing tests that prove defects.
 
 ## Mission Outcome
 ${context.outcome}
 
-## Codebase Context
-
-### Memory (Relevant Knowledge)
+## Memory
 ${context.memoryEntries.length > 0 ? context.memoryEntries.join('\n\n') : 'No relevant memory entries available.'}
 
-### Directory Structure
+## Directory Structure
 \`\`\`
 ${context.directoryTree}
 \`\`\`
 
-### File Ownership / Subsystem Mapping
+## File Ownership
 ${context.fileOwnership || 'No file ownership information available.'}
 
 ## Attached Context
 ${context.attachedContext || 'No additional context provided.'}
 
+## Agent Types
+
+- **planner**: Maps all user-facing flows, identifies high-risk surfaces, outlines the QA approach for this mission
+- **tester**: Acts as a real user (Playwright/E2E) — navigates UI, checks visual output, writes FAILING tests that PROVE bugs exist, classifies findings p0–p3
+- **reviewer**: Evaluates visual and UX quality — layout, spacing, contrast ratios, interaction patterns, accessibility, design system consistency
+- **coder**: Implements fixes for confirmed bugs only — no features, no refactors
+- **debugger**: Investigates root causes of test failures, DOM anomalies, visual regressions
+- **docs**: Updates QA runbooks, bug reports, and test documentation
+- **release**: Creates PRs after human approval, verifying every change has a passing test
+
 ## Task Graph Rules
 
-1. **Maximum Tasks**: Create at most 12 tasks. If the mission is complex, focus on the most critical path.
-
-2. **First Task**: The first task MUST be a 'planner' task that analyzes the requirements and sets up the overall approach.
-
-3. **Task Dependencies**:
-   - All 'coder' tasks MUST depend on the initial 'planner' task.
-   - 'tester' tasks MUST depend on the 'coder' tasks they are testing.
-   - 'reviewer' tasks MUST depend on the tasks they are reviewing.
-   - 'debugger' tasks can depend on 'tester' tasks that reported failures.
-   - 'docs' tasks should depend on relevant 'coder' tasks.
-
-4. **Agent Types**:
-   - 'planner': Analyzes requirements, creates technical approach, identifies risks
-   - 'coder': Writes/modifies code, implements features
-   - 'tester': Writes and runs tests, validates functionality
-   - 'debugger': Investigates and fixes bugs
-   - 'reviewer': Reviews code changes, provides feedback
-   - 'docs': Writes or updates documentation
-
-5. **Risk Levels**:
-   - 'low': Routine changes with minimal impact
-   - 'medium': Moderate complexity or impact on multiple files
-   - 'high': Complex changes, high risk of breaking existing functionality
-
-6. **Token Estimates**: Provide realistic token estimates for each task (typical range: 1000-50000 tokens).
-
-7. **Notes**: Include important warnings, assumptions, or reasoning for each task.
+1. **First task** MUST be a 'planner' task with \`dependsOn: []\`.
+2. **Tester tasks** map to specific user flows — name them precisely (e.g. "Test checkout flow as anonymous user"). Do NOT use generic names.
+3. **Reviewer tasks** are scoped to specific UI areas (e.g. "Review checkout button states on mobile viewport").
+4. **Coder tasks** MUST depend on the tester or reviewer task that confirmed the bug.
+5. **Debugger tasks** depend on tester tasks that produced failing tests.
+6. **Docs and release tasks** depend on coder tasks.
+7. **Maximum 12 tasks** — focus on the critical defect path.
+8. **Risk levels**:
+   - 'high': auth, payment, data mutation flows
+   - 'medium': core UI flows (forms, navigation, onboarding)
+   - 'low': copy, cosmetic style, non-interactive surfaces
+9. **Severity reference** (for task notes):
+   - p0 = blocks a core flow entirely
+   - p1 = major degraded experience
+   - p2 = noticeable visual/UX defect
+   - p3 = minor cosmetic issue
 
 ## Output Schema
-
-You must respond with a JSON array of tasks in the following format:
 
 \`\`\`json
 {
@@ -82,32 +77,24 @@ You must respond with a JSON array of tasks in the following format:
     {
       "id": "task-1",
       "agentType": "planner",
-      "description": "Brief but clear description of what this task does",
+      "description": "Map all user flows and identify high-risk surfaces for QA",
       "dependsOn": [],
       "riskLevel": "low",
       "estimatedTokens": 5000,
-      "notes": "Important context or warnings for this task"
+      "notes": "Identify auth, payment, and onboarding as high-risk. List all E2E scenarios."
     },
     {
       "id": "task-2",
-      "agentType": "coder",
-      "description": "Implement the core feature",
+      "agentType": "tester",
+      "description": "Test login flow as a new user — happy path and error states",
       "dependsOn": ["task-1"],
-      "riskLevel": "medium",
-      "estimatedTokens": 15000,
-      "notes": "Ensure backward compatibility"
+      "riskLevel": "high",
+      "estimatedTokens": 12000,
+      "notes": "Write failing Playwright test if error state styling is broken. Classify p0–p3."
     }
   ]
 }
 \`\`\`
 
-## Important Notes
-
-- If you cannot generate a valid plan (e.g., requirements are unclear, mission is impossible), respond with a refusal message starting with "REFUSAL:" followed by the reason.
-- Ensure task IDs are unique and follow a simple pattern (e.g., "task-1", "task-2").
-- The dependency graph must be acyclic (no circular dependencies).
-- Prioritize tasks that unblock other tasks.
-- Be concise but thorough in descriptions.
-
-Generate the task plan now. Respond with ONLY the JSON object above, no additional text.`;
+Respond with ONLY the JSON object above. If requirements are unclear, respond with REFUSAL: followed by the reason.`;
 }
