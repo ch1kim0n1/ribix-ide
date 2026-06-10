@@ -279,12 +279,15 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 			const modelSelection = this.settingsService.state.modelSelectionOfFeature['Chat'];
 
 			const requestId = this.llmMessageService.sendLLMMessage({
+				messagesType: 'chatMessages',
 				messages: [{ role: 'user', content: prompt }],
+				separateSystemMessage: undefined,
+				chatMode: null,
 				modelSelection,
 				modelSelectionOptions: undefined,
 				overridesOfModel: undefined,
 				logging: { loggingName: 'ribix-agent' },
-				onText: (_params) => { /* streaming text — not used; wait for final */ },
+				onText: (_params) => { /* streaming — not used; wait for onFinalMessage */ },
 				onFinalMessage: (params) => { resolve(params.fullText); },
 				onError: (params) => { reject(new Error(params.message)); },
 				onAbort: () => { reject(new Error('LLM call aborted')); },
@@ -306,11 +309,13 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 		agent: AgentInstance,
 		llmResponse: string,
 		token: CancellationToken,
-		signal: AbortSignal
+		_signal: AbortSignal
 	): Promise<void> {
-		// Parse tool calls embedded in the LLM response. The agent prompt instructs the
-		// model to emit tool calls as JSON blocks: {"tool":"write_file","params":{...}}
-		const toolCallPattern = /```json\s*(\{[^`]*"tool"\s*:[^`]*\})\s*```/gs;
+		// Agent prompts instruct the model to emit tool calls as JSON fenced blocks:
+		// ```json
+		// {"tool": "read_file", "params": {"uri": "/abs/path/to/file"}}
+		// ```
+		const toolCallPattern = /```json\s*(\{[\s\S]*?"tool"\s*:[\s\S]*?\})\s*```/g;
 		const matches = [...llmResponse.matchAll(toolCallPattern)];
 
 		if (matches.length === 0) {
@@ -318,45 +323,65 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 			return;
 		}
 
+		// WRITE_TOOLS: tools that mutate files and require lock + checkpoint before execution.
+		// The API uses 'rewrite_file' (full overwrite) and 'edit_file' (search/replace blocks).
+		const WRITE_TOOLS = new Set(['rewrite_file', 'edit_file', 'create_file_or_folder', 'delete_file_or_folder']);
+
 		for (const match of matches) {
 			if (token.isCancellationRequested) {
 				break;
 			}
 
-			let call: { tool: string; params: Record<string, unknown> };
+			let call: { tool: string; params: Record<string, string | undefined> };
 			try {
 				call = JSON.parse(match[1]);
 			} catch {
-				this.addActivityLog(agent, 'Tool call parse error', match[1], null, null);
+				this.addActivityLog(agent, 'Tool call parse error', match[1].slice(0, 120), null, null);
 				continue;
 			}
 
 			const { tool, params } = call;
-			this.addActivityLog(agent, 'Tool call', `${tool}`, tool, (params?.path as string) ?? null);
 
-			// Checkpoint before every file write so rollback works
-			if ((tool === 'write_file' || tool === 'edit_file') && typeof params?.path === 'string') {
-				const releaseLock = await this.fileLockService.acquire(params.path, agent.id);
+			// Only execute tools that toolsService knows about
+			if (!this.toolsService.validateParams[tool as keyof typeof this.toolsService.validateParams]) {
+				this.addActivityLog(agent, 'Unknown tool', tool, tool, null);
+				continue;
+			}
+
+			// Validate raw string params → typed params (handles URI string → URI object conversion)
+			let validated: any;
+			try {
+				validated = this.toolsService.validateParams[tool as keyof typeof this.toolsService.validateParams](params);
+			} catch (err) {
+				this.addActivityLog(agent, 'Tool param validation failed', `${tool}: ${err}`, tool, null);
+				continue;
+			}
+
+			const filePath: string | null = validated?.uri?.fsPath ?? null;
+			this.addActivityLog(agent, 'Tool call', tool, tool, filePath);
+
+			if (WRITE_TOOLS.has(tool) && filePath) {
+				// Acquire lock, checkpoint current content, then write
+				const releaseLock = await this.fileLockService.acquire(filePath, agent.id);
 				try {
-					await this.checkpointService.checkpoint(agent.missionId, agent.id, params.path);
-					this.addActivityLog(agent, 'Checkpoint created', params.path, null, params.path);
+					await this.checkpointService.checkpoint(agent.missionId, agent.id, filePath);
+					this.addActivityLog(agent, 'Checkpoint created', filePath, null, filePath);
 
-					const result = await (this.toolsService as any)[tool]?.(params);
-					agent.filesWritten.push(params.path);
-					this.addActivityLog(agent, 'File written', params.path, tool, params.path);
-					void result;
+					await this.toolsService.callTool[tool as keyof typeof this.toolsService.callTool](validated as never);
+					agent.filesWritten.push(filePath);
+					this.addActivityLog(agent, 'File written', filePath, tool, filePath);
 				} finally {
 					releaseLock();
 				}
-			} else if (tool === 'read_file' && typeof params?.path === 'string') {
-				const result = await (this.toolsService as any).readFile?.(params);
-				agent.filesRead.push(params.path);
-				this.addActivityLog(agent, 'File read', params.path, tool, params.path);
-				void result;
+			} else if (tool === 'read_file' && filePath) {
+				await this.toolsService.callTool.read_file(validated);
+				if (!agent.filesRead.includes(filePath)) {
+					agent.filesRead.push(filePath);
+				}
+				this.addActivityLog(agent, 'File read', filePath, tool, filePath);
 			} else {
-				// Other tools (run_terminal, search_codebase, etc.) — execute directly
-				const result = await (this.toolsService as any)[tool]?.(params);
-				void result;
+				// All other tools (search, run_command, ls_dir, etc.) — execute directly
+				await this.toolsService.callTool[tool as keyof typeof this.toolsService.callTool](validated as never);
 			}
 		}
 	}
