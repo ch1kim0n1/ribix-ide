@@ -1,6 +1,6 @@
 {
   "name": "ribix-ide",
-  "version": "1.99.3",
+  "version": "1.0.1",
   "description": "Ribix IDE - An agent-first software engineering OS",
   "distro": "21c8d8ea1e46d97c5639a7cabda6c0e063cc8dd5",
   "author": {
