@@ -93,6 +93,9 @@ import './ribixDiffAnnotationWidget.js'
 // register Ribix release actions
 import './ribixReleaseActions.js'
 
+// register Ribix Command Center panel
+import './ribixCommandCenterPane.js'
+
 // ---------- common (unclear if these actually need to be imported, because they're already imported wherever they're used) ----------
 
 // llmMessage
