@@ -66,6 +66,9 @@ import './fileService.js'
 // register source control management
 import './voidSCMService.js'
 
+// register Ribix memory service
+import './ribixMemoryService.js'
+
 // ---------- common (unclear if these actually need to be imported, because they're already imported wherever they're used) ----------
 
 // llmMessage
