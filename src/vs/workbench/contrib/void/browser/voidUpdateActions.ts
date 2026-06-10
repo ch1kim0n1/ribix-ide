@@ -21,7 +21,7 @@ import { IAction } from '../../../../base/common/actions.js';
 
 
 const notifyUpdate = (res: VoidCheckUpdateRespose & { message: string }, notifService: INotificationService, updateService: IUpdateService): INotificationHandle => {
-	const message = res?.message || 'This is a very old version of Ribix IDE, please download the latest version! [Ribix IDE](https://voideditor.com/download-beta)!'
+	const message = res?.message || 'This is a very old version of Ribix IDE, please download the latest version! [Ribix IDE](https://ribix.dev/download)!'
 
 	let actions: INotificationActions | undefined
 
@@ -37,7 +37,7 @@ const notifyUpdate = (res: VoidCheckUpdateRespose & { message: string }, notifSe
 				class: undefined,
 				run: () => {
 					const { window } = dom.getActiveWindow()
-					window.open('https://voideditor.com/download-beta')
+					window.open('https://ribix.dev/download')
 				}
 			})
 		}
@@ -90,7 +90,7 @@ const notifyUpdate = (res: VoidCheckUpdateRespose & { message: string }, notifSe
 			class: undefined,
 			run: () => {
 				const { window } = dom.getActiveWindow()
-				window.open('https://voideditor.com/')
+				window.open('https://ribix.dev/')
 			}
 		})
 
@@ -127,7 +127,7 @@ const notifyUpdate = (res: VoidCheckUpdateRespose & { message: string }, notifSe
 	// })
 }
 const notifyErrChecking = (notifService: INotificationService): INotificationHandle => {
-	const message = `Ribix IDE Error: There was an error checking for updates. If this persists, please get in touch or reinstall Ribix IDE [here](https://voideditor.com/download-beta)!`
+	const message = `Ribix IDE Error: There was an error checking for updates. If this persists, please get in touch or reinstall Ribix IDE [here](https://ribix.dev/download)!`
 	const notifController = notifService.notify({
 		severity: Severity.Info,
 		message: message,

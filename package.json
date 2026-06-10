@@ -9,7 +9,7 @@
   "homepage": "https://ribix.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/microsoft/vscode.git"
+    "url": "https://github.com/ch1kim0n1/ribix-ide.git"
   },
   "bugs": {
     "url": "https://github.com/microsoft/vscode/issues"

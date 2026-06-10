@@ -1,61 +1,74 @@
-## Void is now deprecated.
-Void is deprecated and no longer accepting contributions.
-Thank you to everyone who contributed, both with lines of code and support from the community. Void remains open source and is still one of the best references to use when forking VS Code.
+# Ribix IDE
 
+**The agent-first software engineering operating system.**
 
-## Download
+Ribix IDE is a fork of the Void editor (itself a VS Code fork) rebuilt as an agent-first development environment. Instead of writing code with AI assistance, you describe outcomes and Ribix deploys autonomous agents to plan, code, test, debug, document, and ship the result.
 
-To view a list of newer Void forks, see [Void Forks](http://github.com/voideditor/void-forks/).
+---
 
-To download an old version of Void, see [Releases](https://github.com/voideditor/void/releases).
+## What it does
 
-## Forking VS Code
+- **Mission-driven work** — type an outcome in the Command Center, approve the agent plan, watch agents execute
+- **QA-first agents** — every Tester agent acts as a real user via Playwright, finds bugs through E2E interaction, classifies severity p0–p3
+- **Visual design review** — Reviewer agent checks contrast ratios, spacing, accessibility, responsive behavior
+- **Browser tools** — agents can navigate, click, type, screenshot, and analyze any URL
+- **Persistent memory** — codebase graph, ownership model, and mission history compound across sessions
+- **Multi-agent orchestration** — Planner, Coder, Tester, Debugger, Reviewer, Docs, and Release agents run in parallel with dependency resolution and file locking
 
-If you're forking VS Code, you might still want to reference Void's logic, and see our [Codebase Guide](https://github.com/voideditor/void/blob/main/VOID_CODEBASE_GUIDE.md) and [How to Contribute](https://github.com/voideditor/void/blob/main/HOW_TO_CONTRIBUTE.md).
+---
 
-- We mount React + Tailwind. This is not possible in plain VS Code, and required extending the build pipeline to compile React and [scope](https://github.com/andrewpareles/scope-tailwind) Tailwind ourselves.
+## Quick start
 
-- You can copy our GitHub Actions to package, sign, and auto-update Void. VS Code's build pipeline is private, so this is normally very hard.
+**Prerequisites:** Node.js 20.18.2 (via nvm), macOS/Windows/Linux
 
-- Our AI provider code is built from scratch, allowing us to support autocomplete (FIM) and other custom responses. We expose grammars for common `<thinking>` tags, tool tags, etc. Feel free to reference our architecture for using IPC and satisfying CSP.
+```bash
+# 1. Install dependencies
+nvm use 20.18.2
+npm install
 
-- Use our custom services to edit files. EditCodeService lets you show diffs as code streams in, even token by token. VoidModelService lets you edit files in the background and syncs OS files with your text buffers.
+# 2. Build React components
+npm run buildreact
 
-- Everything we've done is 100% open source. See [repos](https://github.com/orgs/voideditor/repositories) for a complete picture of all the repos that make up Void.
+# 3. Compile TypeScript (takes ~2 min on first run)
+npm run compile
 
+# 4. Download Electron
+node build/lib/preLaunch.js
 
+# 5. Launch
+./scripts/code.sh --user-data-dir ./.tmp/user-data --extensions-dir ./.tmp/extensions
+```
 
-# Welcome to Void.
+On first launch: the Ribix onboarding screen asks for an LLM API key (Anthropic/OpenAI/Gemini). After that, the Command Center panel is your primary workspace.
 
-<div align="center">
-	<img
-		src="./src/vs/workbench/browser/parts/editor/media/slice_of_void.png"
-	 	alt="Void Welcome"
-		width="300"
-	 	height="300"
-	/>
-</div>
+---
 
-Use AI agents on your codebase, checkpoint and visualize changes, and bring any model or host locally. Void sends messages directly to providers without retaining your data.
+## Architecture
 
-This repo contains the full sourcecode for Void's Desktop app. If you're new, welcome!
+- **Command Center** — primary sidebar panel with Missions, Agents, Memory, and Settings tabs
+- **Agent services** — `ribixAgentService`, `ribixOrchestrationService`, `ribixPlanningService`, `ribixMissionService`
+- **Browser tools** — `ribixBrowserChannel.ts` (Electron main) runs Playwright headless Chromium
+- **Memory** — `ribixMemoryService` persists to workspace storage and optionally syncs to the Ribix backend
+- **Auth** — OAuth PKCE flow connects to the Ribix backend for org features (optional for local-only use)
 
-- 🧭 [Website](https://voideditor.com)
+All Ribix-specific code lives in `src/vs/workbench/contrib/void/browser/ribix*` and `src/vs/workbench/contrib/void/common/ribix*`.
 
-- 🚙 [Roadmap](https://github.com/orgs/voideditor/projects/2)
+---
 
-- 🔨 [Contribute](https://github.com/voideditor/void/blob/main/HOW_TO_CONTRIBUTE.md)
+## How it relates to other Ribix surfaces
 
+| Surface | Role |
+|---------|------|
+| **Ribix IDE** | Agent-first development — describe outcomes, run missions |
+| **ribix-vs-extension** | VS Code extension for inline QA findings and PR approval |
+| **ribix-cli** | Terminal interface for CI/CD, scripting, agent runs |
+| **ribix-web** | Dashboard for cross-repo trends, team management, billing |
+| **ribix** | Backend API, enrichment pipeline, GitHub App |
 
+---
 
+## License
 
-## Reference
+MIT — see [LICENSE.txt](LICENSE.txt).
 
-Void is a fork of the [vscode](https://github.com/microsoft/vscode) repository. For a guide to our codebase, see [VOID_CODEBASE_GUIDE](https://github.com/voideditor/void/blob/main/VOID_CODEBASE_GUIDE.md).
-
-For a guide on how to develop your own version of Void, see [HOW_TO_CONTRIBUTE](https://github.com/voideditor/void/blob/main/HOW_TO_CONTRIBUTE.md) and [void-builder](https://github.com/voideditor/void-builder).
-
-
-
-## Support
-You can always reach us in our [Discord server](https://discord.gg/RSNjgaugJs) or contact us via email at hello@voideditor.com.
+For questions: [vkondratyev@md7.com](mailto:vkondratyev@md7.com) | [ribix.dev](https://ribix.dev)

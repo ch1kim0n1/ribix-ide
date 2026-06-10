@@ -317,7 +317,7 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 	private buildRedirectUri(): string {
 		// In a browser environment, this would be the actual callback URL
 		// For now, we'll use a placeholder that the electron-main channel will handle
-		return 'ribix-ide://oauth/callback';
+		return 'ribix-ide://ribix.ribix-ide/oauth/callback';
 	}
 
 	private async buildSessionFromTokens(params: {
