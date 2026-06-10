@@ -13,6 +13,8 @@ Files in this directory define the product vision, reconstruction plan, and QA c
 | `Engineering_Plan.md` | Phase-by-phase implementation plan. Source of truth for all reconstruction work. |
 | `Ribix_IDE_Overview.txt` | Product overview, feature reference, and positioning document. |
 | `E2E_QA_Checklist.md` | End-to-end manual QA checklist for each major phase. |
+| `Build_Guide.md` | Build, packaging, and distribution documentation for alpha release. |
+| `Release_Notes.md` | Alpha release notes with feature summary and known limitations. |
 | `text-files/Ribix_IDE_Overview.txt` | Plain-text copy of the product overview. |
 
 ---
