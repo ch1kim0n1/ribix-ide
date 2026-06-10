@@ -9,13 +9,12 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
-import { MemoryEntry, Mission, MissionState, MissionContext, PlanTask } from './ribixTypes.js';
-import { IVoidSCMService } from './voidSCMTypes.js';
+import { MemoryEntry, Mission, MissionContext, PlanTask } from '../common/ribixTypes.js';
+import { IVoidSCMService } from '../common/voidSCMTypes.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IRibixAuthService } from './ribixAuthService.js';
 import { RibixApiClient } from '../common/ribixApiClient.js';
-import { IRibixAgentService } from './ribixAgentService.js';
 
 export interface IRibixMissionService {
 	readonly _serviceBrand: undefined;
@@ -55,7 +54,6 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
 		@IMainProcessService mainProcessService: IMainProcessService,
 		@IRibixAuthService private readonly authService: IRibixAuthService,
-		@IRibixAgentService private readonly agentService: IRibixAgentService,
 	) {
 		super();
 		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
@@ -150,7 +148,6 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 		}
 
 		// Create git branch
-		const workspaceId = await this.memoryService.getWorkspaceId();
 		const branchName = `ribix/mission-${mission.id.substring(0, 8)}`;
 		mission.branchName = branchName;
 

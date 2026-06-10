@@ -8,10 +8,8 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
 import { IEncryptionService } from '../../../../platform/encryption/common/encryptionService.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
-import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { RibixApiClient } from '../common/ribixApiClient.js';
 import { RibixAuthSession, RibixConfig, RibixAuthSummary, OAuthTokenResponse } from '../common/ribixAuthTypes.js';
 
@@ -19,7 +17,6 @@ const RIBIX_AUTH_SESSION_KEY = 'ribix.auth.session';
 const RIBIX_AUTH_URLS_KEY = 'ribix.auth.urls';
 const OAUTH_CLIENT_ID = 'ribix-ide';
 const OAUTH_SCOPE = 'ide:memory';
-const CALLBACK_PATH = '/oauth/callback';
 
 interface StoredUrls {
 	apiUrl: string;
@@ -74,11 +71,6 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 		super();
 		// Use electron-main channel for PKCE token exchange (needs Node.js crypto)
 		this.authChannel = mainProcessService.getChannel('void-channel-ribixAuth');
-	}
-
-	private async setupUriHandler(): Promise<void> {
-		// In a real implementation, this would set up a URI handler for the OAuth callback
-		// For now, we'll rely on the electron-main channel to handle the callback
 	}
 
 	async getAuthSummary(): Promise<RibixAuthSummary> {
@@ -216,10 +208,10 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 
 		// Use electron-main channel for token refresh (needs Node.js crypto)
 		try {
-			const tokenResponse = await this.authChannel.call<OAuthTokenResponse>('refreshToken', {
+			const tokenResponse = await this.authChannel.call('refreshToken', {
 				refreshToken: session.refreshToken,
 				appUrl: urls.appUrl,
-			});
+			}) as OAuthTokenResponse;
 
 			const newSession: RibixAuthSession = {
 				accessToken: tokenResponse.access_token,
@@ -269,12 +261,12 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 
 		try {
 			// Use electron-main channel for token exchange (needs Node.js crypto)
-			const tokenResponse = await this.authChannel.call<OAuthTokenResponse>('exchangeCode', {
+			const tokenResponse = await this.authChannel.call('exchangeCode', {
 				code,
 				codeVerifier: pending.codeVerifier,
 				redirectUri: this.buildRedirectUri(),
 				appUrl: pending.appUrl,
-			});
+			}) as OAuthTokenResponse;
 
 			const session = await this.buildSessionFromTokens({
 				apiUrl: pending.apiUrl,
@@ -312,7 +304,7 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 		if (!stored) {
 			return { apiUrl: '', appUrl: '' };
 		}
-		return stored as StoredUrls;
+		return JSON.parse(stored) as StoredUrls;
 	}
 
 	private async saveUrls(urls: StoredUrls): Promise<void> {

@@ -7,7 +7,6 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
 import { IDirectoryStrService } from '../common/directoryStrService.js';
@@ -34,10 +33,6 @@ export interface IRibixPlanningService {
 }
 
 export const IRibixPlanningService = createDecorator<IRibixPlanningService>('ribixPlanningService');
-
-interface PlanResponse {
-	tasks: PlanTask[];
-}
 
 class RibixPlanningService extends Disposable implements IRibixPlanningService {
 	readonly _serviceBrand: undefined;

@@ -32,3 +32,8 @@ registerColor('activityBar.activeBackground', configOfColor(ribixGoldDark), 'Act
 registerColor('sideBar.background', configOfColor(ribixBgPrimary), 'Sidebar background color', true);
 registerColor('sideBar.foreground', configOfColor(ribixTextPrimary), 'Sidebar foreground color', true);
 registerColor('sideBar.border', configOfColor(ribixBorder), 'Sidebar border color', true);
+
+// Register status indicator colors
+registerColor('statusBarItem.errorBackground', configOfColor(ribixError), 'Status bar error item background', true);
+registerColor('statusBarItem.warningBackground', configOfColor(ribixWarning), 'Status bar warning item background', true);
+registerColor('terminal.ansiGreen', configOfColor(ribixSuccess), 'Terminal ANSI green color', true);

@@ -8,20 +8,18 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
-import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
-import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IModelDecorationOptions, IModelDeltaDecoration, ITextModel } from '../../../../editor/common/model.js';
 import { IRange, Range } from '../../../../editor/common/core/range.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { CodeLens, CodeLensList, CodeLensProvider } from '../../../../editor/common/languages.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { localize } from '../../../../nls.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IWebviewWorkbenchService } from '../../../contrib/webviewPanel/browser/webviewWorkbenchService.js';
-import { ACTIVE_GROUP_TYPE } from '../../../services/editor/common/editorService.js';
+import { ACTIVE_GROUP } from '../../../services/editor/common/editorService.js';
 import { IRibixAgentService } from './ribixAgentService.js';
-import { IRibixCheckpointService, MissionCheckpoint } from './ribixCheckpointService.js';
-import { AgentInstance, AgentActivityEntry } from '../common/ribixTypes.js';
+import { IRibixCheckpointService } from './ribixCheckpointService.js';
+import { AgentActivityEntry } from '../common/ribixTypes.js';
 
 // Type for tracking agent-written code blocks
 export type AgentWrittenBlock = {
@@ -70,10 +68,8 @@ class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotati
 	private readonly agentBlockDecorationType: IModelDecorationOptions;
 
 	constructor(
-		@ICodeEditorService private readonly codeEditorService: ICodeEditorService,
 		@IModelService private readonly modelService: IModelService,
 		@ILanguageFeaturesService private readonly languageFeaturesService: ILanguageFeaturesService,
-		@ICommandService private readonly commandService: ICommandService,
 		@IWebviewWorkbenchService private readonly webviewWorkbenchService: IWebviewWorkbenchService,
 		@IRibixAgentService private readonly agentService: IRibixAgentService,
 		@IRibixCheckpointService private readonly checkpointService: IRibixCheckpointService,
@@ -102,11 +98,11 @@ class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotati
 		this._register(this.agentService.onDidChangeAgents(() => this.handleAgentChanges()));
 
 		// Register commands
-		this._register(this.commandService.registerCommand(VIEW_REASONING_COMMAND, (block: AgentWrittenBlock) => {
+		this._register(CommandsRegistry.registerCommand(VIEW_REASONING_COMMAND, (_accessor, block: AgentWrittenBlock) => {
 			this.showReasoningPanel(block);
 		}));
 
-		this._register(this.commandService.registerCommand(REJECT_BLOCK_COMMAND, (block: AgentWrittenBlock) => {
+		this._register(CommandsRegistry.registerCommand(REJECT_BLOCK_COMMAND, (_accessor, block: AgentWrittenBlock) => {
 			this.rejectBlock(block);
 		}));
 
@@ -259,26 +255,21 @@ class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotati
 	}
 
 	private showReasoningPanel(block: AgentWrittenBlock): void {
-		// Create a webview panel to show the agent's reasoning
-		const webview = this.webviewWorkbenchService.openWebview(
+		const title = localize('ribix.reasoningTitle', 'Agent Reasoning - {0}', block.agentType);
+		const webviewInput = this.webviewWorkbenchService.openWebview(
 			{
-				title: localize('ribix.reasoningTitle', 'Agent Reasoning - {0}', block.agentType),
-				options: {
-					enableFindWidget: true,
-					retainContextWhenHidden: true,
-				},
-				contentOptions: {
-					allowScripts: true,
-				},
+				title,
+				options: { enableFindWidget: true },
+				contentOptions: { allowScripts: true },
+				extension: undefined,
 			},
 			'ribix.reasoning',
-			localize('ribix.reasoningTitle', 'Agent Reasoning - {0}', block.agentType),
-			{ group: ACTIVE_GROUP_TYPE }
+			title,
+			{ group: ACTIVE_GROUP }
 		);
 
-		// Build HTML content for the reasoning panel
 		const html = this.buildReasoningHtml(block);
-		webview.webview.html = html;
+		webviewInput.webview.setHtml(html);
 	}
 
 	private buildReasoningHtml(block: AgentWrittenBlock): string {

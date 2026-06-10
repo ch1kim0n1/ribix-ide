@@ -4,19 +4,17 @@
  *--------------------------------------------------------------------------------------*/
 
 import { createHash, randomBytes } from 'crypto';
+import { shell } from 'electron';
 import { IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
-import { URI } from '../../../../base/common/uri.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { Event } from '../../../../base/common/event.js';
 import { OAuthTokenResponse } from '../common/ribixAuthTypes.js';
 
 const OAUTH_CLIENT_ID = 'ribix-ide';
 
 export class RibixAuthChannel implements IServerChannel {
-	constructor(
-		@IOpenerService private readonly openerService: IOpenerService,
-	) {}
+	constructor() {}
 
-	listen(_: unknown, event: string): unknown {
+	listen<T>(_: unknown, event: string): Event<T> {
 		throw new Error(`Event not found: ${event}`);
 	}
 
@@ -126,6 +124,6 @@ export class RibixAuthChannel implements IServerChannel {
 	}
 
 	private async openExternal(url: string): Promise<void> {
-		await this.openerService.open(URI.parse(url));
+		await shell.openExternal(url);
 	}
 }

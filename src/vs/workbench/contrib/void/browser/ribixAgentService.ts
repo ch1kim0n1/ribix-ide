@@ -15,13 +15,13 @@ import { IRibixFileLockService } from '../common/ribixFileLockService.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
 import { IRibixCheckpointService } from './ribixCheckpointService.js';
 import { AgentInstance, AgentStatus, AgentType, AgentActivityEntry } from '../common/ribixTypes.js';
-import { generatePlannerPrompt, PlannerPromptParams } from '../common/prompt/ribixPlannerPrompt.js';
-import { generateCoderPrompt, CoderPromptParams } from '../common/prompt/ribixCoderPrompt.js';
-import { generateTesterPrompt, TesterPromptParams } from '../common/prompt/ribixTesterPrompt.js';
-import { generateDebuggerPrompt, DebuggerPromptParams } from '../common/prompt/ribixDebuggerPrompt.js';
-import { generateReviewerPrompt, ReviewerPromptParams } from '../common/prompt/ribixReviewerPrompt.js';
-import { generateDocsPrompt, DocsPromptParams } from '../common/prompt/ribixDocsPrompt.js';
-import { generateReleasePrompt, ReleasePromptParams } from '../common/prompt/ribixReleasePrompt.js';
+import { generatePlannerPrompt } from '../common/prompt/ribixPlannerPrompt.js';
+import { generateCoderPrompt } from '../common/prompt/ribixCoderPrompt.js';
+import { generateTesterPrompt } from '../common/prompt/ribixTesterPrompt.js';
+import { generateDebuggerPrompt } from '../common/prompt/ribixDebuggerPrompt.js';
+import { generateReviewerPrompt } from '../common/prompt/ribixReviewerPrompt.js';
+import { generateDocsPrompt } from '../common/prompt/ribixDocsPrompt.js';
+import { generateReleasePrompt } from '../common/prompt/ribixReleasePrompt.js';
 import { IVoidSettingsService } from '../common/voidSettingsService.js';
 
 export interface IRibixAgentService {

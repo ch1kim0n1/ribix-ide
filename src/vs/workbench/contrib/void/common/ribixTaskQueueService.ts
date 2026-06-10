@@ -82,7 +82,7 @@ class RibixTaskQueueService extends Disposable implements IRibixTaskQueueService
 		this.queue = [];
 
 		// Cancel all running tasks
-		for (const taskId of this.running) {
+		for (const _taskId of this.running) {
 			// Note: Running tasks can't be forcefully cancelled, but we cancel their tokens
 		}
 

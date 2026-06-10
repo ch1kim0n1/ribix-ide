@@ -10,10 +10,6 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { URI } from '../../../../base/common/uri.js';
-import { IVoidSCMService } from '../common/voidSCMTypes.js';
-import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
-import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { MemoryEntry, MemoryEntryType } from '../common/ribixTypes.js';
 import { IRibixAuthService } from './ribixAuthService.js';
 import { RibixApiClient } from '../common/ribixApiClient.js';
@@ -53,16 +49,13 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 
 	private entries: MemoryEntry[] = [];
 	private workspaceId: string | null = null;
-	private voidSCM: IVoidSCMService;
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
-		@IMainProcessService mainProcessService: IMainProcessService,
 		@IRibixAuthService private readonly ribixAuthService: IRibixAuthService,
 	) {
 		super();
-		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
 		this.loadEntries();
 		// Sync from org on workspace open
 		this.syncFromOrg();
@@ -146,21 +139,8 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 			const workspaceFolders = this.workspaceContextService.getWorkspace();
 			if (workspaceFolders.folders.length > 0) {
 				const workspaceUri = workspaceFolders.folders[0].uri;
-				const path = workspaceUri.fsPath;
 
-				// Try to get git remote URL from voidSCM
-				try {
-					const remoteUrl = await this.voidSCM.gitRemoteUrl(path);
-					if (remoteUrl) {
-						// Simple hash of the remote URL (in production, use proper SHA-256)
-						this.workspaceId = this.simpleHash(remoteUrl);
-						return this.workspaceId;
-					}
-				} catch (e) {
-					// Fall through to workspace URI hash
-				}
-
-				// Fallback to workspace URI hash
+				// Use workspace URI as stable workspace identifier
 				this.workspaceId = this.simpleHash(workspaceUri.toString());
 				return this.workspaceId;
 			}

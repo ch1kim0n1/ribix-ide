@@ -46,7 +46,6 @@ import { IWorkspaceContextService } from '../../../../../../../platform/workspac
 import { IVoidCommandBarService } from '../../../voidCommandBarService.js'
 import { INativeHostService } from '../../../../../../../platform/native/common/native.js';
 import { IEditCodeService } from '../../../editCodeServiceInterface.js'
-import { IToolsService } from '../../../toolsService.js'
 import { IConvertToLLMMessageService } from '../../../convertToLLMMessageService.js'
 import { ITerminalService } from '../../../../../terminal/browser/terminal.js'
 import { ISearchService } from '../../../../../../services/search/common/search.js'
@@ -54,10 +53,6 @@ import { IExtensionManagementService } from '../../../../../../../platform/exten
 import { IMCPService } from '../../../../common/mcpService.js';
 import { IStorageService, StorageScope } from '../../../../../../../platform/storage/common/storage.js'
 import { OPT_OUT_KEY } from '../../../../common/storageKeys.js'
-import { IRibixMissionService } from '../../../ribixMissionService.js'
-import { IRibixAgentService } from '../../../ribixAgentService.js'
-import { IRibixMemoryService } from '../../../ribixMemoryService.js'
-import { IRibixAuthService } from '../../../ribixAuthService.js'
 
 
 // normally to do this you'd use a useEffect that calls .onDidChangeState(), but useEffect mounts too late and misses initial state changes
@@ -225,7 +220,6 @@ const getReactAccessor = (accessor: ServicesAccessor) => {
 
 		IVoidCommandBarService: accessor.get(IVoidCommandBarService),
 		INativeHostService: accessor.get(INativeHostService),
-		IToolsService: accessor.get(IToolsService),
 		IConvertToLLMMessageService: accessor.get(IConvertToLLMMessageService),
 		ITerminalService: accessor.get(ITerminalService),
 		IExtensionManagementService: accessor.get(IExtensionManagementService),
@@ -233,11 +227,6 @@ const getReactAccessor = (accessor: ServicesAccessor) => {
 		IMCPService: accessor.get(IMCPService),
 
 		IStorageService: accessor.get(IStorageService),
-
-			IRibixMissionService: accessor.get(IRibixMissionService),
-			IRibixAgentService: accessor.get(IRibixAgentService),
-			IRibixMemoryService: accessor.get(IRibixMemoryService),
-			IRibixAuthService: accessor.get(IRibixAuthService),
 
 	} as const
 	return reactAccessor
