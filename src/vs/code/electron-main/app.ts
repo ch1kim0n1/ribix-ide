@@ -1255,6 +1255,10 @@ export class CodeApplication extends Disposable {
 		const mcpChannel = new MCPChannel();
 		mainProcessElectronServer.registerChannel('void-channel-mcp', mcpChannel);
 
+		// Void added this - Ribix Auth Channel
+		const ribixAuthChannel = new RibixAuthChannel(accessor.get(IOpenerService));
+		mainProcessElectronServer.registerChannel('void-channel-ribixAuth', ribixAuthChannel);
+
 		// Extension Host Debug Broadcasting
 		const electronExtensionHostDebugBroadcastChannel = new ElectronExtensionHostDebugBroadcastChannel(accessor.get(IWindowsMainService));
 		mainProcessElectronServer.registerChannel('extensionhostdebugservice', electronExtensionHostDebugBroadcastChannel);

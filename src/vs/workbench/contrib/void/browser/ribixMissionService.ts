@@ -192,6 +192,13 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 		mission.completedAt = Date.now();
 		mission.result = result;
 		await this.saveMission(mission);
+
+		// Sync memory to org on mission complete
+		try {
+			await this.memoryService.syncToOrg();
+		} catch (e) {
+			console.warn('Failed to sync memory to org after mission completion:', e);
+		}
 	}
 
 	async prepareRelease(id: string): Promise<void> {

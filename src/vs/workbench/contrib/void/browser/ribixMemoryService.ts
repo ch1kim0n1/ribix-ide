@@ -15,6 +15,8 @@ import { IVoidSCMService } from '../common/voidSCMTypes.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { MemoryEntry, MemoryEntryType } from '../common/ribixTypes.js';
+import { IRibixAuthService } from './ribixAuthService.js';
+import { RibixApiClient } from '../common/ribixApiClient.js';
 
 const RIBIX_MEMORY_STORAGE_KEY = 'ribix.memory.entries';
 
@@ -32,6 +34,10 @@ export interface IRibixMemoryService {
 
 	// Workspace scoping
 	getWorkspaceId(): Promise<string>;
+
+	// Memory sync
+	syncFromOrg(): Promise<void>;
+	syncToOrg(): Promise<void>;
 
 	// Events
 	onDidChangeEntries: Event<void>;
@@ -53,10 +59,13 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 		@IStorageService private readonly storageService: IStorageService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IMainProcessService mainProcessService: IMainProcessService,
+		@IRibixAuthService private readonly ribixAuthService: IRibixAuthService,
 	) {
 		super();
 		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
 		this.loadEntries();
+		// Sync from org on workspace open
+		this.syncFromOrg();
 	}
 
 	private async loadEntries(): Promise<void> {
@@ -172,6 +181,85 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 			hash = hash & hash; // Convert to 32bit integer
 		}
 		return Math.abs(hash).toString(16);
+	}
+
+	async syncFromOrg(): Promise<void> {
+		try {
+			const config = await this.ribixAuthService.getRequiredConfig();
+			const workspaceId = await this.getWorkspaceId();
+
+			const apiClient = new RibixApiClient();
+			const response = await apiClient.getOrgMemory(config, { workspaceId });
+
+			// Merge server entries with local entries
+			const mergedEntries = this.mergeMemoryEntries(this.entries, response.entries);
+
+			this.entries = mergedEntries;
+			this.saveEntries();
+		} catch (e) {
+			// If not signed in or API error, just log and continue
+			console.warn('Failed to sync memory from org:', e);
+		}
+	}
+
+	async syncToOrg(): Promise<void> {
+		try {
+			const config = await this.ribixAuthService.getRequiredConfig();
+			const workspaceId = await this.getWorkspaceId();
+
+			// Get only entries that haven't been synced (or all entries)
+			const entriesToSync = this.entries.filter(entry => entry.workspaceId === workspaceId);
+
+			const apiClient = new RibixApiClient();
+			await apiClient.syncMemory(config, {
+				workspaceId,
+				entries: entriesToSync,
+			});
+		} catch (e) {
+			// If not signed in or API error, just log and continue
+			console.warn('Failed to sync memory to org:', e);
+		}
+	}
+
+	private mergeMemoryEntries(localEntries: MemoryEntry[], serverEntries: MemoryEntry[]): MemoryEntry[] {
+		const entryMap = new Map<string, MemoryEntry>();
+
+		// Add local entries first
+		for (const entry of localEntries) {
+			entryMap.set(entry.id, entry);
+		}
+
+		// Merge server entries with conflict resolution
+		for (const serverEntry of serverEntries) {
+			const localEntry = entryMap.get(serverEntry.id);
+
+			if (!localEntry) {
+				// New entry from server
+				entryMap.set(serverEntry.id, serverEntry);
+			} else {
+				// Conflict resolution
+				const mergedEntry = this.resolveConflict(localEntry, serverEntry);
+				entryMap.set(mergedEntry.id, mergedEntry);
+			}
+		}
+
+		return Array.from(entryMap.values());
+	}
+
+	private resolveConflict(localEntry: MemoryEntry, serverEntry: MemoryEntry): MemoryEntry {
+		// Engineer entries always win
+		if (localEntry.source === 'engineer') {
+			return localEntry;
+		}
+		if (serverEntry.source === 'engineer') {
+			return serverEntry;
+		}
+
+		// Both are agent entries - newer wins
+		if (localEntry.updatedAt > serverEntry.updatedAt) {
+			return localEntry;
+		}
+		return serverEntry;
 	}
 }
 
