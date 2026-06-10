@@ -11,6 +11,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
 import { IDirectoryStrService } from '../common/directoryStrService.js';
+import { IVoidSettingsService } from '../common/voidSettingsService.js';
 import { PlanTask, MissionContext } from '../common/ribixTypes.js';
 import { generatePlanningPrompt, PlanningPromptContext } from '../common/prompt/ribixPlanningPrompt.js';
 
@@ -48,6 +49,7 @@ class RibixPlanningService extends Disposable implements IRibixPlanningService {
 		@ILLMMessageService private readonly llmMessageService: ILLMMessageService,
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
 		@IDirectoryStrService private readonly directoryStrService: IDirectoryStrService,
+		@IVoidSettingsService private readonly settingsService: IVoidSettingsService,
 	) {
 		super();
 	}
@@ -168,18 +170,21 @@ class RibixPlanningService extends Disposable implements IRibixPlanningService {
 
 	private async sendLLMRequest(prompt: string): Promise<PlanTask[]> {
 		return new Promise((resolve, reject) => {
+			const modelSelection = this.settingsService.state.modelSelectionOfFeature['Chat'];
+
 			const requestId = this.llmMessageService.sendLLMMessage({
 				messagesType: 'chatMessages',
-				messages: [
-					{ role: 'user', content: prompt }
-				],
-				modelSelection: this.llmMessageService['voidSettingsService']?.state?.modelSelection || null,
-				onText: (params) => {
-					// Stream handling if needed in the future
-				},
+				messages: [{ role: 'user', content: prompt }],
+				separateSystemMessage: undefined,
+				chatMode: null,
+				modelSelection,
+				modelSelectionOptions: undefined,
+				overridesOfModel: undefined,
+				logging: { loggingName: 'ribix-planner' },
+				onText: (_params) => { /* streaming — not used; wait for onFinalMessage */ },
 				onFinalMessage: (params) => {
 					try {
-						const tasks = this.parseAndValidateResponse(params.message);
+						const tasks = this.parseAndValidateResponse(params.fullText);
 						resolve(tasks);
 					} catch (error) {
 						console.error('Error parsing LLM response:', error);
@@ -187,11 +192,11 @@ class RibixPlanningService extends Disposable implements IRibixPlanningService {
 					}
 				},
 				onError: (params) => {
-					console.error('LLM error:', params);
+					console.error('LLM planning error:', params.message);
 					resolve(this.getMinimalSafePlan());
 				},
 				onAbort: () => {
-					console.warn('LLM request aborted');
+					console.warn('LLM planning request aborted');
 					resolve(this.getMinimalSafePlan());
 				},
 			});
