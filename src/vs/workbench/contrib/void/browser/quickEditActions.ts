@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------------------
- *  Copyright 2025 Glass Devtools, Inc. All rights reserved.
+ *  Copyright 2025 Ribix Inc. All rights reserved.
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
@@ -38,7 +38,7 @@ registerAction2(class extends Action2 {
 		super({
 			id: VOID_CTRL_K_ACTION_ID,
 			f1: true,
-			title: localize2('voidQuickEditAction', 'Void: Quick Edit'),
+			title: localize2('voidQuickEditAction', 'Ribix IDE: Quick Edit'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyCode.KeyK,
 				weight: KeybindingWeight.VoidExtension,

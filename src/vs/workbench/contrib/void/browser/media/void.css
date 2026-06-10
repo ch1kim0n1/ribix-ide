@@ -1,7 +1,20 @@
 /*--------------------------------------------------------------------------------------
- *  Copyright 2025 Glass Devtools, Inc. All rights reserved.
+ *  Copyright 2025 Ribix Inc. All rights reserved.
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
+
+/* Ribix Design Tokens */
+:root {
+	--ribix-bg-primary: #01311F;
+	--ribix-gold: #C6AA58;
+	--ribix-gold-dark: #A8893A;
+	--ribix-text-primary: #F5F0E8;
+	--ribix-text-secondary: #8A9E8A;
+	--ribix-success: #2D7A4F;
+	--ribix-warning: #D4820A;
+	--ribix-error: #C23B22;
+	--ribix-border: #1E4A32;
+}
 
 .monaco-editor .void-sweepIdxBG {
 	background-color: var(--vscode-void-sweepIdxBG);

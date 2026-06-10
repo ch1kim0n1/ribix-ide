@@ -1,9 +1,18 @@
 {
-  "name": "code-oss-dev",
+  "name": "ribix-ide",
   "version": "1.99.3",
+  "description": "Ribix IDE - An agent-first software engineering OS",
   "distro": "21c8d8ea1e46d97c5639a7cabda6c0e063cc8dd5",
   "author": {
-    "name": "Microsoft Corporation"
+    "name": "Ribix Inc."
+  },
+  "homepage": "https://ribix.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ribix/ribix-ide.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ribix/ribix-ide/issues"
   },
   "license": "MIT",
   "main": "./out/main.js",

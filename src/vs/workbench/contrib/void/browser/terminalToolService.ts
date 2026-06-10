@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------------------
- *  Copyright 2025 Glass Devtools, Inc. All rights reserved.
+ *  Copyright 2025 Ribix Inc. All rights reserved.
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
@@ -53,13 +53,13 @@ export const ITerminalToolService = createDecorator<ITerminalToolService>('Termi
 
 
 export const persistentTerminalNameOfId = (id: string) => {
-	if (id === '1') return 'Void Agent'
-	return `Void Agent (${id})`
+	if (id === '1') return 'Ribix IDE Agent'
+	return `Ribix IDE Agent (${id})`
 }
 export const idOfPersistentTerminalName = (name: string) => {
-	if (name === 'Void Agent') return '1'
+	if (name === 'Ribix IDE Agent') return '1'
 
-	const match = name.match(/Void Agent \((\d+)\)/)
+	const match = name.match(/Ribix IDE Agent \((\d+)\)/)
 	if (!match) return null
 	if (Number.isInteger(match[1]) && Number(match[1]) >= 1) return match[1]
 	return null

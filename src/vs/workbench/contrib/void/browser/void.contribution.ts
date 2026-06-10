@@ -1,8 +1,10 @@
 /*--------------------------------------------------------------------------------------
- *  Copyright 2025 Glass Devtools, Inc. All rights reserved.
+ *  Copyright 2025 Ribix Inc. All rights reserved.
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
+// register Ribix theme colors
+import '../common/helpers/ribixTheme.js'
 
 // register inline diffs
 import './editCodeService.js'

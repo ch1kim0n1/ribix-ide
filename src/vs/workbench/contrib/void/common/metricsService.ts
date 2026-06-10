@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------------------
- *  Copyright 2025 Glass Devtools, Inc. All rights reserved.
+ *  Copyright 2025 Ribix Inc. All rights reserved.
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
@@ -59,7 +59,7 @@ registerAction2(class extends Action2 {
 		super({
 			id: 'voidDebugInfo',
 			f1: true,
-			title: localize2('voidMetricsDebug', 'Void: Log Debug Info'),
+			title: localize2('voidMetricsDebug', 'Ribix IDE: Log Debug Info'),
 		});
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
@@ -68,6 +68,6 @@ registerAction2(class extends Action2 {
 
 		const debugProperties = await metricsService.getDebuggingProperties()
 		console.log('Metrics:', debugProperties)
-		notifService.info(`Void Debug info:\n${JSON.stringify(debugProperties, null, 2)}`)
+		notifService.info(`Ribix IDE Debug info:\n${JSON.stringify(debugProperties, null, 2)}`)
 	}
 })
