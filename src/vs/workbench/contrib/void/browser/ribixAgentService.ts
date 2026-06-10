@@ -13,6 +13,7 @@ import { IToolsService } from './toolsService.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { IRibixFileLockService } from '../common/ribixFileLockService.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
+import { IRibixCheckpointService } from './ribixCheckpointService.js';
 import { AgentInstance, AgentStatus, AgentType, AgentActivityEntry } from '../common/ribixTypes.js';
 import { generatePlannerPrompt, PlannerPromptParams } from '../common/prompt/ribixPlannerPrompt.js';
 import { generateCoderPrompt, CoderPromptParams } from '../common/prompt/ribixCoderPrompt.js';
@@ -21,16 +22,7 @@ import { generateDebuggerPrompt, DebuggerPromptParams } from '../common/prompt/r
 import { generateReviewerPrompt, ReviewerPromptParams } from '../common/prompt/ribixReviewerPrompt.js';
 import { generateDocsPrompt, DocsPromptParams } from '../common/prompt/ribixDocsPrompt.js';
 import { generateReleasePrompt, ReleasePromptParams } from '../common/prompt/ribixReleasePrompt.js';
-import { ServiceSendLLMMessageParams } from '../common/sendLLMMessageTypes.js';
-
-// Placeholder for checkpoint service (will be implemented in Phase 7)
-export interface IRibixCheckpointService {
-	readonly _serviceBrand: undefined;
-	createCheckpoint(agentId: string, taskId: string): Promise<void>;
-	restoreCheckpoint(agentId: string, taskId: string): Promise<void>;
-}
-
-export const IRibixCheckpointService = createDecorator<IRibixCheckpointService>('ribixCheckpointService');
+import { IVoidSettingsService } from '../common/voidSettingsService.js';
 
 export interface IRibixAgentService {
 	readonly _serviceBrand: undefined;
@@ -68,6 +60,8 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 		@ILLMMessageService private readonly llmMessageService: ILLMMessageService,
 		@IRibixFileLockService private readonly fileLockService: IRibixFileLockService,
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
+		@IRibixCheckpointService private readonly checkpointService: IRibixCheckpointService,
+		@IVoidSettingsService private readonly settingsService: IVoidSettingsService,
 	) {
 		super();
 	}
@@ -159,12 +153,7 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 			const memoryEntries = await this.memoryService.getEntries('codebase_file' as any, workspaceId);
 			this.addActivityLog(agent, 'Read memory', `Loaded ${memoryEntries.length} memory entries`, null, null);
 
-			// Step 3: Acquire file locks (placeholder - in real implementation, determine which files to lock)
-			this.updateAgentStatus(agent, 'executing', 'Acquiring file locks');
-			const locks: (() => void)[] = [];
-			// Note: In a real implementation, we'd determine which files need to be locked based on the task
-			// For now, this is a placeholder
-
+			// File locks are acquired per-write inside processToolCalls via fileLockService.
 			try {
 				// Step 4: Execute LLM
 				this.updateAgentStatus(agent, 'executing', 'Executing LLM');
@@ -183,21 +172,12 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 				await this.writeMemory(agent, taskDescription, llmResponse);
 				this.addActivityLog(agent, 'Write memory', 'Saved execution results to memory', null, null);
 
-				// Step 8: Release locks
-				this.updateAgentStatus(agent, 'executing', 'Releasing file locks');
-				for (const releaseLock of locks) {
-					releaseLock();
-				}
-
-				// Step 9: Report completion
+				// Step 8: Report completion
 				this.updateAgentStatus(agent, 'complete', 'Task completed');
 				this.addActivityLog(agent, 'Completion', 'Agent completed successfully', null, null);
 				agent.completedAt = Date.now();
 			} finally {
-				// Ensure locks are released even if an error occurs
-				for (const releaseLock of locks) {
-					releaseLock();
-				}
+				// per-write locks are released inside processToolCalls
 			}
 		} catch (error) {
 			if (!tokenSource.token.isCancellationRequested) {
@@ -296,14 +276,18 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 				return;
 			}
 
+			const modelSelection = this.settingsService.state.modelSelectionOfFeature['Chat'];
+
 			const requestId = this.llmMessageService.sendLLMMessage({
-				messages: [
-					{ role: 'user', content: prompt },
-				],
-				model: 'default', // This should come from settings
-				temperature: 0.7,
-				maxTokens: 4000,
-				stream: false,
+				messages: [{ role: 'user', content: prompt }],
+				modelSelection,
+				modelSelectionOptions: undefined,
+				overridesOfModel: undefined,
+				logging: { loggingName: 'ribix-agent' },
+				onText: (_params) => { /* streaming text — not used; wait for final */ },
+				onFinalMessage: (params) => { resolve(params.fullText); },
+				onError: (params) => { reject(new Error(params.message)); },
+				onAbort: () => { reject(new Error('LLM call aborted')); },
 			});
 
 			if (!requestId) {
@@ -311,15 +295,10 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 				return;
 			}
 
-			// Set up event handlers (simplified - in real implementation, need to properly handle the events)
-			// For now, this is a placeholder that would need to be integrated with the actual LLM service
-			// The actual implementation would use the event hooks from ILLMMessageService
-
-			// Temporary placeholder - in real implementation, this would wait for the response
-			// For now, we'll resolve with a mock response
-			setTimeout(() => {
-				resolve('LLM response placeholder - to be integrated with actual LLM service');
-			}, 100);
+			// Cancel the in-flight request if the cancellation token fires
+			token.onCancellationRequested(() => {
+				this.llmMessageService.abort(requestId);
+			});
 		});
 	}
 
@@ -329,20 +308,57 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 		token: CancellationToken,
 		signal: AbortSignal
 	): Promise<void> {
-		// Parse tool calls from LLM response
-		// This is a placeholder - in real implementation, we'd parse the LLM response for tool calls
-		// and execute them using the toolsService
+		// Parse tool calls embedded in the LLM response. The agent prompt instructs the
+		// model to emit tool calls as JSON blocks: {"tool":"write_file","params":{...}}
+		const toolCallPattern = /```json\s*(\{[^`]*"tool"\s*:[^`]*\})\s*```/gs;
+		const matches = [...llmResponse.matchAll(toolCallPattern)];
 
-		// For now, this is a placeholder
-		this.addActivityLog(agent, 'Tool calls', 'Processing tool calls (placeholder)', null, null);
+		if (matches.length === 0) {
+			this.addActivityLog(agent, 'Tool calls', 'No tool calls in response', null, null);
+			return;
+		}
 
-		// Example of how tool execution would work:
-		// const toolCalls = this.parseToolCalls(llmResponse);
-		// for (const toolCall of toolCalls) {
-		//   if (token.isCancellationRequested) break;
-		//   const result = await this.toolsService.callTool[toolCall.name](toolCall.params);
-		//   this.addActivityLog(agent, 'Tool execution', `Executed ${toolCall.name}`, toolCall.name, null);
-		// }
+		for (const match of matches) {
+			if (token.isCancellationRequested) {
+				break;
+			}
+
+			let call: { tool: string; params: Record<string, unknown> };
+			try {
+				call = JSON.parse(match[1]);
+			} catch {
+				this.addActivityLog(agent, 'Tool call parse error', match[1], null, null);
+				continue;
+			}
+
+			const { tool, params } = call;
+			this.addActivityLog(agent, 'Tool call', `${tool}`, tool, (params?.path as string) ?? null);
+
+			// Checkpoint before every file write so rollback works
+			if ((tool === 'write_file' || tool === 'edit_file') && typeof params?.path === 'string') {
+				const releaseLock = await this.fileLockService.acquire(params.path, agent.id);
+				try {
+					await this.checkpointService.checkpoint(agent.missionId, agent.id, params.path);
+					this.addActivityLog(agent, 'Checkpoint created', params.path, null, params.path);
+
+					const result = await (this.toolsService as any)[tool]?.(params);
+					agent.filesWritten.push(params.path);
+					this.addActivityLog(agent, 'File written', params.path, tool, params.path);
+					void result;
+				} finally {
+					releaseLock();
+				}
+			} else if (tool === 'read_file' && typeof params?.path === 'string') {
+				const result = await (this.toolsService as any).readFile?.(params);
+				agent.filesRead.push(params.path);
+				this.addActivityLog(agent, 'File read', params.path, tool, params.path);
+				void result;
+			} else {
+				// Other tools (run_terminal, search_codebase, etc.) — execute directly
+				const result = await (this.toolsService as any)[tool]?.(params);
+				void result;
+			}
+		}
 	}
 
 	private async writeMemory(agent: AgentInstance, taskDescription: string, llmResponse: string): Promise<void> {
