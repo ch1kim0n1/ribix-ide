@@ -26,7 +26,7 @@ export const VoidOnboarding = () => {
 		<div className={`@@void-scope ${isDark ? 'dark' : ''}`}>
 			<div
 				className={`
-					bg-void-bg-3 fixed top-0 right-0 bottom-0 left-0 width-full z-[99999]
+					bg-[#01311F] fixed top-0 right-0 bottom-0 left-0 width-full z-[99999]
 					transition-all duration-1000 ${isOnboardingComplete ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}
 				`}
 				style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -39,29 +39,17 @@ export const VoidOnboarding = () => {
 	)
 }
 
-const VoidIcon = () => {
-	const accessor = useAccessor()
-	const themeService = accessor.get('IThemeService')
-
-	const divRef = useRef<HTMLDivElement | null>(null)
-
-	useEffect(() => {
-		// void icon style
-		const updateTheme = () => {
-			const theme = themeService.getColorTheme().type
-			const isDark = theme === ColorScheme.DARK || theme === ColorScheme.HIGH_CONTRAST_DARK
-			if (divRef.current) {
-				divRef.current.style.maxWidth = '220px'
-				divRef.current.style.opacity = '50%'
-				divRef.current.style.filter = isDark ? '' : 'invert(1)' //brightness(.5)
-			}
-		}
-		updateTheme()
-		const d = themeService.onDidColorThemeChange(updateTheme)
-		return () => d.dispose()
-	}, [])
-
-	return <div ref={divRef} className='@@void-void-icon' />
+const RibixLogo = () => {
+	return (
+		<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', userSelect: 'none' }}>
+			<div style={{ fontSize: '80px', fontWeight: '700', color: '#C6AA58', letterSpacing: '-3px', lineHeight: 1 }}>
+				Ribix
+			</div>
+			<div style={{ fontSize: '13px', color: '#8A9E8A', letterSpacing: '6px', textTransform: 'uppercase', fontWeight: 400 }}>
+				IDE
+			</div>
+		</div>
+	)
 }
 
 const FADE_DURATION_MS = 2000
@@ -158,8 +146,8 @@ const AddProvidersPage = ({ pageIndex, setPageIndex }: { pageIndex: number, setP
 					<button
 						key={tab}
 						className={`py-2 px-4 rounded-md text-left ${currentTab === tab
-							? 'bg-[#0e70c0]/80 text-white font-medium shadow-sm'
-							: 'bg-void-bg-2 hover:bg-void-bg-2/80 text-void-fg-1'
+							? 'bg-[#C6AA58]/90 text-[#01311F] font-semibold shadow-sm'
+							: 'bg-white/10 hover:bg-white/15 text-[#8A9E8A]'
 							} transition-all duration-200`}
 						onClick={() => {
 							setCurrentTab(tab as TabName);
@@ -322,10 +310,10 @@ const NextButton = ({ onClick, ...props }: { onClick: () => void } & React.Butto
 		<button
 			onClick={disabled ? undefined : onClick}
 			onDoubleClick={onClick}
-			className={`px-6 py-2 bg-zinc-100 ${disabled
-				? 'bg-zinc-100/40 cursor-not-allowed'
-				: 'hover:bg-zinc-100'
-				} rounded text-black duration-600 transition-all
+			className={`px-6 py-2 ${disabled
+				? 'bg-white/10 text-white/30 cursor-not-allowed'
+				: 'bg-[#C6AA58]/20 hover:bg-[#C6AA58]/30 text-[#C6AA58]'
+				} rounded duration-600 transition-all
 			`}
 			{...disabled && {
 				'data-tooltip-id': 'void-tooltip',
@@ -429,8 +417,8 @@ const PrimaryActionButton = ({ children, className, ringSize, ...props }: { chil
 			className={`
 				flex items-center justify-center
 
-				text-white dark:text-black
-				bg-black/90 dark:bg-white/90
+				text-[#01311F]
+				bg-[#C6AA58] hover:bg-[#D4BA68]
 
 				${ringSize === 'xl' ? `
 					gap-2 px-16 py-8
@@ -563,7 +551,7 @@ const VoidOnboardingContent = () => {
 	// can be md
 	const detailedDescOfWantToUseOption: { [wantToUseOption in WantToUseOption]: string } = {
 		smart: "Most intelligent and best for agent mode.",
-		private: "Private-hosted so your data never leaves your computer or network. [Email us](mailto:founders@voideditor.com) for help setting up at your company.",
+		private: "Private-hosted so your data never leaves your computer or network. [Email us](mailto:vkondratyev@md7.com) for help setting up at your company.",
 		cheap: "Use great deals like Gemini 2.5 Pro, or self-host a model with Ollama or vLLM for free.",
 		all: "",
 	}
@@ -600,7 +588,7 @@ const VoidOnboardingContent = () => {
 
 					{/* Slice of Ribix IDE image */}
 					<div className='max-w-md w-full h-[30vh] mx-auto flex items-center justify-center'>
-						{!isLinux && <VoidIcon />}
+						<RibixLogo />
 					</div>
 
 
