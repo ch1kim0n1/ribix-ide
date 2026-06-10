@@ -40,6 +40,6 @@
 		"https://github.com/ribix/ribix-ide",
 		"https://ollama.com"
 	],
-	"ribixVersion": "1.4.9",
-	"ribixRelease": "0044"
+	"ribixVersion": "1.0.0",
+	"ribixRelease": "0001"
 }
