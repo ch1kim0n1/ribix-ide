@@ -10,14 +10,21 @@ import { RibixMissionsPanel } from './ribixMissionsPanel.js';
 import { RibixAgentsPanel } from './ribixAgentsPanel.js';
 import { RibixMemoryPanel } from './ribixMemoryPanel.js';
 import ErrorBoundary from '../sidebar-tsx/ErrorBoundary.js';
-import { RIBIX_SIGN_IN_ACTION_ID } from '../../../ribixAuthActions.js';
+import { IRibixAuthService } from '../../../ribixAuthService.js';
 
 type TabType = 'missions' | 'agents' | 'memory' | 'settings';
+
+const DEFAULT_APP_URL = 'https://app.ribix.dev';
+const DEFAULT_API_URL = 'https://api.ribix.dev';
 
 export const RibixCommandCenter = ({ className }: { className: string }) => {
 	const isDark = useIsDark();
 	const accessor = useAccessor();
 	const [activeTab, setActiveTab] = useState<TabType>('missions');
+	const [appUrl, setAppUrl] = useState(DEFAULT_APP_URL);
+	const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
+	const [signingIn, setSigningIn] = useState(false);
+	const [signInError, setSignInError] = useState<string | null>(null);
 
 	return (
 		<div
@@ -97,19 +104,66 @@ export const RibixCommandCenter = ({ className }: { className: string }) => {
 								</div>
 								<div>
 									<h3 className="text-sm font-semibold text-[var(--ribix-gold, #C6AA58)] mb-2">Account</h3>
+									<div className="flex flex-col gap-2 mb-3">
+										<label className="text-xs text-[var(--ribix-text-secondary, #8A9E8A)]">
+											App URL
+											<input
+												type="text"
+												value={appUrl}
+												onChange={e => setAppUrl(e.target.value)}
+												placeholder="https://app.ribix.dev"
+												className="mt-1 block w-full px-3 py-1.5 rounded text-sm"
+												style={{
+													backgroundColor: 'rgba(255,255,255,0.08)',
+													border: '1px solid var(--ribix-border, #1E4A32)',
+													color: 'var(--ribix-text-primary, #F5F0E8)',
+												}}
+											/>
+										</label>
+										<label className="text-xs text-[var(--ribix-text-secondary, #8A9E8A)]">
+											API URL
+											<input
+												type="text"
+												value={apiUrl}
+												onChange={e => setApiUrl(e.target.value)}
+												placeholder="https://api.ribix.dev"
+												className="mt-1 block w-full px-3 py-1.5 rounded text-sm"
+												style={{
+													backgroundColor: 'rgba(255,255,255,0.08)',
+													border: '1px solid var(--ribix-border, #1E4A32)',
+													color: 'var(--ribix-text-primary, #F5F0E8)',
+												}}
+											/>
+										</label>
+									</div>
+									{signInError && (
+										<p className="text-xs text-red-400 mb-2">{signInError}</p>
+									)}
 									<button
-										onClick={() => {
-											const commandService = accessor.get('ICommandService');
-											commandService.executeCommand(RIBIX_SIGN_IN_ACTION_ID);
+										disabled={signingIn}
+										onClick={async () => {
+											setSigningIn(true);
+											setSignInError(null);
+											try {
+												const authService = accessor.get(IRibixAuthService);
+												await authService.signIn({ apiUrl: apiUrl.trim(), appUrl: appUrl.trim() });
+											} catch (e: any) {
+												setSignInError(e?.message ?? 'Sign-in failed');
+											} finally {
+												setSigningIn(false);
+											}
 										}}
-										className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+										className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
 										style={{
 											backgroundColor: 'var(--ribix-gold, #C6AA58)',
 											color: 'var(--ribix-bg-primary, #01311F)',
 										}}
 									>
-										Sign In
+										{signingIn ? 'Opening browser…' : 'Sign In'}
 									</button>
+									<p className="text-xs text-[var(--ribix-text-secondary, #8A9E8A)] mt-2">
+										Sign in to enable org memory sync and PR creation. Leave URLs as default for ribix.dev.
+									</p>
 								</div>
 							</div>
 						)}

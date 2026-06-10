@@ -21,7 +21,16 @@ Ribix IDE is a fork of the Void editor (itself a VS Code fork) rebuilt as an age
 
 **Prerequisites:** Node.js 20.18.2 (via nvm), macOS/Windows/Linux
 
+**Linux users** — install build dependencies first:
 ```bash
+sudo apt-get install -y build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3
+```
+
+```bash
+# 0. Clone the repository
+git clone https://github.com/ch1kim0n1/ribix-ide.git
+cd ribix-ide
+
 # 1. Install dependencies
 nvm use 20.18.2
 npm install
@@ -29,7 +38,7 @@ npm install
 # 2. Build React components
 npm run buildreact
 
-# 3. Compile TypeScript (takes ~2 min on first run)
+# 3. Compile TypeScript (takes ~8–10 min on first run; requires build tools)
 npm run compile
 
 # 4. Download Electron
@@ -38,6 +47,8 @@ node build/lib/preLaunch.js
 # 5. Launch
 ./scripts/code.sh --user-data-dir ./.tmp/user-data --extensions-dir ./.tmp/extensions
 ```
+
+**Windows:** use `scripts/code.bat` instead of `scripts/code.sh`
 
 On first launch: the Ribix onboarding screen asks for an LLM API key (Anthropic/OpenAI/Gemini). After that, the Command Center panel is your primary workspace.
 

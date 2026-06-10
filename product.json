@@ -1,8 +1,6 @@
 {
 	"nameShort": "Ribix IDE",
 	"nameLong": "Ribix IDE",
-	"voidVersion": "1.4.9",
-	"voidRelease": "0044",
 	"applicationName": "ribix-ide",
 	"dataFolderName": ".ribix-ide",
 	"win32MutexName": "ribix-ide",
@@ -41,5 +39,7 @@
 		"https://ribix.dev",
 		"https://github.com/ribix/ribix-ide",
 		"https://ollama.com"
-	]
+	],
+	"ribixVersion": "1.4.9",
+	"ribixRelease": "0044"
 }
