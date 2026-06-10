@@ -336,11 +336,65 @@ export const builtinTools: {
 		name: 'kill_persistent_terminal',
 		description: `Interrupts and closes a persistent terminal that you opened with open_persistent_terminal.`,
 		params: { persistent_terminal_id: { description: `The ID of the persistent terminal.` } }
-	}
+	},
 
+	// --- browser / QA tools (Ribix) ---
 
-	// go_to_definition
-	// go_to_usages
+	browser_navigate: {
+		name: 'browser_navigate',
+		description: `Navigate a headless Chromium browser to a URL. Returns a screenshot path showing what the page looks like, plus the page title and final URL. Use this to act as a real user browsing the application. Always call this before using other browser_ tools.`,
+		params: {
+			url: { description: 'The full URL to navigate to (e.g. "https://localhost:3000/checkout").' },
+			width: { description: 'Optional. Viewport width in pixels. Default 1280.' },
+			height: { description: 'Optional. Viewport height in pixels. Default 720.' },
+		},
+	},
+
+	browser_screenshot: {
+		name: 'browser_screenshot',
+		description: `Take a screenshot of the current browser page without interacting with it. Returns the screenshot file path and viewport dimensions. Use this to capture visual state for QA analysis.`,
+		params: {},
+	},
+
+	browser_click: {
+		name: 'browser_click',
+		description: `Click an element on the current browser page identified by a CSS selector or text selector (e.g. "button.submit", "text=Sign In", "#checkout-btn"). Takes a screenshot after clicking. Use this to act as a real user clicking UI elements.`,
+		params: {
+			selector: { description: 'CSS selector, role selector (e.g. role=button[name="Submit"]), or text selector (e.g. text=Sign In) for the element to click.' },
+		},
+	},
+
+	browser_type: {
+		name: 'browser_type',
+		description: `Type text into an input field identified by a CSS selector (e.g. "input[name=email]", "#password"). Clears the field first, then types the text. Takes a screenshot after typing.`,
+		params: {
+			selector: { description: 'CSS selector for the input field.' },
+			text: { description: 'The text to type into the field.' },
+		},
+	},
+
+	browser_scroll: {
+		name: 'browser_scroll',
+		description: `Scroll the current browser page in a direction. Returns a screenshot after scrolling. Use this to reveal below-the-fold content or test scroll behavior.`,
+		params: {
+			direction: { description: 'Scroll direction: "down", "up", "left", or "right".' },
+			amount: { description: 'Optional. Pixels to scroll. Default 300.' },
+		},
+	},
+
+	browser_get_html: {
+		name: 'browser_get_html',
+		description: `Get the HTML source of the current page or a specific element. Use this to inspect DOM structure, ARIA labels, CSS classes, and accessibility attributes without relying on visual inspection alone.`,
+		params: {
+			selector: { description: 'Optional. CSS selector for a specific element. Leave empty to get the full page HTML.' },
+		},
+	},
+
+	browser_close: {
+		name: 'browser_close',
+		description: `Close the browser session. Call this when finished with browser testing to free resources.`,
+		params: {},
+	},
 
 } satisfies { [T in keyof BuiltinToolResultType]: InternalToolInfo }
 

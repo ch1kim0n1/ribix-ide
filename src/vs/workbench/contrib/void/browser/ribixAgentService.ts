@@ -12,6 +12,7 @@ import { CancellationToken, CancellationTokenSource } from '../../../../base/com
 import { IToolsService } from './toolsService.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { IRibixFileLockService } from '../common/ribixFileLockService.js';
+import { IMCPService } from '../common/mcpService.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
 import { IRibixCheckpointService } from './ribixCheckpointService.js';
 import { AgentInstance, AgentStatus, AgentType, AgentActivityEntry } from '../common/ribixTypes.js';
@@ -62,6 +63,7 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
 		@IRibixCheckpointService private readonly checkpointService: IRibixCheckpointService,
 		@IVoidSettingsService private readonly settingsService: IVoidSettingsService,
+		@IMCPService private readonly mcpService: IMCPService,
 	) {
 		super();
 	}
@@ -342,9 +344,22 @@ class RibixAgentService extends Disposable implements IRibixAgentService {
 
 			const { tool, params } = call;
 
-			// Only execute tools that toolsService knows about
+			// Route unknown tools through MCP (Playwright MCP, browser MCP, etc.)
 			if (!this.toolsService.validateParams[tool as keyof typeof this.toolsService.validateParams]) {
-				this.addActivityLog(agent, 'Unknown tool', tool, tool, null);
+				// Find an MCP server that exposes this tool
+				const mcpTools = this.mcpService.getMCPTools() ?? [];
+				const mcpTool = mcpTools.find(t => t.name === tool);
+				if (mcpTool?.mcpServerName) {
+					this.addActivityLog(agent, 'MCP tool call', `${mcpTool.mcpServerName}/${tool}`, tool, null);
+					const mcpResult = await this.mcpService.callMCPTool({
+						serverName: mcpTool.mcpServerName,
+						toolName: tool,
+						params: params as Record<string, unknown>,
+					});
+					this.addActivityLog(agent, 'MCP tool result', String((mcpResult?.result as any)?.content?.[0]?.text ?? ''), tool, null);
+				} else {
+					this.addActivityLog(agent, 'Unknown tool skipped', tool, tool, null);
+				}
 				continue;
 			}
 

@@ -133,6 +133,7 @@ import { LLMMessageChannel } from '../../workbench/contrib/void/electron-main/se
 import { VoidSCMService } from '../../workbench/contrib/void/electron-main/voidSCMMainService.js';
 import { IVoidSCMService } from '../../workbench/contrib/void/common/voidSCMTypes.js';
 import { RibixAuthChannel } from '../../workbench/contrib/void/electron-main/ribixAuthChannel.js';
+import { RibixBrowserChannel } from '../../workbench/contrib/void/electron-main/ribixBrowserChannel.js';
 import { MCPChannel } from '../../workbench/contrib/void/electron-main/mcpChannel.js';
 /**
  * The main VS Code application. There will only ever be one instance,
@@ -1258,6 +1259,10 @@ export class CodeApplication extends Disposable {
 		// Void added this - Ribix Auth Channel
 		const ribixAuthChannel = new RibixAuthChannel();
 		mainProcessElectronServer.registerChannel('void-channel-ribixAuth', ribixAuthChannel);
+
+		// Ribix browser / QA tool channel (Playwright headless Chromium)
+		const ribixBrowserChannel = new RibixBrowserChannel();
+		mainProcessElectronServer.registerChannel('void-channel-ribixBrowser', ribixBrowserChannel);
 
 		// Extension Host Debug Broadcasting
 		const electronExtensionHostDebugBroadcastChannel = new ElectronExtensionHostDebugBroadcastChannel(accessor.get(IWindowsMainService));

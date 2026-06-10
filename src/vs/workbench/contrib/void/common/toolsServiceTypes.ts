@@ -27,6 +27,14 @@ export const approvalTypeOfBuiltinToolName: Partial<{ [T in BuiltinToolName]?: '
 	'run_persistent_command': 'terminal',
 	'open_persistent_terminal': 'terminal',
 	'kill_persistent_terminal': 'terminal',
+	// browser tools require network access
+	'browser_navigate': 'terminal',
+	'browser_screenshot': 'terminal',
+	'browser_click': 'terminal',
+	'browser_type': 'terminal',
+	'browser_scroll': 'terminal',
+	'browser_get_html': 'terminal',
+	'browser_close': 'terminal',
 }
 
 
@@ -60,6 +68,14 @@ export type BuiltinToolCallParams = {
 	'open_persistent_terminal': { cwd: string | null },
 	'run_persistent_command': { command: string; persistentTerminalId: string },
 	'kill_persistent_terminal': { persistentTerminalId: string },
+	// --- browser / QA tools ---
+	'browser_navigate': { url: string, width: number | null, height: number | null },
+	'browser_screenshot': {},
+	'browser_click': { selector: string },
+	'browser_type': { selector: string, text: string },
+	'browser_scroll': { direction: string, amount: number | null },
+	'browser_get_html': { selector: string | null },
+	'browser_close': {},
 }
 
 // RESULT OF TOOL CALL
@@ -81,6 +97,14 @@ export type BuiltinToolResultType = {
 	'run_persistent_command': { result: string; resolveReason: TerminalResolveReason; },
 	'open_persistent_terminal': { persistentTerminalId: string },
 	'kill_persistent_terminal': {},
+	// --- browser / QA tools ---
+	'browser_navigate': { screenshotPath: string, title: string, url: string },
+	'browser_screenshot': { screenshotPath: string, width: number, height: number },
+	'browser_click': { screenshotPath: string },
+	'browser_type': { screenshotPath: string },
+	'browser_scroll': { screenshotPath: string },
+	'browser_get_html': { html: string },
+	'browser_close': {},
 }
 
 

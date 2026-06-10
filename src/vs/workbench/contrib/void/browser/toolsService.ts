@@ -19,6 +19,7 @@ import { RawToolParamsObj } from '../common/sendLLMMessageTypes.js'
 import { MAX_CHILDREN_URIs_PAGE, MAX_FILE_CHARS_PAGE, MAX_TERMINAL_BG_COMMAND_TIME, MAX_TERMINAL_INACTIVE_TIME } from '../common/prompt/prompts.js'
 import { IVoidSettingsService } from '../common/voidSettingsService.js'
 import { generateUuid } from '../../../../base/common/uuid.js'
+import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js'
 
 
 // tool use for AI
@@ -153,6 +154,7 @@ export class ToolsService implements IToolsService {
 		@IDirectoryStrService private readonly directoryStrService: IDirectoryStrService,
 		@IMarkerService private readonly markerService: IMarkerService,
 		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
+		@IMainProcessService private readonly mainProcessService: IMainProcessService,
 	) {
 		const queryBuilder = instantiationService.createInstance(QueryBuilder);
 
@@ -289,7 +291,42 @@ export class ToolsService implements IToolsService {
 				const persistentTerminalId = validateProposedTerminalId(terminalIdUnknown);
 				return { persistentTerminalId };
 			},
-
+			// --- browser / QA tools ---
+			browser_navigate: (params: RawToolParamsObj) => {
+				const { url: urlUnknown, width: widthUnknown, height: heightUnknown } = params;
+				const url = validateOptionalStr('url', urlUnknown) ?? '';
+				const width = validateNumber(widthUnknown, { default: null });
+				const height = validateNumber(heightUnknown, { default: null });
+				return { url, width, height };
+			},
+			browser_screenshot: (_params: RawToolParamsObj) => {
+				return {};
+			},
+			browser_click: (params: RawToolParamsObj) => {
+				const { selector: selectorUnknown } = params;
+				const selector = validateOptionalStr('selector', selectorUnknown) ?? '';
+				return { selector };
+			},
+			browser_type: (params: RawToolParamsObj) => {
+				const { selector: selectorUnknown, text: textUnknown } = params;
+				const selector = validateOptionalStr('selector', selectorUnknown) ?? '';
+				const text = validateOptionalStr('text', textUnknown) ?? '';
+				return { selector, text };
+			},
+			browser_scroll: (params: RawToolParamsObj) => {
+				const { direction: directionUnknown, amount: amountUnknown } = params;
+				const direction = validateOptionalStr('direction', directionUnknown) ?? 'down';
+				const amount = validateNumber(amountUnknown, { default: null });
+				return { direction, amount };
+			},
+			browser_get_html: (params: RawToolParamsObj) => {
+				const { selector: selectorUnknown } = params;
+				const selector = validateOptionalStr('selector', selectorUnknown) ?? null;
+				return { selector };
+			},
+			browser_close: (_params: RawToolParamsObj) => {
+				return {};
+			},
 		}
 
 
@@ -461,6 +498,42 @@ export class ToolsService implements IToolsService {
 				await this.terminalToolService.killPersistentTerminal(persistentTerminalId)
 				return { result: {} }
 			},
+			// --- browser / QA tools ---
+			browser_navigate: async ({ url, width, height }) => {
+				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const result = await ch.call<{ screenshotPath: string; title: string; url: string }>('navigate', { url, width: width ?? undefined, height: height ?? undefined });
+				return { result };
+			},
+			browser_screenshot: async (_params) => {
+				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const result = await ch.call<{ screenshotPath: string; width: number; height: number }>('screenshot', {});
+				return { result };
+			},
+			browser_click: async ({ selector }) => {
+				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const result = await ch.call<{ screenshotPath: string }>('click', { selector });
+				return { result };
+			},
+			browser_type: async ({ selector, text }) => {
+				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const result = await ch.call<{ screenshotPath: string }>('type', { selector, text });
+				return { result };
+			},
+			browser_scroll: async ({ direction, amount }) => {
+				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const result = await ch.call<{ screenshotPath: string }>('scroll', { direction, amount: amount ?? undefined });
+				return { result };
+			},
+			browser_get_html: async ({ selector }) => {
+				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const result = await ch.call<{ html: string }>('getHtml', { selector: selector ?? undefined });
+				return { result };
+			},
+			browser_close: async (_params) => {
+				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				await ch.call('close', {});
+				return { result: {} };
+			},
 		}
 
 
@@ -563,6 +636,29 @@ export class ToolsService implements IToolsService {
 			},
 			kill_persistent_terminal: (params, _result) => {
 				return `Successfully closed terminal "${params.persistentTerminalId}".`;
+			},
+			// --- browser / QA tools ---
+			browser_navigate: (_params, result) => {
+				return `Navigated to: ${result.url}\nTitle: "${result.title}"\nScreenshot saved to: ${result.screenshotPath}\nUse read_file on that path to view it, or analyze the page with browser_get_html.`;
+			},
+			browser_screenshot: (_params, result) => {
+				return `Screenshot saved to: ${result.screenshotPath} (${result.width}x${result.height}px)`;
+			},
+			browser_click: (_params, result) => {
+				return `Clicked element. Screenshot after click: ${result.screenshotPath}`;
+			},
+			browser_type: (params, result) => {
+				return `Typed "${params.text}" into "${params.selector}". Screenshot: ${result.screenshotPath}`;
+			},
+			browser_scroll: (params, result) => {
+				return `Scrolled ${params.direction}${params.amount ? ` by ${params.amount}px` : ''}. Screenshot: ${result.screenshotPath}`;
+			},
+			browser_get_html: (params, result) => {
+				const truncated = result.html.length > 20000 ? result.html.substring(0, 20000) + '\n...(truncated)' : result.html;
+				return `HTML${params.selector ? ` for "${params.selector}"` : ' (full page)'}:\n\`\`\`html\n${truncated}\n\`\`\``;
+			},
+			browser_close: (_params, _result) => {
+				return `Browser session closed.`;
 			},
 		}
 
