@@ -1,0 +1,645 @@
+Ribix   |   Ribix IDE — Agent-First Software Engineering OS
+Ribix
+Ribix IDE — The Agent-First Software Engineering Operating System
+Product Overview & Feature Reference
+
+
+Version 1.0   |   Confidential
+________________
+
+
+1. Executive Summary
+
+Ribix IDE is a fork of the Void editor (itself a fork of VS Code) rebuilt from the ground up
+as an agent-first software engineering operating system. Where Void and Cursor ask engineers to
+write code assisted by AI, Ribix IDE asks engineers to describe outcomes — and deploys an
+autonomous multi-agent team to plan, code, test, debug, document, and ship the result.
+
+The code editor still exists. It becomes an inspection tool, not a workspace. Engineers read
+what agents built, annotate their decisions, and approve or redirect work. The primary surface
+is the Ribix Command Center: a mission-control panel that shows every active agent, every
+in-flight task, the full reasoning chain behind each decision, and a live feed of code changes
+happening in real time.
+
+Ribix IDE is not VS Code with AI. It is managing an elite engineering team that happens to
+have access to the repository — one that works around the clock, never loses context, and
+compounds its knowledge of your codebase with every task it completes.
+
+Key Characteristics at a Glance
+
+    Product:              Ribix IDE
+    Base:                 Void editor fork (VS Code / Code-OSS 1.99.3)
+    Primary UX:           Ribix Command Center (outcome-first, agent-managed)
+    Secondary UX:         Code editor (inspection / annotation mode)
+    Agent types:          Planner, Coder, Tester, Debugger, Reviewer, Docs, Release
+    Memory:               Persistent org memory — codebase graph, ownership model, history
+    Long-running tasks:   Async job queue, pause/resume/abort, checkpoint rollback
+    Multi-agent:          Agents spawn sub-agents; conflict resolution; result merging
+    Backend:              Connects to Ribix cloud for org memory sync and QA pipeline
+    Auth:                 OAuth (shared with Ribix CLI and dashboard — one login)
+    Branding:             #01311F background / #C6AA58 gold — Ribix design system
+    Build base:           Electron + TypeScript + React (Void's existing React layer)
+
+
+________________
+
+
+2. The Core Shift — From Editor to Operating System
+
+2.1 The Old Mental Model (Void / Cursor)
+
+In every AI code editor that exists today:
+
+    1. Engineer opens a file.
+    2. Engineer writes code. AI suggests completions.
+    3. Engineer selects a range. AI rewrites it.
+    4. Engineer asks a chat question. AI answers.
+    5. Engineer applies the suggestion. Engineer writes the next line.
+
+The engineer is still the primary actor. AI is a tool inside the editor.
+
+2.2 The New Mental Model (Ribix IDE)
+
+In Ribix IDE:
+
+    1. Engineer opens the Command Center.
+    2. Engineer describes an outcome: "Add dark mode support to the settings panel.
+       All existing tests must pass. Update the docs."
+    3. Ribix plans the work: decomposes the outcome into a task graph, assigns agent
+       types, estimates risk, and presents the plan for approval.
+    4. Engineer approves (or modifies) the plan.
+    5. Agents execute: Coder agent writes the changes, Tester agent runs the suite,
+       Debugger agent handles failures, Docs agent updates documentation.
+    6. Engineer reviews the result: diff summary, test report, agent reasoning.
+    7. Engineer approves the commit — or redirects a specific agent.
+
+The engineer is still in control. But the primary work — planning, execution, verification —
+is done by agents. The engineer's job shifts from writing to directing and reviewing.
+
+2.3 Why This Matters
+
+    Old world:  Engineer writes code for 6 hours. AI helps with 20% of keystrokes.
+    New world:  Engineer describes an outcome in 2 minutes. Agents execute for 45 minutes.
+                Engineer reviews and approves in 10 minutes.
+
+    Old world:  Context switching between editor, terminal, test runner, docs.
+    New world:  Single Command Center surfaces all agent activity in one panel.
+
+    Old world:  Knowledge lives in the engineer's head. Lost on vacation, on leave, at churn.
+    New world:  Knowledge lives in Ribix memory. Persists across sessions, engineers, repos.
+
+
+________________
+
+
+3. Ribix Command Center (Primary UX)
+
+3.1 Overview
+
+The Ribix Command Center is the primary panel in Ribix IDE. It launches in the left sidebar
+on first open (in place of the file tree) and takes focus by default.
+
+The Command Center has four tabs:
+
+    Tab               Purpose
+    ─────────────────────────────────────────────────────────────────────────────────────
+    Missions          Active and recent outcome missions — the main workspace
+    Agents            Real-time status of every running agent and sub-agent
+    Memory            What Ribix knows about this codebase: files, owners, patterns
+    Settings          Ribix IDE preferences, model selection, org connection
+
+
+3.2 Missions Tab
+
+A Mission is the top-level unit of work in Ribix IDE. Each Mission is created from a natural-
+language outcome description and has a lifecycle:
+
+    OUTCOME ENTERED → PLANNING → PLAN APPROVED → EXECUTING → REVIEWING → COMPLETE
+
+    State             Display
+    ─────────────────────────────────────────────────────────────────────────────────────
+    Outcome entered   Gold input box with "Plan this" button (Ribix #C6AA58)
+    Planning          Spinner + "Planner agent is decomposing your outcome..."
+    Plan ready        Collapsible task tree. "Approve Plan" / "Modify" / "Abort" buttons
+    Executing         Progress bar per task. Live agent activity feed below
+    Reviewing         Diff summary, test report, agent notes. "Approve" / "Redirect" CTA
+    Complete          Green check. Commit SHA, PR link, summary of changes
+
+Each Mission card shows:
+
+    Mission title (first 80 chars of outcome)   |   Status badge   |   Agent count   |   Duration
+
+Clicking a Mission expands to the full detail view with: outcome text, plan tree, agent
+activity log, diffs per agent, test results, memory entries written during execution.
+
+3.3 Agents Tab
+
+Live status grid showing every agent Ribix is currently running or has recently run.
+
+    Column        Content
+    ─────────────────────────────────────────────────────────────────────────────────────
+    Agent         Agent type icon + generated name (e.g., "Coder-3", "Tester-1")
+    Mission       Parent mission (truncated)
+    Status        Idle / Planning / Executing / Blocked / Complete / Failed
+    Current task  One-line description of what the agent is doing right now
+    Files touched Number of files read or written this session
+    Duration      Time since agent started
+
+Clicking an agent opens its full activity log: every LLM call, every tool invocation, every
+file read/write, every decision with reasoning. Engineers can read the exact reasoning chain
+that produced each code change.
+
+3.4 Memory Tab
+
+Shows Ribix's persistent knowledge about the workspace:
+
+    Section               Content
+    ─────────────────────────────────────────────────────────────────────────────────────
+    Codebase index        File tree with ownership annotations, last-modified metadata,
+                          and Ribix's understanding of each subsystem's responsibility
+    Ownership model       Who owns what — inferred from git blame, past missions,
+                          approval patterns. Not just last committer, but primary owner.
+    Pattern library       Conventions Ribix has learned: naming patterns, error handling
+                          style, test structure, import order — derived from code analysis
+    Mission history       Summary of all past missions: outcome, result, duration, agents
+    Agent feedback        Decisions the engineer approved/rejected — trains future behavior
+
+Engineers can view, edit, or delete any memory entry. They can also annotate entries with
+notes that future agents will read.
+
+
+________________
+
+
+4. Outcome Chat (Outcome Entry)
+
+4.1 Natural Language Outcome Input
+
+The primary input is a freeform text box: "Describe what you want to achieve."
+
+Ribix accepts any level of specificity:
+
+    Vague:     "Improve error handling in the API layer."
+    Medium:    "Add retry logic with exponential backoff to all outbound HTTP calls."
+    Specific:  "In src/api/client.ts, wrap every fetch() call in a retry wrapper that
+                retries up to 3 times on network errors (not 4xx), with 1s/2s/4s delays.
+                Add a unit test for each retry scenario. Update the API README."
+
+Ribix uses the current memory state to fill in gaps — if the engineer says "the auth service,"
+Ribix resolves that to the specific file paths and service names it has indexed.
+
+4.2 Context Attachment
+
+Before submitting an outcome, engineers can attach context:
+
+    - Specific files: drag from file tree or use @ to mention
+    - Code selections: highlighted ranges from the editor
+    - GitHub Issues: paste a URL, Ribix fetches the issue body
+    - Previous missions: reference a past mission to continue or extend it
+    - Test failures: paste a test output for agents to target
+
+4.3 Plan Review
+
+After outcome submission, the Planner agent returns a task graph within 15–30 seconds:
+
+    Task tree format:
+    ├── [Planner] Analyze codebase scope for outcome
+    ├── [Coder] Implement retry wrapper in src/api/client.ts
+    │   └── [Coder] Update all call sites
+    ├── [Tester] Write unit tests for retry scenarios
+    │   └── [Tester] Run test suite — confirm all pass
+    ├── [Docs] Update README.md — API section
+    └── [Reviewer] Final diff review — confirm no regressions
+
+Each task shows: agent type, estimated tokens, risk level (low/medium/high), dependency links.
+
+Engineers can:
+    - Approve the full plan in one click
+    - Remove tasks (e.g., "skip docs this time")
+    - Add tasks ("also update the Postman collection")
+    - Reassign tasks to a different agent type
+    - Modify scope notes on a specific task
+
+4.4 Execution Mode
+
+Once approved, agents execute in parallel where dependencies allow. The live feed shows:
+
+    [12:34:01]  Coder-1    Reading src/api/client.ts (342 lines)
+    [12:34:03]  Coder-1    Identified 7 fetch() call sites
+    [12:34:07]  Coder-1    Writing retry wrapper — exponentialBackoff()
+    [12:34:12]  Coder-1    Applying patch to src/api/client.ts (lines 41–67)
+    [12:34:14]  Coder-2    Reading src/api/client.ts — waiting for Coder-1 lock
+    [12:34:15]  Tester-1   Reading src/api/client.test.ts (88 lines)
+    [12:34:18]  Tester-1   Writing test: "retries 3x on network error"
+    [12:34:22]  Coder-1    All call sites updated. Releasing file lock.
+    [12:34:22]  Coder-2    Acquired lock — wrapping remaining call sites
+
+4.5 Checkpoint Rollback
+
+Every file write creates a checkpoint. If an agent produces a bad result, engineers can:
+
+    - Roll back a specific file to any prior checkpoint
+    - Abort the mission and restore all files to pre-mission state
+    - Roll back a specific agent's work while keeping others
+
+Checkpoints use the same checkpoint system already present in Void's editCodeService
+(VoidFileSnapshot), extended with mission-scoped grouping.
+
+
+________________
+
+
+5. Agent Types
+
+5.1 Planner Agent
+
+Responsible for: Decomposing outcomes into a task graph. The only agent that does not write code.
+
+Input:  Outcome text + attached context + current codebase memory
+Output: Task graph with agent assignments, dependencies, risk annotations, estimated scope
+
+Behavior:
+    - Queries codebase index to resolve references ("the auth service" → file paths)
+    - Identifies risky tasks (tasks that touch high-ownership files, recently broken areas)
+    - Flags tasks that require human decision ("this touches billing code — confirm scope")
+    - Produces a plan the engineer can read and approve in under 2 minutes
+
+5.2 Coder Agent
+
+Responsible for: Writing, modifying, and refactoring code.
+
+Tools available: read_file, write_file, run_terminal, search_codebase, read_memory
+Constraint: Never writes directly to main/master. Always writes to a mission branch.
+
+Behavior:
+    - Reads context before writing (does not hallucinate imports or function signatures)
+    - Writes minimal diffs — prefers targeted edits over full-file rewrites
+    - Leaves decision annotations: "Chose X over Y because of pattern in file Z"
+    - Acquires file locks before writing; releases on completion
+
+5.3 Tester Agent
+
+Responsible for: Writing failing tests, running test suites, validating that code changes work.
+
+Tools available: read_file, write_file, run_terminal (for test runner), read_memory
+Behavior:
+    - Detects test framework from package.json / pyproject.toml / build files
+    - Writes tests that match the existing test style (inferred from test-files analysis)
+    - Runs tests and parses output — reports pass/fail per test case
+    - On failure: logs the failure and notifies Debugger agent
+
+5.4 Debugger Agent
+
+Responsible for: Investigating and fixing failures produced by Tester or Coder agents.
+
+Tools available: read_file, run_terminal, read_memory, write_file
+Behavior:
+    - Given a failure (test output, stack trace, build error): diagnoses root cause
+    - Does not guess — reads the actual failing code before proposing a fix
+    - Writes a fix with an explanation of cause and resolution
+    - Re-triggers Tester agent to confirm the fix
+
+5.5 Reviewer Agent
+
+Responsible for: Final code quality review before a mission completes.
+
+Input:  Full mission diff (all changed files)
+Output: Structured review: issues found (with severity), patterns broken, suggestions
+
+Behavior:
+    - Checks against the codebase pattern library (naming, error handling, structure)
+    - Flags security surface changes (auth, crypto, external calls)
+    - Does not rewrite code — annotates the diff with inline comments
+    - Engineer sees the review and decides whether to act on findings
+
+5.6 Docs Agent
+
+Responsible for: Keeping documentation in sync with code changes.
+
+Input:  Mission diff + list of doc files in scope
+Output: Updated doc files with accurate descriptions of the new behavior
+
+Behavior:
+    - Updates inline comments and JSDoc/TSDoc for changed functions
+    - Updates README sections that describe changed behavior
+    - Does not write marketing copy — writes technical documentation only
+
+5.7 Release Agent
+
+Responsible for: Preparing release artifacts after engineer approval.
+
+Tasks:
+    - Version bump (semver — patch/minor/major, inferred from change scope)
+    - Changelog entry (from mission history + agent notes)
+    - Git tag
+    - PR creation (using Ribix GitHub App)
+    - Optional: trigger CI/CD pipeline
+
+Behavior:
+    - Does nothing until the engineer explicitly triggers "Prepare Release"
+    - Presents all release artifacts for review before committing any of them
+    - Integrates with the Ribix backend PR creation workflow (same as ribix-vs-extension)
+
+
+________________
+
+
+6. Persistent Memory
+
+6.1 What Ribix Remembers
+
+Ribix IDE maintains a persistent knowledge base that survives sessions, accumulates over time,
+and is shared across the engineering team (when Ribix org connection is active).
+
+    Memory type           What is stored
+    ─────────────────────────────────────────────────────────────────────────────────────
+    Codebase graph        File tree, service boundaries, dependency graph between files,
+                          function signatures of key exported APIs
+    Ownership model       Per-subsystem: primary owner, secondary owners, last active.
+                          Inferred from git blame + who approves/closes missions.
+    Pattern library       Naming conventions, error handling patterns, import order, test
+                          structure — derived by Planner agent from code analysis.
+    Mission history       Every past mission: outcome text, plan, result, duration, which
+                          agents ran, what files were changed.
+    Approval history      Every engineer decision: approved plan, rejected plan, redirected
+                          agent, rolled back checkpoint. Feeds future Planner behavior.
+    Vocabulary map        Team's internal names for things: "the auth service" = which files;
+                          "the ingestion pipeline" = which directory. Learned from usage.
+
+6.2 How Memory Is Used
+
+Every agent reads from memory before acting:
+
+    - Planner agent: reads codebase graph + vocabulary map to resolve outcome references
+    - Coder agent: reads pattern library to match existing code style
+    - Tester agent: reads existing test structure to match test style
+    - Reviewer agent: reads pattern library as the standard to enforce
+    - Release agent: reads mission history to write changelog entries
+
+6.3 Memory Editing
+
+Engineers can view, edit, and delete any memory entry from the Memory tab.
+Annotations added by engineers take priority over inferred entries.
+
+6.4 Org Memory Sync
+
+When an org connection is active (authenticated via Ribix backend), memory syncs to the
+org's shared knowledge base:
+
+    - Codebase graph and ownership are shared across all engineers
+    - Mission history is shared (team can see what other engineers built)
+    - Vocabulary map is shared (one engineer's annotations help all agents)
+    - Approval history is private to the engineer by default (opt-in to share)
+
+After 50+ missions, Ribix's accuracy for this codebase is deeply calibrated. Switching
+products resets this — that is the retention moat.
+
+
+________________
+
+
+7. Code Editor (Secondary UX)
+
+7.1 Role
+
+The code editor remains fully functional. It is not removed or degraded. Its role shifts:
+
+    Old role:  Primary workspace. Engineers spend 8 hours/day here.
+    New role:  Inspection and annotation tool. Engineers review what agents built.
+
+7.2 Diff Inspection Mode
+
+When an agent writes to a file, the editor switches to diff inspection mode for that file:
+
+    - Agent changes shown in standard red/green diff view (same as Void's DiffZone system)
+    - Each changed block annotated with the agent that made the change
+    - Per-block approve/reject controls (same UX as Void's existing apply approval)
+    - "Show agent reasoning" button per block — opens the agent's decision log for that edit
+
+7.3 Inline Agent Annotations
+
+Agents can leave inline annotations in files (similar to code review comments):
+
+    Decision note:  "Chose ReadableStream over Buffer here — matches pattern in fileService.ts"
+    Warning:        "This function has no error boundary — risk noted in Reviewer report"
+    Question:       "Is this the correct retry count for production? (default: 3)"
+
+Engineers can resolve annotations (marking them read/accepted) or respond with instructions
+that feed back into the next agent run.
+
+7.4 Autocomplete and Cmd+K
+
+Void's existing autocomplete and Cmd+K features remain intact. Engineers can still:
+
+    - Get inline completions while writing code manually
+    - Select a range and invoke Cmd+K for a targeted rewrite
+    - Use the existing chat sidebar for one-off questions
+
+These features are now labeled "Quick Edit" — for small targeted changes below the threshold
+of a full Mission.
+
+
+________________
+
+
+8. Codebase Architecture (Void Base → Ribix IDE)
+
+8.1 Base Codebase
+
+Ribix IDE starts from the Void editor fork at:
+    src/vs/workbench/contrib/void/
+
+All Void code is preserved and extended. No Void services are deleted. Ribix adds new services
+alongside existing ones, following the same VSCode service registration pattern.
+
+8.2 Existing Void Services (Preserved)
+
+    Service                         File                                        Role
+    ─────────────────────────────────────────────────────────────────────────────────────
+    chatThreadService               browser/chatThreadService.ts                Thread/message management
+    editCodeService                 browser/editCodeService.ts                  File diffs, DiffZone, Apply
+    toolsService                    browser/toolsService.ts                     Tool execution (read/write/terminal)
+    voidSettingsService             common/voidSettingsService.ts               Provider/model config
+    sendLLMMessageService           common/sendLLMMessageService.ts             LLM API calls
+    voidModelService                common/voidModelService.ts                  File read/write abstraction
+    contextGatheringService         browser/contextGatheringService.ts          Codebase context for LLM
+    directoryStrService             common/directoryStrService.ts               Directory tree strings
+    mcpService                      common/mcpService.ts                        MCP tool integration
+    autocompleteService             browser/autocompleteService.ts              Inline completions
+    sidebarPane                     browser/sidebarPane.ts                      Existing sidebar pane
+
+8.3 New Ribix Services
+
+    Service                         File (under contrib/void/)                  Role
+    ─────────────────────────────────────────────────────────────────────────────────────
+    ribixAgentService               browser/ribixAgentService.ts                Spawn, track, coordinate agents
+    ribixMemoryService              common/ribixMemoryService.ts                Persistent codebase/org memory
+    ribixPlanningService            browser/ribixPlanningService.ts             Outcome → task graph
+    ribixTaskQueueService           common/ribixTaskQueueService.ts             Async job queue, priorities
+    ribixOrchestrationService       browser/ribixOrchestrationService.ts        Multi-agent coordination
+    ribixFileLockService            common/ribixFileLockService.ts              File lock registry
+    ribixCheckpointService          browser/ribixCheckpointService.ts           Mission-scoped rollback
+    ribixApiClient                  common/ribixApiClient.ts                    Ribix backend connection
+    ribixAuthService                browser/ribixAuthService.ts                 OAuth (matches ribix-vs-extension pattern)
+    ribixMissionService             browser/ribixMissionService.ts              Mission lifecycle state machine
+
+8.4 New UI Panels
+
+    Panel                           File (under contrib/void/)                  Role
+    ─────────────────────────────────────────────────────────────────────────────────────
+    ribixCommandCenterPane          browser/ribixCommandCenterPane.tsx          Primary panel (Command Center)
+    ribixMissionsPanel              browser/react/ribixMissionsPanel.tsx        Missions tab content
+    ribixAgentsPanel                browser/react/ribixAgentsPanel.tsx          Agents tab content
+    ribixMemoryPanel                browser/react/ribixMemoryPanel.tsx          Memory tab content
+    ribixAgentActivityFeed          browser/react/ribixAgentActivityFeed.tsx    Live event stream
+    ribixPlanReviewDialog           browser/react/ribixPlanReviewDialog.tsx     Plan approval UI
+    ribixDiffAnnotationWidget       browser/ribixDiffAnnotationWidget.ts        Per-block agent annotation
+
+8.5 Data Flow
+
+    Engineer enters outcome
+            │
+            ▼
+    ribixMissionService (creates Mission, state: PLANNING)
+            │
+            ▼
+    ribixPlanningService (LLM call → task graph)
+            │
+            ▼
+    Engineer approves plan (via ribixPlanReviewDialog)
+            │
+            ▼
+    ribixOrchestrationService (assigns agents to tasks, respects dependencies)
+            │
+            ▼
+    ribixAgentService (spawns agent instances, each with typed capability)
+            │
+            ├── Each agent uses: toolsService, editCodeService, sendLLMMessageService
+            ├── Each agent writes to: ribixMemoryService (decisions, findings)
+            ├── Each agent acquires: ribixFileLockService (before writing files)
+            └── Each agent checkpoints: ribixCheckpointService (before each file write)
+            │
+            ▼
+    ribixMissionService (state: REVIEWING)
+            │
+            ▼
+    Engineer reviews diff summary + test report + Reviewer agent notes
+            │
+            ▼
+    Engineer approves → ribixMissionService (state: COMPLETE)
+                      → optional: Release agent triggered
+
+
+________________
+
+
+9. Branding & Design System
+
+9.1 Colors
+
+    Token                     Value           Use
+    ─────────────────────────────────────────────────────────────────────────────────────
+    ribix-bg-primary          #01311F         Command Center background, sidebar bg
+    ribix-gold                #C6AA58         CTAs, status badges, active highlights
+    ribix-gold-dark           #A8893A         Gold hover state
+    ribix-text-primary        #F5F0E8         Primary text on dark bg
+    ribix-text-secondary      #8A9E8A         Secondary text, labels, descriptions
+    ribix-success             #2D7A4F         Success states, complete missions
+    ribix-warning             #D4820A         Warning states, high-risk tasks
+    ribix-error               #C23B22         Error states, failed agents, blocked tasks
+    ribix-border              #1E4A32         Panel borders, dividers
+
+9.2 Typography
+
+All UI text uses the existing VS Code font stack (--vscode-font-family).
+Ribix branding elements (Command Center title, Mission headers) use font-weight: 600.
+Agent names use monospace (--vscode-editor-font-family) — they are system identifiers.
+
+9.3 Icon Set
+
+Command Center icon:  Ribix logo (same as ribix-vs-extension Activity Bar icon)
+Mission icon:         Checked shield (representing completed/active missions)
+Agent type icons:
+    Planner:          Blueprint/plan icon (grid with nodes)
+    Coder:            Code brackets with cursor
+    Tester:           Check mark in circle (test pass)
+    Debugger:         Bug with magnifying glass
+    Reviewer:         Eye with checkmark
+    Docs:             Document with pen
+    Release:          Rocket / tag icon
+
+9.4 Motion
+
+Agent activity feed items slide in from the top (200ms ease-out).
+Mission state transitions use a gentle fade + status badge color transition.
+Plan review task tree expands with a 150ms height animation.
+No spinning loaders — use skeleton states and streaming text instead.
+
+
+________________
+
+
+10. Authentication & Backend Connection
+
+10.1 Sign In
+
+Engineers sign in once using the same Ribix OAuth used by ribix-vs-extension and @ribix/cli.
+A single OAuth session authenticates across all Ribix surfaces.
+
+Command:  "Ribix: Sign In" (Command Palette) or "Sign In" button in Command Center
+
+After sign-in, Ribix IDE:
+    - Loads org memory for the connected workspace
+    - Shows past missions run by the team
+    - Enables multi-agent execution backed by Ribix cloud agents
+    - Enables PR creation via the Ribix GitHub App
+
+10.2 Offline Mode
+
+Without a backend connection, Ribix IDE operates in local-only mode:
+    - Local LLM providers (Ollama, LM Studio) supported via Void's existing provider system
+    - Memory stored locally only (no org sync)
+    - Mission history local only
+    - PR creation not available
+    - All other agent features fully operational
+
+10.3 Credential Storage
+
+OAuth session token stored in VS Code SecretStorage (OS keychain-backed, encrypted).
+Never written to workspace files, settings.json, or environment variables.
+
+
+________________
+
+
+11. How Ribix IDE Relates to Other Ribix Surfaces
+
+    Surface               Best For
+    ─────────────────────────────────────────────────────────────────────────────────────
+    Ribix IDE             Engineers who want to describe outcomes and have agents execute.
+                          Primary surface for new feature development, refactors, and
+                          multi-step engineering work. Persistent memory compounds value.
+
+    VSCode Extension      Engineers using vanilla VS Code who want findings inline in their
+                          code and one-click PR approval without switching editors.
+
+    CLI (@ribix/cli)      Terminal-first workflows, scripting, CI/CD integration. Full
+                          command-line access to the Ribix pipeline.
+
+    Web Dashboard         Cross-repo overview, trend charts, team management, billing.
+
+All surfaces share the same backend. A mission completed in Ribix IDE appears in the web
+dashboard. A finding approved in the CLI appears in Ribix IDE's memory.
+
+
+________________
+
+
+Ribix
+Managing an elite engineering team — one outcome at a time.
+
+
+
+
+For questions about this document, contact the Ribix team at vkondratyev@md7.com.
+Confidential — Ribix Inc.   |   Version 1.0   |   2026
