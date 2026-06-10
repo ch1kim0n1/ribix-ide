@@ -194,6 +194,173 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 		await this.saveMission(mission);
 	}
 
+	async prepareRelease(id: string): Promise<void> {
+		const mission = this.getMission(id);
+		if (!mission) throw new Error(`Mission ${id} not found`);
+		if (mission.state !== 'complete') {
+			throw new Error(`Cannot prepare release: mission is in state ${mission.state}`);
+		}
+
+		if (!mission.result) {
+			throw new Error(`Cannot prepare release: mission has no result`);
+		}
+
+		const workspacePath = await this.getWorkspacePath();
+		if (!workspacePath) {
+			throw new Error('Cannot prepare release: workspace path not available');
+		}
+
+		// Step 1: Analyze mission diff to determine semver bump
+		const semverBump = await this.determineSemverBump(mission, workspacePath);
+
+		// Step 2: Draft changelog entry from mission history + agent notes
+		const changelogEntry = await this.draftChangelogEntry(mission);
+
+		// Step 3: Bump version in package.json
+		const newVersion = await this.bumpVersion(workspacePath, semverBump);
+
+		// Step 4: Create git tag
+		const tagName = `v${newVersion}`;
+		await this.voidSCM.gitCreateTag(workspacePath, tagName, `Release ${newVersion}: ${mission.outcome.substring(0, 70)}`);
+
+		// Step 5: Call ribixApiClient.createPR() with full context
+		const config = await this.authService.getRequiredConfig();
+		const apiClient = new RibixApiClient();
+
+		const prTitle = mission.outcome.substring(0, 70);
+		const prBody = this.buildPRBody(mission, changelogEntry, newVersion);
+
+		const prResponse = await apiClient.createPR(config, {
+			workspaceId: config.workspaceId,
+			branchName: mission.branchName,
+			title: prTitle,
+			description: prBody,
+		});
+
+		// Update mission result with PR URL
+		if (mission.result) {
+			mission.result.prUrl = prResponse.prUrl;
+		}
+		await this.saveMission(mission);
+	}
+
+	private async determineSemverBump(mission: Mission, workspacePath: string): Promise<'patch' | 'minor' | 'major'> {
+		// Analyze the diff to determine the appropriate semver bump
+		// For now, default to patch - in a real implementation, this would analyze the changes
+		// Major: breaking changes
+		// Minor: new features, non-breaking changes
+		// Patch: bug fixes
+		return 'patch';
+	}
+
+	private async draftChangelogEntry(mission: Mission): Promise<string> {
+		const lines: string[] = [];
+		lines.push(`## ${new Date().toISOString().split('T')[0]}`);
+		lines.push('');
+		lines.push(`### Mission: ${mission.outcome.substring(0, 100)}`);
+		lines.push('');
+		if (mission.result) {
+			lines.push(mission.result.summary);
+			lines.push('');
+			if (mission.result.testReport) {
+				lines.push('**Test Report:**');
+				lines.push('```');
+				lines.push(mission.result.testReport);
+				lines.push('```');
+				lines.push('');
+			}
+			if (mission.result.reviewerFindings.length > 0) {
+				lines.push('**Reviewer Findings:**');
+				for (const finding of mission.result.reviewerFindings) {
+					lines.push(`- ${finding}`);
+				}
+				lines.push('');
+			}
+		}
+		return lines.join('\n');
+	}
+
+	private async bumpVersion(workspacePath: string, bumpType: 'patch' | 'minor' | 'major'): Promise<string> {
+		// Read package.json
+		const fs = await import('fs');
+		const path = await import('path');
+		const packageJsonPath = path.join(workspacePath, 'package.json');
+		const packageJsonContent = fs.readFileSync(packageJsonPath, 'utf-8');
+		const packageJson = JSON.parse(packageJsonContent);
+
+		// Parse current version
+		const versionParts = packageJson.version.split('.').map(Number);
+		let [major, minor, patch] = versionParts;
+
+		// Bump version based on type
+		switch (bumpType) {
+			case 'major':
+				major++;
+				minor = 0;
+				patch = 0;
+				break;
+			case 'minor':
+				minor++;
+				patch = 0;
+				break;
+			case 'patch':
+				patch++;
+				break;
+		}
+
+		const newVersion = `${major}.${minor}.${patch}`;
+		packageJson.version = newVersion;
+
+		// Write back to package.json
+		fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
+
+		return newVersion;
+	}
+
+	private buildPRBody(mission: Mission, changelogEntry: string, version: string): string {
+		const lines: string[] = [];
+		lines.push('## Mission Summary');
+		lines.push('');
+		lines.push(mission.outcome);
+		lines.push('');
+		lines.push('## Task List');
+		lines.push('');
+		for (const task of mission.tasks) {
+			lines.push(`- [${task.status === 'complete' ? 'x' : ' '}] ${task.description} (${task.agentType})`);
+		}
+		lines.push('');
+		lines.push('## Test Report');
+		lines.push('');
+		if (mission.result?.testReport) {
+			lines.push('```');
+			lines.push(mission.result.testReport);
+			lines.push('```');
+		} else {
+			lines.push('No test report available.');
+		}
+		lines.push('');
+		lines.push('## Agent Notes');
+		lines.push('');
+		for (const task of mission.tasks) {
+			if (task.notes) {
+				lines.push(`### ${task.description}`);
+				lines.push(task.notes);
+				lines.push('');
+			}
+		}
+		lines.push('');
+		lines.push('## Changelog');
+		lines.push('');
+		lines.push(changelogEntry);
+		lines.push('');
+		lines.push(`**Version:** ${version}`);
+		lines.push('');
+		lines.push('---');
+		lines.push('');
+		lines.push('*This PR was created by the Ribix Release Agent*');
+		return lines.join('\n');
+	}
+
 	private async getWorkspacePath(): Promise<string | null> {
 		// This would need to be implemented to get the actual workspace path
 		// For now, return null as a placeholder

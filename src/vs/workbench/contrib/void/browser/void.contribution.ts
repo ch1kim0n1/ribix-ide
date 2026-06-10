@@ -84,8 +84,14 @@ import './ribixCheckpointService.js'
 // register Ribix planning service
 import './ribixPlanningService.js'
 
+// register Ribix auth service
+import './ribixAuthService.js'
+
 // register Ribix diff annotation widget
 import './ribixDiffAnnotationWidget.js'
+
+// register Ribix release actions
+import './ribixReleaseActions.js'
 
 // ---------- common (unclear if these actually need to be imported, because they're already imported wherever they're used) ----------
 

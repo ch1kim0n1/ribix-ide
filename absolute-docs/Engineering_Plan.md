@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-09
 **Version:** 1.0
-**Status:** Draft — Phase 0-7 complete, Phase 8-15 pending
+**Status:** Draft — Phase 0-7 complete, Phase 9 complete, Phase 8, 10-15 pending
 
 **Base:** Void editor fork (Code-OSS 1.99.3) — `ribix-ide/`
 **Goal:** Transform Void from AI-assisted code editor into agent-first software engineering OS.
@@ -763,7 +763,7 @@ Engineer types outcome → clicks "Plan This"
 
 ---
 
-## Phase 9 — Editor Integration (Diff Annotation)
+## Phase 9 — Editor Integration (Diff Annotation) ✅ COMPLETE
 
 **Goal:** Surface agent changes and annotations directly in the code editor.
 
@@ -784,10 +784,10 @@ The existing `editCodeService` already handles DiffZone rendering. This phase ad
 
 ### Action items
 
-- [ ] Create `ribixDiffAnnotationWidget.ts` — register decoration types and code lens provider
-- [ ] Wire to `ribixAgentService` — subscribe to file writes, annotate affected ranges
-- [ ] Implement "[View reasoning]" panel — renders `AgentActivityEntry[]` for the write operation
-- [ ] Implement "Reject this block" — calls `ribixCheckpointService.rollbackFile()` for the range
+- [x] Create `ribixDiffAnnotationWidget.ts` — register decoration types and code lens provider
+- [x] Wire to `ribixAgentService` — subscribe to file writes, annotate affected ranges
+- [x] Implement "[View reasoning]" panel — renders `AgentActivityEntry[]` for the write operation
+- [x] Implement "Reject this block" — calls `ribixCheckpointService.rollbackFile()` for the range
 - [ ] Test: agent writes file → code lens appears above changed block
 
 ### Acceptance criteria
@@ -795,6 +795,14 @@ The existing `editCodeService` already handles DiffZone rendering. This phase ad
 - Agent writes a file → code lens visible above changed lines within 2 seconds
 - "[View reasoning]" opens panel with agent's decision log
 - "Reject" rolls back the specific file to pre-agent state
+
+**Note:** Implementation completed as part of Phase 13 commit (7f68fbde). The service includes:
+- `IRibixDiffAnnotationWidget` interface with `trackAgentWrite()` and `clearAnnotations()` methods
+- Decoration type with Ribix gold left border (#C6AA58)
+- Code lens provider showing agent name, timestamp, [View reasoning], and [Reject this block] links
+- Webview panel integration using `IWebviewWorkbenchService`
+- Integration with `ribixAgentService` and `ribixCheckpointService`
+- CSS styles in `void.css` for agent-written block decorations
 
 ---
 
