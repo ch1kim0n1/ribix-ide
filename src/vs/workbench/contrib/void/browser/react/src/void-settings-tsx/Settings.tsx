@@ -45,6 +45,114 @@ const ButtonLeftTextRightOption = ({ text, leftButton }: { text: string, leftBut
 	</div>
 }
 
+// Auth Status Section
+const AuthStatusSection = () => {
+	const accessor = useAccessor()
+	const ribixAuthService = accessor.get('IRibixAuthService')
+	const [authSummary, setAuthSummary] = useState<any>(null)
+	const [loading, setLoading] = useState(true)
+
+	useEffect(() => {
+		const loadAuthStatus = async () => {
+			try {
+				const summary = await ribixAuthService.getAuthSummary()
+				setAuthSummary(summary)
+			} catch (e) {
+				console.error('Failed to load auth status:', e)
+			} finally {
+				setLoading(false)
+			}
+		}
+
+		loadAuthStatus()
+
+		// Subscribe to auth changes
+		const disposable = ribixAuthService.onDidChangeSession(() => {
+			loadAuthStatus()
+		})
+
+		return () => {
+			disposable.dispose()
+		}
+	}, [ribixAuthService])
+
+	const handleSignIn = async () => {
+		try {
+			await ribixAuthService.signIn()
+			const summary = await ribixAuthService.getAuthSummary()
+			setAuthSummary(summary)
+		} catch (e) {
+			console.error('Failed to sign in:', e)
+		}
+	}
+
+	const handleSignOut = async () => {
+		try {
+			await ribixAuthService.signOut()
+			const summary = await ribixAuthService.getAuthSummary()
+			setAuthSummary(summary)
+		} catch (e) {
+			console.error('Failed to sign out:', e)
+		}
+	}
+
+	if (loading) {
+		return <div className='text-void-fg-3 text-sm'>Loading auth status...</div>
+	}
+
+	return (
+		<div className='my-4 p-4 bg-void-bg-2 rounded-sm'>
+			<h4 className={`text-base mb-2`}>Ribix Authentication</h4>
+			<div className='text-sm text-void-fg-3 mb-3'>
+				Sign in to enable org memory sync and other Ribix cloud features.
+			</div>
+			{authSummary?.status === 'signed_in' ? (
+				<div className='space-y-2'>
+					<div className='flex items-center gap-2 text-green-500'>
+						<Check className='size-4' />
+						<span className='text-sm'>Signed in as {authSummary.workspaceRole}</span>
+					</div>
+					<div className='text-xs text-void-fg-3'>
+						Workspace: {authSummary.workspaceId}
+					</div>
+					<button
+						className='mt-2 px-3 py-1 bg-void-bg-3 hover:bg-void-bg-4 rounded-sm text-sm text-void-fg-1'
+						onClick={handleSignOut}
+					>
+						Sign Out
+					</button>
+				</div>
+			) : authSummary?.status === 'expired' ? (
+				<div className='space-y-2'>
+					<div className='flex items-center gap-2 text-yellow-500'>
+						<X className='size-4' />
+						<span className='text-sm'>Session expired</span>
+					</div>
+					<button
+						className='mt-2 px-3 py-1 bg-void-bg-3 hover:bg-void-bg-4 rounded-sm text-sm text-void-fg-1'
+						onClick={handleSignIn}
+					>
+						Sign In Again
+					</button>
+				</div>
+			) : (
+				<div className='space-y-2'>
+					<div className='flex items-center gap-2 text-void-fg-3'>
+						<X className='size-4' />
+						<span className='text-sm'>Not signed in</span>
+					</div>
+					<button
+						className='mt-2 px-3 py-1 bg-void-bg-3 hover:bg-void-bg-4 rounded-sm text-sm text-void-fg-1'
+						onClick={handleSignIn}
+					>
+						Sign In
+					</button>
+				</div>
+			)}
+		</div>
+	)
+}
+
 // models
 const RefreshModelButton = ({ providerName }: { providerName: RefreshableProviderName }) => {
 
@@ -1560,6 +1668,11 @@ Use Model Context Protocol to provide Agent mode with more tools.
 	Configure Ribix's multi-agent mission system.
 											`} chatMessageLocation={undefined} />
 										</h4>
+
+										{/* Auth Status */}
+										<ErrorBoundary>
+											<AuthStatusSection />
+										</ErrorBoundary>
 
 										<div className='flex flex-col gap-y-8 my-4'>
 											{/* Mission Configuration */}

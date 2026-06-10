@@ -57,6 +57,7 @@ import { OPT_OUT_KEY } from '../../../../common/storageKeys.js'
 import { IRibixMissionService } from '../../../ribixMissionService.js'
 import { IRibixAgentService } from '../../../ribixAgentService.js'
 import { IRibixMemoryService } from '../../../ribixMemoryService.js'
+import { IRibixAuthService } from '../../../ribixAuthService.js'
 
 
 // normally to do this you'd use a useEffect that calls .onDidChangeState(), but useEffect mounts too late and misses initial state changes
@@ -236,6 +237,7 @@ const getReactAccessor = (accessor: ServicesAccessor) => {
 			IRibixMissionService: accessor.get(IRibixMissionService),
 			IRibixAgentService: accessor.get(IRibixAgentService),
 			IRibixMemoryService: accessor.get(IRibixMemoryService),
+			IRibixAuthService: accessor.get(IRibixAuthService),
 
 	} as const
 	return reactAccessor
