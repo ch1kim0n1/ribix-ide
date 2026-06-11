@@ -38,7 +38,7 @@ jobs:
           ARCH="${{ matrix.arch }}"
           mkdir -p dist
           hdiutil create -volname "$APP_NAME" \
-            -srcfolder ".build/darwin-${ARCH}/${APP_NAME}.app" \
+            -srcfolder "../VSCode-darwin-${ARCH}/${APP_NAME}.app" \
             -ov -format UDZO \
             "dist/RibixIDE-${ARCH}.dmg"
 
@@ -82,9 +82,8 @@ jobs:
 
       - name: Package as tar.gz
         run: |
-          cd .build
-          tar czf RibixIDE-linux-x64.tar.gz linux-x64
-          mv RibixIDE-linux-x64.tar.gz ../dist/
+          mkdir -p dist
+          tar czf dist/RibixIDE-linux-x64.tar.gz -C .. VSCode-linux-x64
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
