@@ -16,6 +16,8 @@ Ribix's mission is to act as a tireless, skeptical first user: it runs the softw
 
 The IDE's unique contribution to the Ribix surface architecture is the **autonomous multi-agent loop**: Planner → Coder → Tester → Reviewer → Release, running unsupervised on the changed chunk of every commit or save. That loop is the reason the IDE exists as a fork instead of an extension.
 
+**Detection ownership (as of 2026-06-13 — Option C architecture):** ribix-ide is the primary detection surface; the ribix backend is secondary (cloud-only path). Detection logic for all 18 VISION.md categories is defined in the shared `ribix-detection-core` package and imported by both IDE agents and backend agents. The IDE runs that logic locally against the actual codebase. The backend runs the same logic remotely against staging environments. ribix-ide does not duplicate or override the shared detection definitions — it is an execution environment, not a source of detection rules.
+
 ### Gap-to-Vision-Category Mapping
 
 Each engineering gap in this plan corresponds to one or more of the detection categories in VISION.md:

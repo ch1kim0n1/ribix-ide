@@ -4,6 +4,26 @@ Ribix IDE is the full-fork IDE surface of Ribix: an AI agent that uses software 
 
 ---
 
+## Primary User-Run Surface
+
+ribix-ide is the primary surface where "acting like a real user" detection runs.
+
+The full 18-category detection suite (all VISION.md categories) is implemented here via the multi-agent loop (Planner → Coder → Tester → Reviewer → Release). The IDE runs locally against the actual codebase — no GitHub App, no staging environment, no cloud dependency required for detection.
+
+Why ribix-ide is primary:
+- It runs against the actual local codebase, not a deployed environment
+- It can read file contents, run commands, check git state, and use the editor's language server
+- The multi-agent loop is the most complete implementation of "act like a user and fix what's broken"
+- It operates without requiring a GitHub App install or a staging environment
+
+Detection intelligence is shared: both the IDE agents and the ribix backend cloud agents import from `ribix-detection-core` (`@ribix/detection-core`). The execution environment differs (local vs cloud), but the detection logic — finding schemas, prompts, severity rules — is the same source.
+
+Findings from IDE agents feed into the same finding lifecycle as cloud agent findings. The ribix-cli and ribix-web dashboard surface findings from both origins without distinction.
+
+The ribix backend remains the secondary cloud path: remote agents running against deployed staging environments, push-triggered runs tied to GitHub App installs.
+
+---
+
 ## What This Repo Is in the Ribix Vision
 
 The Ribix product is delivered across five surfaces (backend, web, CLI, VS Code extension, IDE). This repo is the IDE surface. Its job is different from the extension: instead of surfacing findings inside an editor the developer already has open, the IDE provides the complete autonomous multi-agent loop as the primary environment.
