@@ -18,12 +18,22 @@ import { IRibixAuthService } from './ribixAuthService.js';
 import { IRibixPlanningService } from './ribixPlanningService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { RibixApiClient } from '../common/ribixApiClient.js';
+import { ChangedChunk } from '../common/ribixChangedChunk.js';
+import { SemverBump, maxBump, semverBumpFromConventionalCommits, semverBumpFromDiff } from '../common/ribixSemver.js';
 
 export interface IRibixMissionService {
 	readonly _serviceBrand: undefined;
 
 	// Create
 	createMission(outcome: string, context: MissionContext): Promise<Mission>;
+
+	/**
+	 * Auto-on-change entrypoint: create a QA mission scoped to a changed chunk with a
+	 * pre-scoped Tester-led plan (planner scope -> tester -> debugger). The mission's
+	 * context is populated from the chunk so the planner/agents are actually scoped.
+	 * Respects maxConcurrentMissions: returns null (does not throw) when at capacity.
+	 */
+	createScopedQAMission(chunk: ChangedChunk): Promise<Mission | null>;
 
 	// Read
 	getMission(id: string): Mission | null;
@@ -186,11 +196,53 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 			tasks: [],
 			agentIds: [],
 			branchName: '',
+			context,
 			createdAt: now,
 			completedAt: null,
 			result: null,
 		};
 
+		await this.saveMission(mission);
+		return mission;
+	}
+
+	async createScopedQAMission(chunk: ChangedChunk): Promise<Mission | null> {
+		await this._loadPromise;
+
+		// Respect the concurrency cap WITHOUT throwing — auto-runs must never crash
+		// the watcher; at capacity we simply skip this chunk.
+		const activeMissions = this.getActiveMissions();
+		if (activeMissions.length >= this.maxConcurrentMissions) {
+			return null;
+		}
+
+		const fileList = chunk.files.map(f => f.uri);
+		const context: MissionContext = {
+			attachedFiles: fileList,
+			attachedSelections: chunk.files.flatMap(f =>
+				f.ranges.map(range => ({ filePath: f.uri, range, content: '' }))
+			),
+			issueUrls: [],
+			notes: `Auto QA on changed chunk (trigger: ${chunk.trigger}${chunk.branch ? `, branch: ${chunk.branch}` : ''}). Scope strictly to the changed files/ranges.`,
+		};
+
+		const outcome = `Auto QA: verify the ${fileList.length} changed file(s) on ${chunk.trigger}`;
+
+		const now = Date.now();
+		const mission: Mission = {
+			schemaVersion: MISSION_SCHEMA_VERSION,
+			id: generateUuid(),
+			outcome,
+			state: 'awaiting_outcome',
+			tasks: [],
+			agentIds: [],
+			branchName: '',
+			context,
+			autoTriggered: true,
+			createdAt: now,
+			completedAt: null,
+			result: null,
+		};
 		await this.saveMission(mission);
 		return mission;
 	}
@@ -219,13 +271,16 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.state = 'planning';
 		await this.saveMission(mission);
 
-		// Kick off the planning service — produces task graph and transitions to plan_ready
-		this.planningService.plan(id, mission.outcome, {
+		// Kick off the planning service — produces task graph and transitions to plan_ready.
+		// Pass the mission's stored context so the planner is actually scoped (G-CONTEXT)
+		// instead of the previously-hardcoded empty context.
+		const planningContext: MissionContext = mission.context ?? {
 			attachedFiles: [],
 			attachedSelections: [],
 			issueUrls: [],
 			notes: '',
-		}).then(tasks => {
+		};
+		this.planningService.plan(id, mission.outcome, planningContext).then(tasks => {
 			this.setPlanReady(id, tasks).catch(e => console.error('setPlanReady failed:', e));
 		}).catch(e => {
 			console.error('Planning failed:', e);
@@ -368,12 +423,24 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 	}
 
 	private async determineSemverBump(mission: Mission, workspacePath: string): Promise<'patch' | 'minor' | 'major'> {
-		// Analyze the diff to determine the appropriate semver bump
-		// For now, default to patch - in a real implementation, this would analyze the changes
-		// Major: breaking changes
-		// Minor: new features, non-breaking changes
-		// Patch: bug fixes
-		return 'patch';
+		// Strategy: parse conventional-commit prefixes from the mission branch's log
+		// (feat -> minor, fix/chore -> patch, ! / BREAKING CHANGE -> major), fall back
+		// to diff heuristics over the sampled diff, and take the max bump. Safe default
+		// is `patch` — if SCM access fails we never over-bump.
+		let bump: SemverBump = 'patch';
+		try {
+			const gitLog = await this.voidSCM.gitLog(workspacePath);
+			bump = maxBump(bump, semverBumpFromConventionalCommits(gitLog));
+		} catch (e) {
+			console.warn('determineSemverBump: gitLog failed, ignoring:', e);
+		}
+		try {
+			const diff = await this.voidSCM.gitSampledDiffs(workspacePath);
+			bump = maxBump(bump, semverBumpFromDiff(diff));
+		} catch (e) {
+			console.warn('determineSemverBump: gitSampledDiffs failed, ignoring:', e);
+		}
+		return bump;
 	}
 
 	private async draftChangelogEntry(mission: Mission): Promise<string> {

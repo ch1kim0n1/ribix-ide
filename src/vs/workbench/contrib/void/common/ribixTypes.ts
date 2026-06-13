@@ -64,6 +64,8 @@ export type Mission = {
 	tasks: PlanTask[]
 	agentIds: string[]
 	branchName: string        // git branch for this mission
+	context?: MissionContext  // attached files/selections/notes — scopes the planner (G-CONTEXT)
+	autoTriggered?: boolean   // true when created by the auto-on-change watcher
 	createdAt: number
 	completedAt: number | null
 	result: {

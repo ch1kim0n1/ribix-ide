@@ -99,6 +99,12 @@ import './ribixReleaseActions.js'
 // register Ribix Command Center panel
 import './ribixCommandCenterPane.js'
 
+// register Ribix auto-on-change watcher (Eager — must listen at startup)
+import './ribixChangeWatcherService.js'
+
+// register Ribix auto-trigger toggle command (Command Center)
+import './ribixAutoTriggerActions.js'
+
 // ---------- common (unclear if these actually need to be imported, because they're already imported wherever they're used) ----------
 
 // llmMessage

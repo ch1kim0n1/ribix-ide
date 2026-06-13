@@ -65,7 +65,11 @@ suite('RibixMissionService — persistence', () => {
 
 	test('N transitions on one mission yield exactly one persisted record', async () => {
 		const storage = new FakeStorage();
-		const service = makeMissionService(storage, new FakeMemory());
+		// Planner that never resolves, so submitForPlanning's fire-and-forget callback
+		// does NOT auto-advance the mission to plan_ready — this test drives the
+		// transitions manually and asserts update-in-place persistence.
+		const pendingPlanning = { plan: () => new Promise<never>(() => { /* never resolves */ }) } as any;
+		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, pendingPlanning, workspaceStub, storage as any);
 		const mission = await service.createMission('o', { attachedFiles: [], attachedSelections: [], issueUrls: [], notes: '' });
 
 		await service.submitForPlanning(mission.id);
@@ -132,5 +136,69 @@ suite('RibixMissionService — persistence', () => {
 
 		assert.deepStrictEqual(memory2.deleted, [], 'second run does not re-migrate');
 		s2.dispose();
+	});
+});
+
+suite('RibixMissionService — scoped auto-QA + context', () => {
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	const sampleChunk = {
+		trigger: 'save' as const,
+		files: [{ uri: 'file:///repo/src/a.ts', ranges: [[10, 14] as [number, number]] }],
+		branch: 'feature/x',
+		detectedAt: 123,
+	};
+
+	test('createScopedQAMission populates context from the chunk', async () => {
+		const storage = new FakeStorage();
+		const service = makeMissionService(storage, new FakeMemory());
+		const mission = await service.createScopedQAMission(sampleChunk);
+
+		assert.ok(mission, 'mission created');
+		assert.strictEqual(mission!.autoTriggered, true);
+		assert.deepStrictEqual(mission!.context!.attachedFiles, ['file:///repo/src/a.ts']);
+		assert.strictEqual(mission!.context!.attachedSelections.length, 1);
+		assert.deepStrictEqual(mission!.context!.attachedSelections[0].range, [10, 14]);
+		assert.ok(mission!.context!.notes.includes('save'), 'trigger recorded in notes');
+		service.dispose();
+	});
+
+	test('createScopedQAMission returns null at concurrency cap, does not throw', async () => {
+		const storage = new FakeStorage();
+		const service = makeMissionService(storage, new FakeMemory());
+		// Fill to the default cap of 3 active missions.
+		await service.createMission('a', { attachedFiles: [], attachedSelections: [], issueUrls: [], notes: '' });
+		await service.createMission('b', { attachedFiles: [], attachedSelections: [], issueUrls: [], notes: '' });
+		await service.createMission('c', { attachedFiles: [], attachedSelections: [], issueUrls: [], notes: '' });
+
+		const mission = await service.createScopedQAMission(sampleChunk);
+		assert.strictEqual(mission, null, 'skipped at cap without throwing');
+		service.dispose();
+	});
+
+	test('submitForPlanning passes the mission context to the planner (not empty)', async () => {
+		const storage = new FakeStorage();
+		let capturedContext: any = null;
+		const planning = { plan: async (_id: string, _outcome: string, ctx: any) => { capturedContext = ctx; return []; } } as any;
+		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, planning, workspaceStub, storage as any);
+
+		const mission = await service.createScopedQAMission(sampleChunk);
+		await service.submitForPlanning(mission!.id);
+
+		assert.ok(capturedContext, 'planner was called');
+		assert.deepStrictEqual(capturedContext.attachedFiles, ['file:///repo/src/a.ts'], 'context forwarded, not empty');
+		service.dispose();
+	});
+
+	test('createMission stores the provided context on the mission', async () => {
+		const storage = new FakeStorage();
+		const service = makeMissionService(storage, new FakeMemory());
+		const mission = await service.createMission('o', {
+			attachedFiles: ['file:///repo/x.ts'], attachedSelections: [], issueUrls: [], notes: 'hi',
+		});
+		assert.deepStrictEqual(mission.context!.attachedFiles, ['file:///repo/x.ts']);
+		assert.strictEqual(mission.context!.notes, 'hi');
+		service.dispose();
 	});
 });
