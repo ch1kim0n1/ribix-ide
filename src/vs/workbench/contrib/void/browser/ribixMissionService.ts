@@ -8,8 +8,9 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
-import { MemoryEntry, Mission, MissionContext, PlanTask } from '../common/ribixTypes.js';
+import { Mission, MissionContext, PlanTask, MISSION_SCHEMA_VERSION, isMission } from '../common/ribixTypes.js';
 import { IVoidSCMService } from '../common/voidSCMTypes.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
@@ -44,7 +45,14 @@ export interface IRibixMissionService {
 
 export const IRibixMissionService = createDecorator<IRibixMissionService>('ribixMissionService');
 
-class RibixMissionService extends Disposable implements IRibixMissionService {
+/** Dedicated, versioned storage key for missions — separate from the memory store. */
+const RIBIX_MISSIONS_STORAGE_KEY = 'ribix.missions.v1';
+/** One-shot migration guard flag. */
+const RIBIX_MISSIONS_MIGRATED_KEY = 'ribix.missions.migrated';
+
+type PersistedMissions = { schemaVersion: number; missions: Mission[] };
+
+export class RibixMissionService extends Disposable implements IRibixMissionService {
 	readonly _serviceBrand: undefined;
 
 	private readonly _onDidChangeMissions = new Emitter<void>();
@@ -53,6 +61,7 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 	private missions: Mission[] = [];
 	private maxConcurrentMissions: number = 3;
 	private voidSCM: IVoidSCMService;
+	private _loadPromise: Promise<void>;
 
 	constructor(
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
@@ -60,17 +69,26 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 		@IRibixAuthService private readonly authService: IRibixAuthService,
 		@IRibixPlanningService private readonly planningService: IRibixPlanningService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
+		@IStorageService private readonly storageService: IStorageService,
 	) {
 		super();
+		this._register(this._onDidChangeMissions);
 		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
-		this.loadMissions();
+		this._loadPromise = this.loadMissions();
 	}
 
 	private async loadMissions(): Promise<void> {
 		try {
-			const workspaceId = await this.memoryService.getWorkspaceId();
-			const entries = await this.memoryService.getEntries('mission_summary' as any, workspaceId);
-			this.missions = entries.map(entry => JSON.parse(entry.content) as Mission);
+			await this.migrateLegacyMissionsIfNeeded();
+
+			const stored = this.storageService.get(RIBIX_MISSIONS_STORAGE_KEY, StorageScope.WORKSPACE);
+			if (stored) {
+				const parsed = JSON.parse(stored) as PersistedMissions;
+				const candidates = Array.isArray(parsed?.missions) ? parsed.missions : [];
+				this.missions = candidates.filter(isMission);
+			} else {
+				this.missions = [];
+			}
 			// Sort by createdAt descending
 			this.missions.sort((a, b) => b.createdAt - a.createdAt);
 		} catch (e) {
@@ -79,21 +97,81 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 		}
 	}
 
+	/**
+	 * One-shot migration: legacy missions were stored as `mission_summary` memory entries
+	 * that collided with agent-written summaries. Salvage the well-formed Mission records,
+	 * move them into the dedicated mission store, and remove the migrated legacy entries.
+	 * Guarded by a flag so it runs at most once.
+	 */
+	private async migrateLegacyMissionsIfNeeded(): Promise<void> {
+		if (this.storageService.getBoolean(RIBIX_MISSIONS_MIGRATED_KEY, StorageScope.WORKSPACE, false)) {
+			return;
+		}
+		try {
+			const workspaceId = await this.memoryService.getWorkspaceId();
+			const legacyEntries = await this.memoryService.getEntries('mission_summary', workspaceId);
+			const salvaged: Mission[] = [];
+			for (const entry of legacyEntries) {
+				let parsed: unknown;
+				try {
+					parsed = JSON.parse(entry.content);
+				} catch {
+					continue; // malformed — skip
+				}
+				if (isMission(parsed)) {
+					// Ensure schemaVersion present on migrated records.
+					const mission = parsed as Mission;
+					if (typeof mission.schemaVersion !== 'number') {
+						mission.schemaVersion = MISSION_SCHEMA_VERSION;
+					}
+					// Deduplicate by id, keep latest createdAt.
+					const existing = salvaged.find(m => m.id === mission.id);
+					if (!existing) {
+						salvaged.push(mission);
+					} else if (mission.createdAt > existing.createdAt) {
+						salvaged[salvaged.indexOf(existing)] = mission;
+					}
+					// Delete the legacy mission-shaped entry (leave agent-shaped ones).
+					await this.memoryService.deleteEntry(entry.id).catch(() => { /* best-effort */ });
+				}
+			}
+			if (salvaged.length > 0) {
+				this.storageService.store(
+					RIBIX_MISSIONS_STORAGE_KEY,
+					JSON.stringify({ schemaVersion: MISSION_SCHEMA_VERSION, missions: salvaged } satisfies PersistedMissions),
+					StorageScope.WORKSPACE,
+					StorageTarget.USER,
+				);
+			}
+		} catch (e) {
+			console.error('Mission migration failed:', e);
+		} finally {
+			this.storageService.store(RIBIX_MISSIONS_MIGRATED_KEY, true, StorageScope.WORKSPACE, StorageTarget.USER);
+		}
+	}
+
 	private async saveMission(mission: Mission): Promise<void> {
-		const workspaceId = await this.memoryService.getWorkspaceId();
-		const entry: Omit<MemoryEntry, 'id' | 'createdAt' | 'updatedAt'> = {
-			type: 'mission_summary' as any,
-			workspaceId,
-			content: JSON.stringify(mission),
-			metadata: { missionId: mission.id },
-			confidence: 1,
-			source: 'agent',
-		};
-		await this.memoryService.writeEntry(entry);
+		// Update-in-place: replace the mission with matching id (or prepend), then persist
+		// the whole array once — no per-transition appends.
+		const all = this.missions.slice();
+		const i = all.findIndex(m => m.id === mission.id);
+		if (i >= 0) {
+			all[i] = mission;
+		} else {
+			all.unshift(mission);
+		}
+		this.missions = all;
+		this.storageService.store(
+			RIBIX_MISSIONS_STORAGE_KEY,
+			JSON.stringify({ schemaVersion: MISSION_SCHEMA_VERSION, missions: all } satisfies PersistedMissions),
+			StorageScope.WORKSPACE,
+			StorageTarget.USER,
+		);
 		this._onDidChangeMissions.fire();
 	}
 
 	async createMission(outcome: string, context: MissionContext): Promise<Mission> {
+		await this._loadPromise;
 		const activeMissions = this.getActiveMissions();
 		if (activeMissions.length >= this.maxConcurrentMissions) {
 			throw new Error(`Maximum concurrent missions (${this.maxConcurrentMissions}) reached`);
@@ -101,6 +179,7 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 
 		const now = Date.now();
 		const mission: Mission = {
+			schemaVersion: MISSION_SCHEMA_VERSION,
 			id: generateUuid(),
 			outcome,
 			state: 'awaiting_outcome',
@@ -112,7 +191,6 @@ class RibixMissionService extends Disposable implements IRibixMissionService {
 			result: null,
 		};
 
-		this.missions.unshift(mission);
 		await this.saveMission(mission);
 		return mission;
 	}

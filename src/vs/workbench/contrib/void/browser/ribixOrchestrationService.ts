@@ -10,7 +10,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { IRibixAgentService } from './ribixAgentService.js';
 import { IRibixTaskQueueService } from '../common/ribixTaskQueueService.js';
 import { IRibixMissionService } from './ribixMissionService.js';
-import { Mission, MissionState, PlanTask } from '../common/ribixTypes.js';
+import { AgentOutput, Mission, MissionState, PlanTask } from '../common/ribixTypes.js';
 
 export interface MissionProgress {
 	missionId: string;
@@ -48,7 +48,7 @@ interface OrchestrationState {
 	taskContexts: Map<string, any>;
 }
 
-class RibixOrchestrationService extends Disposable implements IRibixOrchestrationService {
+export class RibixOrchestrationService extends Disposable implements IRibixOrchestrationService {
 	readonly _serviceBrand: undefined;
 
 	private readonly _onDidChangeMissionProgress = new Emitter<MissionProgress>();
@@ -259,49 +259,67 @@ class RibixOrchestrationService extends Disposable implements IRibixOrchestratio
 			notes: task.notes,
 		};
 
-		// Add outputs from dependency tasks
+		// Add structured outputs from dependency tasks. Each dependency stores its
+		// AgentOutput plus the producing agentType in taskContexts (see handleTaskCompletion).
 		for (const depId of task.dependsOn) {
-			const depContext = state.taskContexts.get(depId);
-			if (depContext) {
-				if (task.agentType === 'coder' && depContext.agentType === 'planner') {
-					context.plannerOutput = depContext.output;
-				} else if (task.agentType === 'tester' && depContext.agentType === 'coder') {
-					context.coderOutput = depContext.output;
-				} else if (task.agentType === 'debugger' && depContext.agentType === 'tester') {
-					context.testerOutput = depContext.output;
-					context.errorLogs = depContext.errorLogs;
-				} else if (task.agentType === 'reviewer') {
-					context.implementationSummary = depContext.output;
-					context.testReport = depContext.testReport;
-				} else if (task.agentType === 'docs' && depContext.agentType === 'coder') {
-					context.implementationSummary = depContext.output;
-				}
+			const dep = state.taskContexts.get(depId) as { output?: AgentOutput; agentType?: string } | undefined;
+			const output = dep?.output;
+			if (!output) { continue; }
+
+			const summaryText = this.formatOutputForPrompt(output);
+
+			if (task.agentType === 'coder' && dep.agentType === 'planner') {
+				context.plannerOutput = summaryText;
+			} else if (task.agentType === 'tester' && dep.agentType === 'coder') {
+				context.coderOutput = summaryText;
+			} else if (task.agentType === 'debugger' && dep.agentType === 'tester') {
+				context.testerOutput = summaryText;
+				context.errorLogs = output.testReport ?? '';
+			} else if (task.agentType === 'reviewer') {
+				context.implementationSummary = summaryText;
+				context.testReport = output.testReport ?? '';
+			} else if (task.agentType === 'docs' && dep.agentType === 'coder') {
+				context.implementationSummary = summaryText;
 			}
 		}
 
 		return context;
 	}
 
-	private monitorAgentCompletion(missionId: string, taskId: string, agentId: string, state: OrchestrationState): void {
-		// Poll for agent completion
-		const checkInterval = setInterval(() => {
-			const agent = this.agentService.getAgent(agentId);
-			if (!agent) {
-				clearInterval(checkInterval);
-				return;
+	/** Renders a structured AgentOutput into a prompt-friendly text block for a downstream agent. */
+	private formatOutputForPrompt(output: AgentOutput): string {
+		const lines: string[] = [output.summary];
+		if (output.filesChanged.length > 0) {
+			lines.push(`Files changed: ${output.filesChanged.join(', ')}`);
+		}
+		if (output.testReport) {
+			lines.push(`Test report:\n${output.testReport}`);
+		}
+		if (output.findings.length > 0) {
+			lines.push('Findings:');
+			for (const f of output.findings) {
+				lines.push(`- [${f.severity}] ${f.file}${f.line !== null ? `:${f.line}` : ''} — ${f.message}`);
 			}
+		}
+		if (output.blocked) {
+			lines.push(`BLOCKED: ${output.blocked.reason}`);
+		}
+		return lines.join('\n');
+	}
 
-			if (agent.status === 'complete') {
-				clearInterval(checkInterval);
+	private monitorAgentCompletion(missionId: string, taskId: string, agentId: string, state: OrchestrationState): void {
+		// Event-driven completion: register a one-shot listener keyed by agentId that
+		// routes the terminal status to the right handler and disposes itself.
+		const listener = this.agentService.onDidCompleteAgent(e => {
+			if (e.agentId !== agentId) { return; }
+			listener.dispose();
+			if (e.status === 'complete') {
 				this.handleTaskCompletion(missionId, taskId, agentId, state);
-			} else if (agent.status === 'failed') {
-				clearInterval(checkInterval);
+			} else {
 				this.handleTaskFailure(missionId, taskId, agentId, state);
 			}
-		}, 1000);
-
-		// Clean up interval on disposal
-		this._register({ dispose: () => clearInterval(checkInterval) });
+		});
+		this._register(listener);
 	}
 
 	private async handleTaskCompletion(missionId: string, taskId: string, agentId: string, state: OrchestrationState): Promise<void> {
@@ -317,11 +335,11 @@ class RibixOrchestrationService extends Disposable implements IRibixOrchestratio
 
 		state.completedTaskIds.add(taskId);
 
-		// Store agent output for dependent tasks
+		// Store structured agent output for dependent tasks
 		const agent = this.agentService.getAgent(agentId);
 		if (agent) {
 			const context = state.taskContexts.get(taskId) || {};
-			context.output = this.extractAgentOutput(agent);
+			context.output = agent.output;
 			context.agentType = agent.type;
 			state.taskContexts.set(taskId, context);
 		}
@@ -387,13 +405,6 @@ class RibixOrchestrationService extends Disposable implements IRibixOrchestratio
 			release: 10,
 		};
 		return priorities[agentType] || 50;
-	}
-
-	private extractAgentOutput(agent: any): string {
-		// Extract meaningful output from the agent
-		// This would typically come from the agent's activity log or memory
-		const lastActivity = agent.activityLog[agent.activityLog.length - 1];
-		return lastActivity?.detail || 'No output available';
 	}
 
 	private emitProgress(missionId: string): void {

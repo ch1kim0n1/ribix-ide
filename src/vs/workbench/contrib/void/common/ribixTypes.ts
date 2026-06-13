@@ -8,7 +8,8 @@ export type MemoryEntryType =
 	| 'codebase_file'        // file path + responsibility description
 	| 'codebase_ownership'   // subsystem → owner mapping
 	| 'codebase_pattern'     // naming/style/structure convention
-	| 'mission_summary'      // past mission outcome + result
+	| 'mission_summary'      // (legacy) past mission outcome + result — superseded by the mission store
+	| 'agent_run'            // a single agent run summary written by ribixAgentService
 	| 'approval_decision'    // what the engineer approved/rejected
 	| 'vocabulary_entry'     // internal name → resolved file paths
 
@@ -52,7 +53,11 @@ export type PlanTask = {
 	status: 'pending' | 'in_progress' | 'complete' | 'failed' | 'skipped'
 }
 
+/** Current persisted Mission schema version. Bump when the Mission shape changes. */
+export const MISSION_SCHEMA_VERSION = 1
+
 export type Mission = {
+	schemaVersion: number     // persisted record version for migration (MISSION_SCHEMA_VERSION)
 	id: string
 	outcome: string           // raw engineer input
 	state: MissionState
@@ -71,6 +76,35 @@ export type Mission = {
 	} | null
 }
 
+/** Type guard used by the mission store to reject malformed / legacy-shaped records. */
+export function isMission(value: unknown): value is Mission {
+	if (typeof value !== 'object' || value === null) { return false }
+	const v = value as Record<string, unknown>
+	return typeof v.id === 'string'
+		&& typeof v.state === 'string'
+		&& Array.isArray(v.tasks)
+}
+
+/**
+ * Structured output an agent produces, consumed by orchestration for inter-agent
+ * handoff. Replaces the old "last activity-log detail string" handoff.
+ */
+export type AgentOutput = {
+	summary: string                         // 1–3 sentence what-was-done
+	filesChanged: string[]
+	testReport: string | null               // tester/debugger fill this
+	findings: AgentFinding[]                 // reviewer findings
+	blocked: { reason: string } | null
+	rawFinalMessage: string                  // model's last assistant turn, for debugging
+}
+
+export type AgentFinding = {
+	severity: RiskLevel
+	file: string
+	line: number | null
+	message: string
+}
+
 export type AgentInstance = {
 	id: string
 	type: AgentType
@@ -83,6 +117,7 @@ export type AgentInstance = {
 	filesWritten: string[]
 	startedAt: number
 	completedAt: number | null
+	output: AgentOutput | null   // structured output populated by the agent loop on terminal status
 }
 
 export type AgentActivityEntry = {
