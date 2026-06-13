@@ -151,8 +151,21 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 
 		agent.status = 'failed';
 		agent.completedAt = Date.now();
+		if (!agent.output) {
+			agent.output = {
+				summary: 'Agent was manually aborted before producing output.',
+				filesChanged: [...agent.filesWritten],
+				testReport: null,
+				findings: [],
+				blocked: { reason: 'aborted' },
+				rawFinalMessage: '',
+			};
+		}
 		this.addActivityLog(agent, 'Aborted', 'Agent was manually aborted', null, null);
 		this._onDidChangeAgents.fire();
+		// Fire completion so event-driven orchestration tears down its listener
+		// (otherwise an aborted agent orphans the per-agent completion listener).
+		this._onDidCompleteAgent.fire({ agentId: agent.id, status: 'failed' });
 	}
 
 	private budgetForType(type: AgentType): AgentLoopBudget {
