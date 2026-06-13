@@ -123,7 +123,13 @@ export class RibixChangeWatcherService extends Disposable implements IRibixChang
 	}
 
 	noteAgentWrote(fsPaths: string[]): void {
-		const until = Date.now() + SELF_WRITE_SUPPRESS_MS;
+		const now = Date.now();
+		// Opportunistically drop expired entries so the map can't grow unbounded
+		// across a long session of writes to distinct, never-re-saved files.
+		for (const [p, until] of this.recentlyWritten) {
+			if (until <= now) { this.recentlyWritten.delete(p); }
+		}
+		const until = now + SELF_WRITE_SUPPRESS_MS;
 		for (const p of fsPaths) {
 			this.recentlyWritten.set(p, until);
 		}
