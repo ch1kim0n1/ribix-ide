@@ -37,7 +37,8 @@ class RibixTaskQueueService extends Disposable implements IRibixTaskQueueService
 	readonly onDidChangeQueue = this._onDidChangeQueue.event;
 
 	private queue: QueuedTask<any>[] = [];
-	private running: Set<string> = new Set();
+	/** Running tasks keyed by id, value is the task (so we can cancel its token). */
+	private runningTasks: Map<string, QueuedTask<any>> = new Map();
 	private maxConcurrent: number = 4;
 
 	constructor() {
@@ -49,7 +50,7 @@ class RibixTaskQueueService extends Disposable implements IRibixTaskQueueService
 	}
 
 	get runningCount(): number {
-		return this.running.size;
+		return this.runningTasks.size;
 	}
 
 	async enqueue<T>(fn: (token: CancellationToken) => Promise<T>, priority: number = 0): Promise<T> {
@@ -74,29 +75,32 @@ class RibixTaskQueueService extends Disposable implements IRibixTaskQueueService
 	}
 
 	cancelAll(): void {
-		// Cancel all pending tasks
+		// Cancel and reject all pending (queued but not started) tasks.
 		for (const task of this.queue) {
 			task.tokenSource.cancel();
 			task.reject(new Error('Task cancelled'));
 		}
 		this.queue = [];
 
-		// Cancel all running tasks
-		for (const _taskId of this.running) {
-			// Note: Running tasks can't be forcefully cancelled, but we cancel their tokens
+		// Signal cancellation to all running tasks via their CancellationToken.
+		// The executing fn is responsible for observing token.isCancellationRequested;
+		// we cannot force-terminate already-running async work, but the token gives
+		// them the cooperative cancellation signal.
+		for (const task of this.runningTasks.values()) {
+			task.tokenSource.cancel();
 		}
 
 		this._onDidChangeQueue.fire();
 	}
 
 	private async processQueue(): Promise<void> {
-		while (this.running.size < this.maxConcurrent && this.queue.length > 0) {
+		while (this.runningTasks.size < this.maxConcurrent && this.queue.length > 0) {
 			const task = this.queue.shift()!;
-			this.running.add(task.id);
+			this.runningTasks.set(task.id, task);
 			this._onDidChangeQueue.fire();
 
 			this.executeTask(task).finally(() => {
-				this.running.delete(task.id);
+				this.runningTasks.delete(task.id);
 				this._onDidChangeQueue.fire();
 				this.processQueue();
 			});

@@ -23,6 +23,8 @@ interface Lock {
 	agentId: string;
 	acquiredAt: number;
 	timeoutMs: number;
+	/** Re-entrancy refcount — same agent may acquire the same file multiple times. */
+	refCount: number;
 }
 
 class RibixFileLockService extends Disposable implements IRibixFileLockService {
@@ -44,24 +46,32 @@ class RibixFileLockService extends Disposable implements IRibixFileLockService {
 
 	async acquire(filePath: string, agentId: string): Promise<() => void> {
 		const normalizedPath = this.normalizePath(filePath);
-
-		// Check if already locked by another agent
 		const existingLock = this.locks.get(normalizedPath);
-		if (existingLock && existingLock.agentId !== agentId) {
-			// Queue the acquisition
-			return new Promise((resolve, reject) => {
-				const pending = this.pendingAcquisitions.get(normalizedPath) || [];
-				pending.push({ agentId, resolve: () => resolve(this.createReleaseFn(normalizedPath, agentId)), reject });
-				this.pendingAcquisitions.set(normalizedPath, pending);
-			});
+
+		if (existingLock) {
+			if (existingLock.agentId === agentId) {
+				// Re-entrant: same agent acquires again — bump refcount and return a
+				// release function that only deletes the lock when the count reaches zero.
+				existingLock.refCount++;
+				this._onDidChangeLocks.fire();
+				return this.createReleaseFn(normalizedPath, agentId);
+			} else {
+				// Different agent holds the lock — queue this acquisition.
+				return new Promise((resolve, reject) => {
+					const pending = this.pendingAcquisitions.get(normalizedPath) || [];
+					pending.push({ agentId, resolve: () => resolve(this.createReleaseFn(normalizedPath, agentId)), reject });
+					this.pendingAcquisitions.set(normalizedPath, pending);
+				});
+			}
 		}
 
-		// Acquire the lock
+		// No existing lock — acquire fresh.
 		this.locks.set(normalizedPath, {
 			filePath: normalizedPath,
 			agentId,
 			acquiredAt: Date.now(),
 			timeoutMs: this.lockTimeoutMs,
+			refCount: 1,
 		});
 		this._onDidChangeLocks.fire();
 
@@ -69,30 +79,46 @@ class RibixFileLockService extends Disposable implements IRibixFileLockService {
 	}
 
 	private createReleaseFn(filePath: string, agentId: string): () => void {
+		let released = false;
 		return () => {
+			if (released) { return; } // guard against double-release
 			const lock = this.locks.get(filePath);
-			if (lock && lock.agentId === agentId) {
-				this.locks.delete(filePath);
-				this._onDidChangeLocks.fire();
+			if (!lock || lock.agentId !== agentId) { return; }
 
-				// Process pending acquisitions
-				const pending = this.pendingAcquisitions.get(filePath);
-				if (pending && pending.length > 0) {
-					const next = pending.shift()!;
-					if (pending.length === 0) {
-						this.pendingAcquisitions.delete(filePath);
-					}
-					this.locks.set(filePath, {
-						filePath,
-						agentId: next.agentId,
-						acquiredAt: Date.now(),
-						timeoutMs: this.lockTimeoutMs,
-					});
-					this._onDidChangeLocks.fire();
-					next.resolve();
-				}
+			lock.refCount--;
+			if (lock.refCount > 0) {
+				// Still held by the same agent at an outer re-entrant level.
+				this._onDidChangeLocks.fire();
+				return;
 			}
+
+			released = true;
+			this.locks.delete(filePath);
+			this._onDidChangeLocks.fire();
+
+			// Hand off to the next waiter, if any.
+			this.processNextPending(filePath);
 		};
+	}
+
+	/** Assigns the lock to the next queued waiter, or clears the pending list. */
+	private processNextPending(filePath: string): void {
+		const pending = this.pendingAcquisitions.get(filePath);
+		if (!pending || pending.length === 0) { return; }
+
+		const next = pending.shift()!;
+		if (pending.length === 0) {
+			this.pendingAcquisitions.delete(filePath);
+		}
+		this.locks.set(filePath, {
+			filePath,
+			agentId: next.agentId,
+			acquiredAt: Date.now(),
+			timeoutMs: this.lockTimeoutMs,
+			refCount: 1,
+		});
+		this._onDidChangeLocks.fire();
+		next.resolve();
 	}
 
 	isLocked(filePath: string): boolean {
@@ -108,25 +134,19 @@ class RibixFileLockService extends Disposable implements IRibixFileLockService {
 		const now = Date.now();
 		for (const [filePath, lock] of this.locks.entries()) {
 			if (now - lock.acquiredAt > lock.timeoutMs) {
-				console.warn(`Lock expired for ${filePath} held by ${lock.agentId}`);
+				console.warn(`Lock expired for ${filePath} held by ${lock.agentId} (refCount=${lock.refCount})`);
 				this.locks.delete(filePath);
 				this._onDidChangeLocks.fire();
 
-				// Process pending acquisitions
+				// Reject all pending waiters for this path — the lock timed out while
+				// an agent was holding it, so we cannot safely hand it to a waiter.
+				// Each waiter should handle the rejection and retry if needed.
 				const pending = this.pendingAcquisitions.get(filePath);
 				if (pending && pending.length > 0) {
-					const next = pending.shift()!;
-					if (pending.length === 0) {
-						this.pendingAcquisitions.delete(filePath);
+					this.pendingAcquisitions.delete(filePath);
+					for (const waiter of pending) {
+						waiter.reject(new Error(`Lock on ${filePath} was force-expired (held by ${lock.agentId}); retry acquisition`));
 					}
-					this.locks.set(filePath, {
-						filePath,
-						agentId: next.agentId,
-						acquiredAt: Date.now(),
-						timeoutMs: this.lockTimeoutMs,
-					});
-					this._onDidChangeLocks.fire();
-					next.resolve();
 				}
 			}
 		}

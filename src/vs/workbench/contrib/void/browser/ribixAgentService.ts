@@ -63,6 +63,13 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 	/** Write tools that mutate files and require lock + checkpoint before execution. */
 	private static readonly WRITE_TOOLS = new Set(['rewrite_file', 'edit_file', 'create_file_or_folder', 'delete_file_or_folder']);
 
+	/**
+	 * Maximum number of completed/failed agents to retain in memory for UI queries.
+	 * Older entries beyond this cap are pruned once a new agent finishes. Active agents
+	 * (status 'idle'|'planning'|'executing'|'blocked') are never pruned.
+	 */
+	private static readonly MAX_COMPLETED_AGENTS = 50;
+
 	private agents: Map<string, AgentInstance> = new Map();
 	private executionStates: Map<string, AgentExecutionState> = new Map();
 
@@ -166,6 +173,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		// Fire completion so event-driven orchestration tears down its listener
 		// (otherwise an aborted agent orphans the per-agent completion listener).
 		this._onDidCompleteAgent.fire({ agentId: agent.id, status: 'failed' });
+		this.pruneCompletedAgents();
 	}
 
 	private budgetForType(type: AgentType): AgentLoopBudget {
@@ -576,6 +584,24 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		this._onDidChangeAgents.fire();
 		if (status === 'complete') {
 			this._onDidCompleteAgent.fire({ agentId: agent.id, status: 'complete' });
+			this.pruneCompletedAgents();
+		}
+	}
+
+	/**
+	 * Evicts oldest completed/failed agents once the cap is exceeded.
+	 * Active agents (idle/planning/executing/blocked) are never evicted.
+	 */
+	private pruneCompletedAgents(): void {
+		const terminal = Array.from(this.agents.values())
+			.filter(a => a.status === 'complete' || a.status === 'failed')
+			.sort((a, b) => (a.completedAt ?? 0) - (b.completedAt ?? 0));
+
+		const excess = terminal.length - RibixAgentService.MAX_COMPLETED_AGENTS;
+		if (excess <= 0) { return; }
+
+		for (let i = 0; i < excess; i++) {
+			this.agents.delete(terminal[i].id);
 		}
 	}
 
@@ -610,6 +636,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			this.addActivityLog(agent, 'Failed', errorMessage, null, null);
 			this._onDidChangeAgents.fire();
 			this._onDidCompleteAgent.fire({ agentId: agent.id, status: 'failed' });
+			this.pruneCompletedAgents();
 		}
 	}
 }
