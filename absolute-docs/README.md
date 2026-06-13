@@ -75,4 +75,25 @@ The strategic question — whether `ribix-vscode` (the extension) should eventua
 
 ---
 
+## Planned Detection Expansion
+
+The 10 categories below are tracked in VISION.md as unimplemented (`⬜`) across all surfaces. This section records what the ribix-ide multi-agent loop specifically contributes to each.
+
+| Category | IDE agent contribution |
+|---|---|
+| **Data loss risks** | Tester agent verifies destructive action confirmation flows: checks that delete/reset/overwrite mutations show confirmation dialogs, that form state survives navigation errors, and that failed mutations do not silently discard data. |
+| **Rate limit / quota blindness** | Tester agent stress-tests API endpoints for 429 handling: runs concurrent requests against rate-limited routes and asserts the app surfaces backoff behavior or a user-facing explanation rather than crashing. |
+| **Environment parity gaps** | Reviewer agent scans for hardcoded paths, version assumptions, and dev-only mocks that may have slipped to production paths. Checks that `.env.example` covers all variables consumed in code. |
+| **Third-party resilience** | Tester agent simulates external service unavailability by mocking Stripe, GitHub, and OpenAI as down and verifying the app degrades gracefully (fallback UI, queue behavior, error surfacing) rather than hanging or crashing. |
+| **Legal / compliance blockers** | Reviewer agent checks for required pages and disclosures: cookie consent, privacy policy, terms of service, GDPR data deletion flow, and unsubstantiated trust claims ("SOC 2", "enterprise-grade") that lack evidence. |
+| **Copy and terminology consistency** | Reviewer agent scans all user-facing string literals across the codebase, clusters by semantic similarity, and flags terminology conflicts — same concept named differently across surfaces (e.g. "workspace" vs "organization" vs "team"). |
+| **Observability gaps** | Reviewer agent checks logging patterns and error handling contracts: looks for swallowed errors, missing request IDs, `console.log` in production hot paths, and absence of health/readiness endpoints that include dependency status. |
+| **Day-2 failures** | Reviewer agent identifies unbounded data structures and missing cleanup: unbounded Maps/Sets/arrays, event listeners without removal, database queries without pagination, and missing index hints on frequent WHERE columns. |
+| **Technical reviewer test** | Reviewer agent flags structural code quality signals: god files (>500 lines, multiple responsibilities), circular dependencies, test suites that are 100% mocked, and inconsistent error handling contracts across the codebase. |
+| **Onboarding drop-off** | Browser agent runs the onboarding flow as multiple user personas: (a) user who skips all optional steps, (b) user returning after 3 days half-onboarded, (c) user with no prior context. Each persona run produces a finding set scoped to that path. |
+
+Each entry above has a corresponding GitHub issue in this repo tracking the IDE-specific implementation.
+
+---
+
 Confidential — Ribix Inc.

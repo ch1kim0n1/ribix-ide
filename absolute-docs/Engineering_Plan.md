@@ -30,6 +30,27 @@ Each engineering gap in this plan corresponds to one or more of the detection ca
 | Context attachment UI always submits empty context | **G-CONTEXT** (P1-3) | Logic flaws — "copy-paste bugs"; Code quality blockers — "stale documentation that contradicts current behavior" |
 | `determineSemverBump` hardcoded to `patch` | **G-SEMVER** (P2-1) | Code quality blockers — "version/CHANGELOG desyncs that mislabel releases" |
 
+### Phase 16+ — New Detection Categories
+
+*Added 2026-06-13. Authoritative category list: `VISION.md` Detection Category Ownership table.*
+
+These categories are currently `⬜ not yet` across all surfaces. The phases below are planned after P3. Each has a corresponding GitHub issue in this repo for the IDE-specific implementation work.
+
+| Phase | Category | Owning agent(s) | Depends on |
+|---|---|---|---|
+| 16 | Data loss risks | Tester | P0, P1 autonomous loop |
+| 17 | Day-2 failure patterns | Reviewer | P3-1 (read-only Reviewer allowlist) |
+| 18 | Technical reviewer test | Reviewer | P3-1 |
+| 19 | Onboarding drop-off patterns | Browser (Playwright via `ribixBrowserChannel`) | P0, P3-2 |
+| 20 | Copy and terminology consistency | Reviewer | P3-1 |
+| 21 | Third-party resilience simulation | Tester | P0, P1 |
+| 22 | Rate limit / quota blindness | Tester | P0, P1 |
+| 23 | Environment parity gaps | Reviewer | P3-1 |
+| 24 | Legal / compliance blockers | Reviewer | P3-1 |
+| 25 | Observability gaps | Reviewer | P3-1 |
+
+Phase numbering is notional. All Phase 16+ items are blocked on P0 (functioning multi-turn loop) and P3-1 (per-agent tool allowlists and tightened prompts). The Reviewer-only categories (17, 18, 20, 23, 24, 25) can proceed once P3-1 lands and the read-only allowlist is enforced. The Tester and Browser categories (16, 19, 21, 22) require P1 (auto-trigger) to be useful in practice.
+
 ### P0/P1 Gap Status
 
 | Gap | Fixed? | Notes |
