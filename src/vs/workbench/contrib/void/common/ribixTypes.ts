@@ -36,7 +36,7 @@ export type MissionState =
 	| 'aborted'
 	| 'failed'
 
-export type AgentType = 'planner' | 'coder' | 'tester' | 'debugger' | 'reviewer' | 'docs' | 'release'
+export type AgentType = 'planner' | 'coder' | 'tester' | 'debugger' | 'reviewer' | 'docs' | 'release' | 'onboarding-persona'
 
 export type AgentStatus = 'idle' | 'planning' | 'executing' | 'blocked' | 'complete' | 'failed'
 
@@ -100,11 +100,41 @@ export type AgentOutput = {
 	rawFinalMessage: string                  // model's last assistant turn, for debugging
 }
 
+/** Finding category used by reviewer and tester agents to classify issues. */
+export type AgentFindingType =
+	| 'data-loss-risk'
+	| 'rate-limit-blind'
+	| 'env-parity'
+	| 'third-party-resilience'
+	| 'legal-compliance'
+	| 'copy-consistency'
+	| 'observability-gap'
+	| 'day-2-failure'
+	| 'code-architecture'
+	| 'onboarding-drop-off'
+
+/** Human-readable description for each AgentFindingType category. */
+export type DetectionCategory = Record<AgentFindingType, string>
+
+export const DETECTION_CATEGORY_DESCRIPTIONS: DetectionCategory = {
+	'data-loss-risk': 'Destructive actions without confirmation, silent mutation failures, or missing rollback on optimistic UI',
+	'rate-limit-blind': 'No handling of 429 responses, missing quota proximity warnings, or ignored retry-after headers',
+	'env-parity': 'OS-specific paths, missing .env.example entries, absent Node version constraints, or dev stubs leaking to production',
+	'third-party-resilience': 'External service failures that are unhandled, missing timeout logic, or non-critical failures breaking core flows',
+	'legal-compliance': 'Missing privacy or terms routes, cookie consent gaps, or unsubstantiated compliance claims in copy',
+	'copy-consistency': 'Inconsistent terminology for the same concept, labels that contradict their action, or error messages in a different voice',
+	'observability-gap': 'Empty catch blocks, swallowed errors without logging, missing request ID propagation, or console.log in production paths',
+	'day-2-failure': 'Unbounded in-memory accumulators, event listener leaks, missing interval cleanup, unbounded DB queries, or log rotation gaps',
+	'code-architecture': 'God files, circular imports, all-mock test suites, mixed error contracts within a module, or magic literals',
+	'onboarding-drop-off': 'Flows that confuse non-technical users, missing next-step guidance, or unactionable error messages during setup',
+}
+
 export type AgentFinding = {
 	severity: RiskLevel
 	file: string
 	line: number | null
 	message: string
+	findingType?: AgentFindingType
 }
 
 export type AgentInstance = {
