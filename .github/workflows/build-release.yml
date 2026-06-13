@@ -12,6 +12,8 @@ jobs:
     strategy:
       matrix:
         arch: [arm64, x64]
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v5
 
@@ -25,6 +27,9 @@ jobs:
 
       - name: Build React components
         run: npm run buildreact
+
+      - name: Clean incremental build state
+        run: find . -name '*.tsbuildinfo' -delete || true
 
       - name: Build macOS app (${{ matrix.arch }})
         run: node ./node_modules/gulp/bin/gulp.js vscode-darwin-${{ matrix.arch }}-min
@@ -52,6 +57,8 @@ jobs:
   build-linux:
     name: Build Linux (x64)
     runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v5
 
@@ -76,6 +83,9 @@ jobs:
       - name: Build React components
         run: npm run buildreact
 
+      - name: Clean incremental build state
+        run: find . -name '*.tsbuildinfo' -delete || true
+
       - name: Build Linux app
         run: node ./node_modules/gulp/bin/gulp.js vscode-linux-x64-min
         timeout-minutes: 30
@@ -89,5 +99,50 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/RibixIDE-linux-x64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    name: Build Windows (x64)
+    runs-on: windows-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.18.2'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build React components
+        run: npm run buildreact
+
+      - name: Clean incremental build state
+        run: Get-ChildItem -Recurse -Filter '*.tsbuildinfo' | Remove-Item -Force -ErrorAction SilentlyContinue
+        shell: pwsh
+
+      - name: Build Windows app (x64)
+        run: node ./node_modules/gulp/bin/gulp.js vscode-win32-x64-min
+        timeout-minutes: 45
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package as zip
+        run: |
+          mkdir -p dist
+          Compress-Archive -Path ..\VSCode-win32-x64 -DestinationPath dist\RibixIDE-win32-x64.zip
+        shell: pwsh
+
+      # TODO: Code signing for Windows requires a certificate secret (e.g. WINDOWS_CERTIFICATE_PFX).
+      # Add signing step here once secrets are configured.
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/RibixIDE-win32-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

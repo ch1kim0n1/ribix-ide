@@ -2,8 +2,10 @@ name: Issue Triage to Wiki
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 */6 * * *'    # every 6 hrs (UTC)
+  # Schedule disabled — requires WIKI_TOKEN and OPENAI_API_KEY secrets to be configured.
+  # Re-enable by uncommenting once secrets are set in repo Settings > Secrets and variables.
+  # schedule:
+  #   - cron: '0 */6 * * *'    # every 6 hrs (UTC)
 
 jobs:
   roadmap:

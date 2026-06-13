@@ -1,155 +1,103 @@
-# Contributing to Void
-### Welcome! 👋
-This is the official guide on how to contribute to Void. We want to make it as easy as possible to contribute, so if you have any questions or comments, reach out via email or discord!
+# Contributing to Ribix IDE
 
-There are a few ways to contribute:
+Welcome! Ribix IDE is a VS Code fork that adds agentic engineering intelligence — a Command Center, mission lifecycle, and AI-driven code analysis — on top of the VS Code base. This guide covers everything you need to start contributing.
 
-- 💫 Complete items on the [Roadmap](https://github.com/orgs/voideditor/projects/2).
-- 💡 Make suggestions in our [Discord](https://discord.gg/RSNjgaugJs).
-- 🪴 Start new Issues - see [Issues](https://github.com/voideditor/void/issues).
+---
 
+## Ways to Contribute
 
+- Fix open issues: https://github.com/ch1kim0n1/ribix-ide/issues
+- Propose features or report bugs by opening a new issue: https://github.com/ch1kim0n1/ribix-ide/issues/new
+- Improve documentation
 
-### Codebase Guide
+---
 
-We [highly recommend reading this](https://github.com/voideditor/void/blob/main/VOID_CODEBASE_GUIDE.md) guide that we put together on Void's sourcecode if you'd like to add new features.
+## Branch Naming
 
-The repo is not as intimidating as it first seems if you read the guide!
-
-Most of Void's code lives in the folder `src/vs/workbench/contrib/void/`.
-
-
-
-## Editing Void's Code
-
-If you're making changes to Void's code as a contributor, you'll want to run a local version of Void to make sure your changes worked. Developer mode lets you do this. Here's how to use it.
-
-### a. Mac - Prerequisites
-
-If you're using a Mac, you need Python and XCode. You probably have these by default.
-
-### b. Windows - Prerequisites
-
-If you're using a Windows computer, first get [Visual Studio 2022](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community) (recommended) or [VS Build Tools](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=BuildTools) (not recommended). If you already have both, you might need to run the next few steps on both of them.
-
-Go to the "Workloads" tab and select:
-- `Desktop development with C++`
-- `Node.js build tools`
-
-Go to the "Individual Components" tab and select:
-- `MSVC v143 - VS 2022 C++ x64/x86 Spectre-mitigated libs (Latest)`
-- `C++ ATL for latest build tools with Spectre Mitigations`
-- `C++ MFC for latest build tools with Spectre Mitigations`
-
-Finally, click Install.
-
-### c. Linux - Prerequisites
-
-First, run `npm install -g node-gyp`. Then:
-
-- Debian (Ubuntu, etc): `sudo apt-get install build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3`.
-- Red Hat (Fedora, etc): `sudo dnf install @development-tools gcc gcc-c++ make libsecret-devel krb5-devel libX11-devel libxkbfile-devel`.
-- SUSE (openSUSE, etc): `sudo zypper install patterns-devel-C-C++-devel_C_C++  krb5-devel libsecret-devel libxkbfile-devel libX11-devel`.
-- Others: see [How to Contribute](https://github.com/microsoft/vscode/wiki/How-to-Contribute).
-
-### Developer Mode Instructions
-
-Here's how to start changing Void's code. These steps cover everything from cloning Void, to opening a Developer Mode window where you can play around with your updates.
-
-1. `git clone https://github.com/voideditor/void` to clone the repo.
-2. `npm install` to install all dependencies.
-3. Open Void or VSCode, and initialize Developer Mode (this can take ~5 min to finish, it's done when 2 of the 3 spinners turn to check marks):
-   - Windows: Press <kbd>Ctrl+Shift+B</kbd>.
-   - Mac: Press <kbd>Cmd+Shift+B</kbd>.
-   - Linux: Press <kbd>Ctrl+Shift+B</kbd>.
-4. Open the Void Developer Mode window:
-   - Windows: `./scripts/code.bat`.
-   - Mac: `./scripts/code.sh`.
-   - Linux: `./scripts/code.sh`.
-5. You're good to start editing Void's code! 
-   - You won't see your changes unless you press <kbd>Ctrl+R</kbd> (<kbd>Cmd+R</kbd>) inside the new window to reload. Alternatively, press <kbd>Ctrl+Shift+P</kbd> and `Reload Window`.
-   - You might want to add the flags `--user-data-dir ./.tmp/user-data --extensions-dir ./.tmp/extensions` to the command in step 4, which lets you reset any IDE changes you made by deleting the `.tmp` folder.
-	- You can kill any of the build scripts by pressing `Ctrl+D` in its terminal. If you press `Ctrl+C` the script will close but will keep running in the background.
-
-If you get any errors, scroll down for common fixes.
-
-#### Common Fixes
-
-- Make sure you followed the prerequisite steps above.
-- Make sure you have Node version `20.18.2` (the version in `.nvmrc`).
-    - You can do this without changing your global Node version using [nvm](https://github.com/nvm-sh/nvm): run `nvm install`, followed by `nvm use` to install the version in `.nvmrc` locally.
-- Make sure the path to your Void folder does not have any spaces in it.
-- If you get `"TypeError: Failed to fetch dynamically imported module"`, make sure all imports end with `.js`.
-- If you get an error with React, try running `NODE_OPTIONS="--max-old-space-size=8192" npm run buildreact`.
-- If you see missing styles, wait a few seconds and then reload.
-- If you get errors like `npm error libtool:   error: unrecognised option: '-static'`,  when running ./scripts/code.sh, make sure you have GNU libtool instead of BSD libtool (BSD is the default in macos)
-- If you get errors like `The SUID sandbox helper binary was found, but is not configured correctly` when running ./scripts/code.sh, run
-`sudo chown root:root .build/electron/chrome-sandbox && sudo chmod 4755 .build/electron/chrome-sandbox` and then run `./scripts/code.sh` again.
-- If you have any other questions, feel free to [submit an issue](https://github.com/voideditor/void/issues/new). You can also refer to VSCode's complete [How to Contribute](https://github.com/microsoft/vscode/wiki/How-to-Contribute) page.
-
-
-
-#### Building Void from Terminal
-
-To build Void from the terminal instead of from inside VSCode, follow the steps above, but instead of pressing <kbd>Cmd+Shift+B</kbd>, run `npm run watch`. The build is done when you see something like this:
+Use descriptive prefixes:
 
 ```
-[watch-extensions] [00:37:39] Finished compilation extensions with 0 errors after 19303 ms
-[watch-client    ] [00:38:06] Finished compilation with 0 errors after 46248 ms
-[watch-client    ] [00:38:07] Starting compilation...
-[watch-client    ] [00:38:07] Finished compilation with 0 errors after 5 ms
+fix/<short-description>        # bug fixes
+feat/<short-description>       # new features
+docs/<short-description>       # documentation only
+chore/<short-description>      # tooling, deps, config
 ```
 
+Example: `fix/posthog-key-fallback`, `feat/mission-retry-ui`
 
+---
 
-### Distributing
-Void's maintainers distribute Void on our website and in releases. Our build pipeline is a fork of VSCodium, and it works by running GitHub Actions which create the downloadables. The build repo with more instructions lives [here](https://github.com/voideditor/void-builder).
+## Fork and Setup
 
-If you want to completely control Void's build pipeline for your own internal usage, which comes with a lot of time cost (and is typically not recommended), see our [`void-builder`](https://github.com/voideditor/void-builder) repo which builds Void and contains a few important notes about auto-updating and rebasing.
+1. Fork the repo on GitHub, then clone your fork:
+   ```
+   git clone https://github.com/<your-username>/ribix-ide.git
+   cd ribix-ide
+   ```
 
+2. Install dependencies (Node 20.18.2 required — see `.nvmrc`):
+   ```
+   npm install
+   ```
 
-#### Building a Local Executible
-We don't usually recommend building a local executible of Void - typically you should follow the steps above to distribute a complete executible with the advantages of VSCodium baked-in, or you should just use Developer Mode to run Void locally which is much faster. If you're certain this is what you want, see details below.
+3. Build the React sidebar components:
+   ```
+   npm run buildreact
+   ```
 
-<details>
-	<summary> Building Locally (not recommended)</summary>
-If you're certain you want to build a local executible of Void, follow these steps. It can take ~25 minutes.
+4. Open the repo in VS Code or Ribix IDE itself and start the watch build:
+   - Press `Ctrl+Shift+B` (Windows/Linux) or `Cmd+Shift+B` (macOS)
+   - Wait for all three spinners to complete (roughly 5 minutes on first run)
 
-Make sure you've already entered Developer Mode with Void first, then run one of the following commands. This will create a folder named `VSCode-darwin-arm64` or similar outside of the void/ repo (see below). 
+5. Launch a Developer Mode window:
+   - macOS/Linux: `./scripts/code.sh`
+   - Windows: `./scripts/code.bat`
 
+6. Reload the window after any code change with `Ctrl+R` / `Cmd+R`.
 
-##### Mac
-- `npm run gulp vscode-darwin-arm64` - most common (Apple Silicon)
-- `npm run gulp vscode-darwin-x64` (Intel)
+### Platform Prerequisites
 
-##### Windows
-- `npm run gulp vscode-win32-x64` - most common
-- `npm run gulp vscode-win32-arm64`
+**macOS:** Python and Xcode Command Line Tools (usually pre-installed).
 
-##### Linux
-- `npm run gulp vscode-linux-x64` - most common
-- `npm run gulp vscode-linux-arm64`
+**Windows:** Install [Visual Studio 2022 Community](https://visualstudio.microsoft.com/) with these workloads:
+- Desktop development with C++
+- Node.js build tools
 
+Also select from Individual Components:
+- MSVC v143 x64/x86 Spectre-mitigated libs (Latest)
+- C++ ATL for latest build tools with Spectre Mitigations
+- C++ MFC for latest build tools with Spectre Mitigations
 
-##### Local Executible Output
-
-The local executible will be located in a folder outside of `void/`:
-```bash
-workspace/
-├── void/   # Your Void fork
-└── VSCode-darwin-arm64/ # Generated output
+**Linux (Debian/Ubuntu):**
+```
+sudo apt-get install build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3
 ```
 
-</details>
+---
 
+## Where Ribix Code Lives
 
-## Pull Request Guidelines
+Ribix-specific code is under `src/vs/workbench/contrib/void/`. See `CODEBASE_GUIDE.md` for a full architectural overview.
 
+Key areas:
+- `browser/` — UI components (runs in Electron renderer process)
+- `electron-main/` — backend services, metrics, update checks (runs in Node/main process)
+- `common/` — shared logic accessible from both processes
 
-- Please submit a pull request once you've made a change.
-- No need to submit an Issue unless you're creating a new feature that might involve multiple PRs.
-- Please don't use AI to write your PR 🙂
+---
 
+## Submitting a PR
 
+1. Create a branch from `main` using the naming convention above
+2. Make your changes; keep commits focused
+3. Push to your fork and open a PR against `ch1kim0n1/ribix-ide` `main`
+4. Describe what you changed and why in the PR body
+5. Link the issue your PR addresses (e.g. `Fixes #12`)
 
+---
 
+## Getting Help
+
+Open an issue: https://github.com/ch1kim0n1/ribix-ide/issues
+
+For VS Code internals not covered here, Microsoft's [How to Contribute](https://github.com/microsoft/vscode/wiki/How-to-Contribute) wiki is a useful reference.

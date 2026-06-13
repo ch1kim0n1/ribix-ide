@@ -5,8 +5,8 @@
 	"dataFolderName": ".ribix-ide",
 	"win32MutexName": "ribix-ide",
 	"licenseName": "MIT",
-	"licenseUrl": "https://github.com/ribix/ribix-ide/blob/main/LICENSE.txt",
-	"serverLicenseUrl": "https://github.com/ribix/ribix-ide/blob/main/LICENSE.txt",
+	"licenseUrl": "https://github.com/ch1kim0n1/ribix-ide/blob/main/LICENSE.txt",
+	"serverLicenseUrl": "https://github.com/ch1kim0n1/ribix-ide/blob/main/LICENSE.txt",
 	"serverGreeting": [],
 	"serverLicense": [],
 	"serverLicensePrompt": "",
@@ -16,10 +16,10 @@
 	"win32DirName": "RibixIDE",
 	"win32NameVersion": "Ribix IDE",
 	"win32RegValueName": "RibixIDE",
-	"win32x64AppId": "{{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}}",
-	"win32arm64AppId": "{{B2C3D4E5-F6A7-8901-BCDE-F12345678901}}",
-	"win32x64UserAppId": "{{C3D4E5F6-A7B8-9012-CDEF-123456789012}}",
-	"win32arm64UserAppId": "{{D4E5F6A7-B8C9-0123-DEF0-234567890123}}",
+	"win32x64AppId": "{{E41B42A1-7692-4279-ADF4-B5765AF722CB}}",
+	"win32arm64AppId": "{{D6DA1788-4918-4F7D-9B53-DC13B02A8B92}}",
+	"win32x64UserAppId": "{{BB079031-A74E-40AE-8E30-3AF1E7400D04}}",
+	"win32arm64UserAppId": "{{67D30EA0-B4E5-4120-8BD8-88BC725AA2C7}}",
 	"win32AppUserModelId": "Ribix.IDE",
 	"win32ShellNameShort": "R&ibix",
 	"win32TunnelServiceMutex": "ribix-ide-tunnelservice",
@@ -27,7 +27,7 @@
 	"darwinBundleIdentifier": "dev.ribix.ide",
 	"linuxIconName": "ribix-ide",
 	"licenseFileName": "LICENSE.txt",
-	"reportIssueUrl": "https://github.com/ribix/ribix-ide/issues/new",
+	"reportIssueUrl": "https://github.com/ch1kim0n1/ribix-ide/issues/new",
 	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "ribix-ide",
 	"extensionsGallery": {
@@ -37,9 +37,10 @@
 	"builtInExtensions": [],
 	"linkProtectionTrustedDomains": [
 		"https://ribix.dev",
-		"https://github.com/ribix/ribix-ide",
+		"https://github.com/ch1kim0n1/ribix-ide",
 		"https://ollama.com"
 	],
 	"ribixVersion": "1.0.0",
-	"ribixRelease": "0001"
+	"ribixRelease": "0001",
+	"_telemetryNote": "Set the RIBIX_POSTHOG_KEY build secret (GitHub Actions > Settings > Secrets and variables > Actions) to enable product analytics. When the secret is absent, the PostHog client initialises with a disabled placeholder key and no events are sent."
 }
