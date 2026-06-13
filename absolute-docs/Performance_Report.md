@@ -1,8 +1,23 @@
 # Ribix IDE — Performance Report
 
-**Date:** 2026-06-09
+**Date:** 2026-06-09 (updated 2026-06-13)
 **Phase:** 14 — E2E Testing & Hardening
-**Status:** Documentation Phase — Targets Defined, Profiling Methodology Documented
+**Status:** Targets defined. Zero measurements taken. No testable binary produced.
+
+---
+
+## Current Status
+
+*Added 2026-06-13.*
+
+All performance targets below are defined but none have been measured. There are no actual numbers in this document.
+
+Reasons:
+
+1. No testable binary exists. The build pipeline was recently fixed but has not produced a distributed build.
+2. Several targets (rollback, agent activity feed) require the autonomous agent loop to be functional. The loop is currently one-shot (G-LOOP); missions also corrupt on restart (G-PERSIST). Meaningful performance measurement of these operations depends on P0 landing first.
+
+Until a working binary is available and P0 gaps are resolved, all targets in the table below should be read as **design targets, not validated numbers.** Do not cite them as performance characteristics of the current product.
 
 ---
 
@@ -12,11 +27,11 @@ This report defines the performance targets for Ribix IDE and documents the meth
 
 | Operation | Target | Measurement Method | Status |
 |---|---|---|---|
-| Planning call (outcome → task graph) | < 30 seconds | Time from "Plan This" click to plan render | ⏳ Pending |
-| Command Center panel open | < 200ms | Time from Activity Bar click to panel render | ⏳ Pending |
-| Agent activity feed update latency | < 500ms | Time from agent state change to UI update | ⏳ Pending |
-| Mission rollback (10 files) | < 3 seconds | Time from abort click to all files restored | ⏳ Pending |
-| Memory search (1000 entries) | < 100ms | Time from search query to results display | ⏳ Pending |
+| Planning call (outcome → task graph) | < 30 seconds | Time from "Plan This" click to plan render | Pending measurement |
+| Command Center panel open | < 200ms | Time from Activity Bar click to panel render | Pending measurement |
+| Agent activity feed update latency | < 500ms | Time from agent state change to UI update | Pending measurement |
+| Mission rollback (10 files) | < 3 seconds | Time from abort click to all files restored | Pending measurement |
+| Memory search (1000 entries) | < 100ms | Time from search query to results display | Pending measurement |
 
 ---
 
@@ -253,16 +268,20 @@ For React-specific profiling:
 
 ---
 
-## Current Status
+## Methodology Status
 
-As of Phase 14 (Documentation Phase), the following has been completed:
+As of Phase 14 (documentation phase), the following have been completed:
 
-- ✅ Performance targets defined
-- ✅ Profiling methodology documented
-- ✅ Test data generation scripts outlined
-- ✅ Profiling tools identified
-- ⏳ Actual profiling measurements pending
-- ⏳ Optimization recommendations pending measurements
+- Performance targets defined
+- Profiling methodology documented
+- Test data generation scripts outlined
+- Profiling tools identified
+
+The following remain entirely pending (no binary, no measurements):
+
+- Actual profiling measurements
+- Comparison of actuals to targets
+- Optimization recommendations
 
 ---
 

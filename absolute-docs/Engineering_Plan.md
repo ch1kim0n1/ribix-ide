@@ -4,6 +4,55 @@
 **Version:** 2.0 (forward-looking rewrite)
 **Status:** Alpha scaffold landed; **core autonomous loop NOT yet functional.** The Command Center UI, mission lifecycle, multi-agent orchestration scaffolding, OAuth, API client, checkpoints, and file locking are wired and demoable. However, the agent runtime is **one-shot, not agentic**, mission **persistence corrupts** after any agent run, inter-agent handoff is **cosmetic**, and there is **no auto-on-change trigger** — so the product's defining behavior (autonomous QA on every change) does not yet run. This plan is the remediation roadmap, not a completion report.
 
+---
+
+## Product Vision Alignment
+
+*Added 2026-06-13. Authoritative vision: `VISION.md` in the root ribix-stuff repo.*
+
+### What the IDE Is For
+
+Ribix's mission is to act as a tireless, skeptical first user: it runs the software, observes what breaks, and tells founders and solo developers exactly what blocks shipping. The IDE surface is where this mission runs most deeply — it operates inside the tool where the developer is actively making changes, can fire automatically on every save or commit, and has direct access to the file system, test runner, and browser automation layer.
+
+The IDE's unique contribution to the Ribix surface architecture is the **autonomous multi-agent loop**: Planner → Coder → Tester → Reviewer → Release, running unsupervised on the changed chunk of every commit or save. That loop is the reason the IDE exists as a fork instead of an extension.
+
+### Gap-to-Vision-Category Mapping
+
+Each engineering gap in this plan corresponds to one or more of the detection categories in VISION.md:
+
+| Gap | Engineering Plan ID | VISION.md Category |
+|---|---|---|
+| Agents are one-shot; tool results not fed back | **G-LOOP** (P0-1) | Bugs and instability — "logic flaws buried under happy-path tests"; Shippability blockers — "CI that exits 0 while running 1% of the test suite" |
+| Mission persistence corrupts after any agent run | **G-PERSIST** (P0-2) | Shippability blockers — "P0 fixes sitting on a feature branch, never merged"; Bugs and instability — "behavior that diverges between environments" |
+| Inter-agent handoff passes last log line, not structured output | **G-HANDOFF** (P0-3) | Logic flaws — "state machines with unreachable or corrupted states" |
+| `setInterval` completion polling instead of events | **G-POLL** (P0-4) | Token and cost issues — "agent loops that don't terminate cleanly" |
+| No on-change trigger; all missions are manual | **G-AUTOTRIGGER** (P1-1/P1-2/P1-3/P1-4) | Shippability blockers — "build pipeline that produces zero artifacts" (the autonomous loop is the core deliverable) |
+| Context attachment UI always submits empty context | **G-CONTEXT** (P1-3) | Logic flaws — "copy-paste bugs"; Code quality blockers — "stale documentation that contradicts current behavior" |
+| `determineSemverBump` hardcoded to `patch` | **G-SEMVER** (P2-1) | Code quality blockers — "version/CHANGELOG desyncs that mislabel releases" |
+
+### P0/P1 Gap Status
+
+| Gap | Fixed? | Notes |
+|---|---|---|
+| G-LOOP | No | Still one-shot as of 2026-06-13. P0-1 not yet landed. |
+| G-PERSIST | No | Mission store still corrupts. P0-2 not yet landed. |
+| G-HANDOFF | No | P0-3 not yet landed. |
+| G-POLL | No | P0-4 not yet landed. |
+| G-AUTOTRIGGER | No | No watcher service exists. P1 depends on P0. |
+| G-CONTEXT | No | `ribixMissionService.ts:145-150` still submits empty context. |
+| G-SEMVER | No | Hardcoded `return 'patch'` still present. |
+| CI build pipeline | Fixed (recent commit) | `build-release.yml` now uses correct gulp tasks. No distributed binaries produced yet. |
+
+### Additional Gaps Not Covered by the Original Gap Table
+
+**Context attachment UI missing (not yet in the gap table).** The mission panel in `ribixMissionsPanel.tsx` always submits empty `attachedFiles`, `selections`, and `notes` to `submitForPlanning` (`ribixMissionService.ts:145-150`). The UI for attaching context exists visually but does not wire its state through to the service call. This means the planner never has codebase context, which degrades plan quality for all missions. This should be tracked alongside G-CONTEXT and addressed in P1-3.
+
+**E2E tests: all Pending.** Every scenario across all 13 phases in `E2E_QA_Checklist.md` and `E2E_Test_Results.md` is Pending. No testable binary has been produced. Phase 14 is not in progress; it is blocked on a working build pipeline and a functioning P0 runtime. Marking Phase 14 as the next step is premature until P0 and P1 land.
+
+**Memory storage is IStorageService, not SQLite.** `Release_Notes.md` describes "SQLite-backed memory storage." The actual implementation uses VS Code's `IStorageService` (`ribixMemoryService.ts` via `StorageScope.WORKSPACE`/`StorageScope.PROFILE`). `IStorageService` in Electron persists to an SQLite file under the hood at the platform layer, but the code does not use SQLite directly and does not own the storage path or schema. Claims about "SQLite" as a deliberate implementation choice are inaccurate.
+
+---
+
 **Base:** Void editor fork (forks Code-OSS 1.99.3) — `ribix-ide/`. ~6000 base files; Ribix adds ~49 files / ~6k LOC, cleanly namespaced under `src/vs/workbench/contrib/void/{browser,common,electron-main}/ribix*` plus React UI under `react/src/command-center-tsx/`.
 
 **Goal of this repo (`ribix-ide`):** Be the desktop IDE surface of Ribix — an autonomous AI QA Engineer. The system's core loop is **IDENTIFY → DOCUMENT → SOLVE (real PR)** plus a UI/UX vision pass. It must run **unsupervised**: automatically on the changed chunk per commit/save, *or* on explicit user demand.

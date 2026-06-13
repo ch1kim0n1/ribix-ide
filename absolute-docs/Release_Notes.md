@@ -351,3 +351,31 @@ This is an alpha release for internal testing. Please provide feedback via:
 ---
 
 **Thank you for testing Ribix IDE Alpha!**
+
+---
+
+## Corrections
+
+*Added 2026-06-13. These correct factual errors in the release notes above.*
+
+### "SQLite-backed memory storage" is wrong
+
+The "Memory Infrastructure (Phase 2)" section states: "Persistent Memory: SQLite-backed memory storage surviving session restarts."
+
+The actual implementation uses VS Code's `IStorageService` with `StorageScope.WORKSPACE` and `StorageTarget.USER` (see `ribixMemoryService.ts`). The code does not use SQLite directly, does not import a SQLite driver, and does not own the storage path or schema. At the Electron platform layer, `IStorageService` happens to persist to a platform-managed SQLite file — but this is an implementation detail of the VS Code platform, not a deliberate choice made in ribix-ide code. The memory service has no direct SQLite dependency and cannot make guarantees about the storage format.
+
+The correct description: persistent memory backed by `IStorageService` (VS Code workspace/profile storage), which survives session restarts.
+
+The "Troubleshooting" entry "Issue: Memory not persisting — Check SQLite database permissions" is also inaccurate for the same reason. The correct diagnostic is to check `IStorageService` workspace storage state, not a SQLite file path.
+
+### "Completed Phases 0–13" is aspirational, not verified
+
+The "Completed Phases" section marks all phases 0–13 with a checkmark. This reflects that the code for each phase was written, not that each phase was validated end-to-end.
+
+Current actual status:
+
+- All 119 E2E scenarios across all phases in `E2E_Test_Results.md` remain **Pending**.
+- No testable binary has been produced from the build pipeline.
+- The core autonomous loop (agents iterating, missions persisting across restarts, auto-trigger on save) does not yet function. See `Engineering_Plan.md` for the full gap list.
+
+Phases 0–13 are better described as: scaffold landed, not validated. The Engineering Plan (version 2.0, 2026-06-12) was written specifically because the marked-complete scaffold does not yet deliver the product's defining behavior.
