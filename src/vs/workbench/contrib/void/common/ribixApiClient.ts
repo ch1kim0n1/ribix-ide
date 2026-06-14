@@ -119,6 +119,7 @@ export class RibixApiClient {
 		repoFullName: string,
 		onFinding: (finding: import('./ribixAuthTypes.js').CloudFinding) => void,
 		onError?: (error: Error) => void,
+		onEvent?: (type: string, payload: unknown) => void,
 	): () => void {
 		const controller = new AbortController();
 		const url = `${config.apiUrl.replace(/\/$/, '')}/cli/findings/stream?repoFullName=${encodeURIComponent(repoFullName)}`;
@@ -155,17 +156,36 @@ export class RibixApiClient {
 					const lines = buffer.split('\n');
 					buffer = lines.pop() ?? '';
 
+					let eventType = '';
 					let eventData = '';
 					for (const line of lines) {
-						if (line.startsWith('data:')) {
+						if (line.startsWith('event:')) {
+							eventType = line.slice(6).trim();
+						} else if (line.startsWith('data:')) {
 							eventData += line.slice(5).trim();
 						} else if (line === '' && eventData) {
 							try {
-								const finding = JSON.parse(eventData) as import('./ribixAuthTypes.js').CloudFinding;
-								onFinding(finding);
+								const parsed = JSON.parse(eventData);
+								// Dispatch to typed onEvent callback if provided
+								if (onEvent && eventType) {
+									onEvent(eventType, parsed);
+								}
+								// Legacy onFinding callback: only for agent:run:started events
+								// carrying a finding in data.finding (the shape used by submit broadcast)
+								if (
+									!eventType ||
+									eventType === 'agent:run:started' ||
+									eventType === 'connected'
+								) {
+									const finding = parsed as import('./ribixAuthTypes.js').CloudFinding;
+									if (finding && typeof finding.id === 'string') {
+										onFinding(finding);
+									}
+								}
 							} catch {
 								// Malformed SSE event — skip
 							}
+							eventType = '';
 							eventData = '';
 						}
 					}

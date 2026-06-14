@@ -15,6 +15,7 @@ import { IVoidSCMService } from '../common/voidSCMTypes.js';
 import { RibixApiClient } from '../common/ribixApiClient.js';
 import { CloudFinding } from '../common/ribixAuthTypes.js';
 import { AgentFinding, AgentFindingType } from '../common/ribixTypes.js';
+import { IRibixMissionService } from './ribixMissionService.js';
 
 /**
  * An IDE finding enriched with an origin badge so the UI can distinguish
@@ -67,6 +68,7 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 		@IMainProcessService mainProcessService: IMainProcessService,
 		@IRibixAuthService private readonly authService: IRibixAuthService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
+		@IRibixMissionService private readonly missionService: IRibixMissionService,
 	) {
 		super();
 		this._register(this._onDidReceiveCloudFinding);
@@ -143,6 +145,9 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 				this.cancelStream = null;
 				this.currentRepoFullName = null;
 			},
+			(type: string, payload: unknown) => {
+				this.handleSseEvent(type, payload);
+			},
 		);
 	}
 
@@ -218,6 +223,40 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 			origin: 'cloud',
 			cloudId: cf.id,
 		};
+	}
+
+	/**
+	 * Dispatch typed SSE events received from the findings stream.
+	 * Handles finding:approved and finding:rejected to update mission state.
+	 */
+	private handleSseEvent(type: string, payload: unknown): void {
+		if (typeof payload !== 'object' || payload === null) { return; }
+		const data = (payload as { data?: unknown }).data;
+		if (typeof data !== 'object' || data === null) { return; }
+		const d = data as Record<string, unknown>;
+
+		switch (type) {
+			case 'finding:approved': {
+				const missionId = typeof d.missionId === 'string' ? d.missionId : null;
+				const findingId = typeof d.findingId === 'string' ? d.findingId : null;
+				const prUrl = typeof d.prUrl === 'string' ? d.prUrl : null;
+				if (missionId && findingId) {
+					this.missionService.onFindingApproved(missionId, findingId, prUrl);
+				}
+				break;
+			}
+			case 'finding:rejected': {
+				const missionId = typeof d.missionId === 'string' ? d.missionId : null;
+				const findingId = typeof d.findingId === 'string' ? d.findingId : null;
+				const reason = typeof d.reason === 'string' ? d.reason : null;
+				if (missionId && findingId) {
+					this.missionService.onFindingRejected(missionId, findingId, reason);
+				}
+				break;
+			}
+			default:
+				break;
+		}
 	}
 }
 
