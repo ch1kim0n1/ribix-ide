@@ -113,6 +113,9 @@ export interface SubmitFindingsRequest {
 
 export interface SubmitFindingsResponse {
 	submitted: number;
+	duplicates: number;
+	findingIds: string[];
+	duplicateOf: Array<{ submittedTitle: string; existingFindingId: string }>;
 }
 
 /** Shape received from the /cli/findings/stream SSE endpoint */

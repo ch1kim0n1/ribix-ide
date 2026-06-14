@@ -9,6 +9,7 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IHostService } from '../../../services/host/browser/host.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
 import { Mission, MissionContext, PlanTask, MISSION_SCHEMA_VERSION, isMission, AgentFinding } from '../common/ribixTypes.js';
 import { IVoidSCMService } from '../common/voidSCMTypes.js';
@@ -49,6 +50,19 @@ export interface IRibixMissionService {
 	completeMission(id: string, result: Mission['result']): Promise<void>;
 	prepareRelease(id: string): Promise<void>;
 
+	// Remote approval sync
+	/**
+	 * Called when a finding from this mission was approved remotely (dashboard or CLI).
+	 * Updates the mission's finding list and fires onDidChangeMissions.
+	 */
+	onFindingApproved(missionId: string, findingId: string, prUrl: string | null): void;
+
+	/**
+	 * Called when a finding from this mission was rejected remotely.
+	 * Updates the mission's finding list and fires onDidChangeMissions.
+	 */
+	onFindingRejected(missionId: string, findingId: string, reason: string | null): void;
+
 	// Persistence
 	onDidChangeMissions: Event<void>;
 }
@@ -59,8 +73,20 @@ export const IRibixMissionService = createDecorator<IRibixMissionService>('ribix
 const RIBIX_MISSIONS_STORAGE_KEY = 'ribix.missions.v1';
 /** One-shot migration guard flag. */
 const RIBIX_MISSIONS_MIGRATED_KEY = 'ribix.missions.migrated';
+/** Persistent queue for findings that could not be submitted due to network errors. */
+const RIBIX_PENDING_FINDINGS_KEY = 'ribix.pendingFindings';
+/** Maximum retry attempts before a queued item is discarded. */
+const MAX_PENDING_FINDINGS_RETRIES = 5;
 
 type PersistedMissions = { schemaVersion: number; missions: Mission[] };
+
+interface PendingFindingsItem {
+	repoFullName: string;
+	findings: AgentFinding[];
+	missionId: string;
+	retries: number;
+	queuedAt: string;
+}
 
 export class RibixMissionService extends Disposable implements IRibixMissionService {
 	readonly _serviceBrand: undefined;
@@ -80,11 +106,30 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		@IRibixPlanningService private readonly planningService: IRibixPlanningService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IStorageService private readonly storageService: IStorageService,
+		@IHostService private readonly hostService: IHostService,
 	) {
 		super();
 		this._register(this._onDidChangeMissions);
 		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
 		this._loadPromise = this.loadMissions();
+
+		// Flush queued findings when the user signs in (auth state transitions to signed_in)
+		this._register(this.authService.onDidChangeSession(summary => {
+			if (summary.status === 'signed_in') {
+				this.flushPendingFindings().catch(e => {
+					console.warn('flushPendingFindings (auth): unexpected error:', e);
+				});
+			}
+		}));
+
+		// Flush queued findings on IDE window focus (return from away)
+		this._register(this.hostService.onDidChangeFocus(focused => {
+			if (focused) {
+				this.flushPendingFindings().catch(e => {
+					console.warn('flushPendingFindings (focus): unexpected error:', e);
+				});
+			}
+		}));
 	}
 
 	private async loadMissions(): Promise<void> {
@@ -380,15 +425,19 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 	/**
 	 * Collect all AgentFindings from the mission result and submit them to the backend.
-	 * Silently skips if auth, workspace path, or repoFullName are unavailable.
+	 * On network failure, queues findings for retry rather than silently dropping them.
+	 * Silently skips if auth, workspace path, or repoFullName are unavailable (those
+	 * conditions can't be retried without user action).
 	 */
 	private async submitFindingsToBackend(mission: Mission): Promise<void> {
+		// Hoist these so they are accessible in the catch block for queuing
+		let findings: AgentFinding[] = [];
+		let repoFullName: string | null = null;
+
 		try {
 			// Collect findings from the mission result's reviewer findings.
 			// reviewerFindings are plain strings; we also surface any structured
 			// AgentFindings that agents wrote into their output (available via result).
-			const findings: AgentFinding[] = [];
-
 			if (mission.result) {
 				// Map plain reviewer finding strings into AgentFinding shape
 				for (const text of mission.result.reviewerFindings) {
@@ -405,12 +454,12 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 				return; // Nothing to submit
 			}
 
-			// Resolve auth config — skip silently if not signed in
+			// Resolve auth config — skip silently if not signed in (not retryable here)
 			let config;
 			try {
 				config = await this.authService.getRequiredConfig();
 			} catch {
-				return; // Not signed in
+				return; // Not signed in — flush will be triggered by auth state change
 			}
 
 			// Resolve workspace path — skip silently if unavailable
@@ -420,7 +469,6 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 			}
 
 			// Resolve repoFullName from the git remote URL
-			let repoFullName: string | null = null;
 			try {
 				const remoteUrl = await this.voidSCM.gitRemoteUrl(workspacePath);
 				repoFullName = this.parseRepoFullName(remoteUrl);
@@ -434,9 +482,72 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 			const apiClient = new RibixApiClient();
 			const response = await apiClient.submitFindings(config, repoFullName, findings, mission.id);
-			console.log(`submitFindingsToBackend: submitted ${response.submitted} findings for mission ${mission.id}`);
+			console.log(`submitFindingsToBackend: submitted ${response.submitted} findings, ${response.duplicates ?? 0} duplicates skipped for mission ${mission.id}`);
 		} catch (e) {
-			console.warn('submitFindingsToBackend: failed to submit findings:', e);
+			console.warn('submitFindingsToBackend: failed to submit findings, queuing for retry:', e);
+			// Queue for retry only when we have both findings and a repo target
+			if (findings.length > 0 && repoFullName) {
+				this.queueFindingsForRetry(repoFullName, findings, mission.id);
+			}
+		}
+	}
+
+	/**
+	 * Persist a failed findings submission to the offline queue.
+	 * Queued items are retried by flushPendingFindings() up to MAX_PENDING_FINDINGS_RETRIES times.
+	 */
+	private queueFindingsForRetry(repoFullName: string, findings: AgentFinding[], missionId: string): void {
+		try {
+			const raw = this.storageService.get(RIBIX_PENDING_FINDINGS_KEY, StorageScope.APPLICATION, '[]');
+			const queue: PendingFindingsItem[] = JSON.parse(raw);
+			queue.push({ repoFullName, findings, missionId, retries: 0, queuedAt: new Date().toISOString() });
+			this.storageService.store(RIBIX_PENDING_FINDINGS_KEY, JSON.stringify(queue), StorageScope.APPLICATION, StorageTarget.MACHINE);
+			console.log(`queueFindingsForRetry: queued ${findings.length} findings for mission ${missionId} (queue depth: ${queue.length})`);
+		} catch (e) {
+			console.warn('queueFindingsForRetry: failed to persist queue:', e);
+		}
+	}
+
+	/**
+	 * Attempt to submit all queued findings that failed during a previous session.
+	 * Items that exceed MAX_PENDING_FINDINGS_RETRIES are silently discarded.
+	 * Runs silently — never throws.
+	 */
+	private async flushPendingFindings(): Promise<void> {
+		try {
+			const raw = this.storageService.get(RIBIX_PENDING_FINDINGS_KEY, StorageScope.APPLICATION, '[]');
+			const queue: PendingFindingsItem[] = JSON.parse(raw);
+			if (queue.length === 0) {
+				return;
+			}
+
+			// Resolve auth config — skip flush if not signed in
+			let config;
+			try {
+				config = await this.authService.getRequiredConfig();
+			} catch {
+				return; // Not signed in — will retry on next auth state change
+			}
+
+			const apiClient = new RibixApiClient();
+			const remaining: PendingFindingsItem[] = [];
+
+			for (const item of queue) {
+				if (item.retries >= MAX_PENDING_FINDINGS_RETRIES) {
+					console.warn(`flushPendingFindings: discarding findings for mission ${item.missionId} after ${item.retries} failed attempts`);
+					continue; // discard
+				}
+				try {
+					const response = await apiClient.submitFindings(config, item.repoFullName, item.findings, item.missionId);
+					console.log(`flushPendingFindings: submitted ${response.submitted} findings for mission ${item.missionId} (queued at ${item.queuedAt})`);
+				} catch {
+					remaining.push({ ...item, retries: item.retries + 1 });
+				}
+			}
+
+			this.storageService.store(RIBIX_PENDING_FINDINGS_KEY, JSON.stringify(remaining), StorageScope.APPLICATION, StorageTarget.MACHINE);
+		} catch (e) {
+			console.warn('flushPendingFindings: unexpected error:', e);
 		}
 	}
 
@@ -458,6 +569,28 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		if (httpsMatch) { return httpsMatch[1]; }
 
 		return null;
+	}
+
+	onFindingApproved(missionId: string, _findingId: string, prUrl: string | null): void {
+		const mission = this.getMission(missionId);
+		if (!mission) { return; }
+		// Store the prUrl on the mission result when a finding PR is opened remotely
+		if (prUrl && mission.result) {
+			mission.result.prUrl = prUrl;
+			this.saveMission(mission).catch(e => {
+				console.warn('onFindingApproved: failed to persist mission prUrl:', e);
+			});
+		} else {
+			// Still fire the change event so the UI reflects the approval
+			this._onDidChangeMissions.fire();
+		}
+	}
+
+	onFindingRejected(missionId: string, _findingId: string, _reason: string | null): void {
+		const mission = this.getMission(missionId);
+		if (!mission) { return; }
+		// Fire the change event so the UI can re-render if needed
+		this._onDidChangeMissions.fire();
 	}
 
 	async prepareRelease(id: string): Promise<void> {
