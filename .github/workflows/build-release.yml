@@ -13,7 +13,10 @@ jobs:
       matrix:
         arch: [arm64, x64]
     env:
-      NODE_OPTIONS: --max-old-space-size=4096
+      NODE_OPTIONS: --max-old-space-size=8192
+      # Skip the TS->TS export mangler for release builds. It is a size optimization
+      # only and a dependency .d.ts (google-auth-library) can crash it with OVERLAPPING edit.
+      RIBIX_DISABLE_MANGLE: '1'
     steps:
       - uses: actions/checkout@v5
 
@@ -33,10 +36,9 @@ jobs:
 
       - name: Build macOS app (${{ matrix.arch }})
         run: node ./node_modules/gulp/bin/gulp.js vscode-darwin-${{ matrix.arch }}-min
-        timeout-minutes: 30
+        timeout-minutes: 45
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RIBIX_POSTHOG_KEY: ${{ secrets.RIBIX_POSTHOG_KEY }}
 
       - name: Create DMG
         run: |
@@ -59,7 +61,10 @@ jobs:
     name: Build Linux (x64)
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: --max-old-space-size=4096
+      NODE_OPTIONS: --max-old-space-size=8192
+      # Skip the TS->TS export mangler for release builds. It is a size optimization
+      # only and a dependency .d.ts (google-auth-library) can crash it with OVERLAPPING edit.
+      RIBIX_DISABLE_MANGLE: '1'
     steps:
       - uses: actions/checkout@v5
 
@@ -89,9 +94,7 @@ jobs:
 
       - name: Build Linux app
         run: node ./node_modules/gulp/bin/gulp.js vscode-linux-x64-min
-        timeout-minutes: 30
-        env:
-          RIBIX_POSTHOG_KEY: ${{ secrets.RIBIX_POSTHOG_KEY }}
+        timeout-minutes: 45
 
       - name: Package as tar.gz
         run: |
@@ -109,7 +112,10 @@ jobs:
     name: Build Windows (x64)
     runs-on: windows-latest
     env:
-      NODE_OPTIONS: --max-old-space-size=4096
+      NODE_OPTIONS: --max-old-space-size=8192
+      # Skip the TS->TS export mangler for release builds. It is a size optimization
+      # only and a dependency .d.ts (google-auth-library) can crash it with OVERLAPPING edit.
+      RIBIX_DISABLE_MANGLE: '1'
     steps:
       - uses: actions/checkout@v5
 
@@ -117,6 +123,12 @@ jobs:
         with:
           node-version: '20.18.2'
           cache: 'npm'
+
+      - name: Configure npm retries (avoid node-gyp EBUSY native rebuild lock)
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-maxtimeout 120000
+        shell: pwsh
 
       - name: Install dependencies
         run: npm ci
@@ -133,7 +145,6 @@ jobs:
         timeout-minutes: 45
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RIBIX_POSTHOG_KEY: ${{ secrets.RIBIX_POSTHOG_KEY }}
 
       - name: Package as zip
         run: |
