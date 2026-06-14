@@ -215,7 +215,7 @@ suite('RibixFileLockService — concurrency invariants', () => {
 
 		assert.strictEqual(svc.isLocked(file), false, 'expired lock removed');
 		assert.ok(rejectionError, 'waiter received a rejection error');
-		assert.ok(rejectionError!.message.includes('force-expired'), 'rejection message mentions force-expired');
+		assert.ok((rejectionError as Error).message.includes('force-expired'), 'rejection message mentions force-expired');
 	});
 
 	// 5. Double release is a no-op (no crash, no incorrect state)

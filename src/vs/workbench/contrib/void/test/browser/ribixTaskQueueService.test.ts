@@ -138,14 +138,14 @@ suite('RibixTaskQueueService — priority, cancellation, sequencing', () => {
 		await new Promise<void>(res => setImmediate(res));
 
 		assert.ok(capturedToken, 'task started and token was captured');
-		assert.strictEqual(capturedToken!.isCancellationRequested, false, 'not yet cancelled');
+		assert.strictEqual((capturedToken as CancellationToken).isCancellationRequested, false, 'not yet cancelled');
 
 		svc.cancelAll();
 		unblock(); // let the async fn resume so Node can clean up
 
 		await taskPromise;
 
-		assert.strictEqual(capturedToken!.isCancellationRequested, true, 'token was cancelled after cancelAll()');
+		assert.strictEqual((capturedToken as CancellationToken).isCancellationRequested, true, 'token was cancelled after cancelAll()');
 	});
 
 	// 3. Cancelled task does not prevent subsequent tasks from running
