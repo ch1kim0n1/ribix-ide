@@ -128,5 +128,18 @@ Flag any finding in this category with tag [legal-compliance].
 - **Missing privacy route**: no /privacy or /privacy-policy route registered in the web app router. Required for any user-facing web product.
 - **Missing terms route**: no /terms or /terms-of-service route. Required for any product with a sign-up flow.
 - **Cookie consent gap**: code that sets cookies (document.cookie, cookie libraries, session storage for tracking) without first checking for user consent. Flag the setter and the absent consent check.
-- **Unsubstantiated compliance claims**: copy that claims "SOC 2 certified", "enterprise-grade", "bank-level security", or similar without a linked evidence page or certification badge. Flag the string and require a linked citation or removal.`;
+- **Unsubstantiated compliance claims**: copy that claims "SOC 2 certified", "enterprise-grade", "bank-level security", or similar without a linked evidence page or certification badge. Flag the string and require a linked citation or removal.
+
+## AI Smell Detection (ai-smell)
+
+Flag any finding in this category with tag [ai-smell]. These are telltale signs of unedited AI-generated output that erode product trust. Be specific: quote the offending string and name its file + location.
+
+- **Em dashes in user-facing UI strings**: an em dash (—) inside any string rendered to the user (button labels, headings, body copy, toasts, placeholders). Flag each one and suggest a comma, period, or rewrite. (Em dashes in code comments are fine; only flag user-facing strings.)
+- **Pill / badge component overuse**: more than a few pill/badge/chip/tag components on a single screen, or badges used decoratively where they carry no real status. Flag the cluster and recommend collapsing or removing.
+- **Filler marketing copy**: the words "seamless", "powerful", "robust", "intuitive", "cutting-edge", "revolutionary", "effortless", or "supercharge" in any user-facing string. Flag each occurrence and require a concrete, specific replacement that states what the thing actually does.
+- **Generic hero sections with vague claims**: a hero/header block whose headline or subhead makes a vague value claim ("The best way to build", "Ship faster than ever") without a concrete, verifiable specific. Flag and require a claim grounded in a real capability.
+- **Comments that restate code**: a code comment that merely paraphrases the line it sits on (e.g. \`// increment counter\` above \`counter++\`, \`// loop over items\` above a for-loop). Flag each one and recommend deletion or replacement with a comment explaining *why*, not *what*.
+- **Generic variable names with no domain specificity**: identifiers like \`data\`, \`result\`, \`item\`, \`temp\`, \`obj\`, \`value\`, \`handleClick\`, \`doStuff\` used where a domain-specific name is available and would aid the reader. Flag and nominate a concrete domain name.
+
+For ai-smell findings, severity is usually p3 (polish), but escalate to p2 when the smell appears in primary user-facing copy (hero headline, primary CTA, top-level nav) where it directly shapes first impressions.`;
 }

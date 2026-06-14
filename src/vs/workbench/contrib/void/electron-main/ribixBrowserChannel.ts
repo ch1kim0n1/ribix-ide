@@ -24,10 +24,30 @@ function screenshotPath(label: string): string {
 	return join(SCREENSHOT_DIR, `${label}-${ts}.png`);
 }
 
+/** A console message captured from the running page. */
+interface CapturedConsole {
+	type: string;   // 'error' | 'warning' | 'log' | ...
+	text: string;
+}
+
+/** A network request that failed or returned a non-2xx/3xx status. */
+interface CapturedNetworkFailure {
+	url: string;
+	status: number | null;   // null when the request errored before a response (DNS/refused)
+	failure: string | null;  // playwright failure text, when available
+}
+
 export class RibixBrowserChannel implements IServerChannel {
 	private browser: any = null;
 	private page: any = null;
 	private playwright: any = null;
+
+	// Runtime signal buffers — populated by page listeners attached in ensureBrowser(),
+	// drained by drainDiagnostics(). The browser agent reads these to detect runtime
+	// errors, console errors, and failed network requests.
+	private consoleMessages: CapturedConsole[] = [];
+	private pageErrors: string[] = [];
+	private networkFailures: CapturedNetworkFailure[] = [];
 
 	listen<T>(_: unknown, event: string): Event<T> {
 		throw new Error(`Event not found: ${event}`);
@@ -42,6 +62,7 @@ export class RibixBrowserChannel implements IServerChannel {
 				case 'type': return await this.typeText(params);
 				case 'scroll': return await this.scroll(params);
 				case 'getHtml': return await this.getHtml(params);
+				case 'diagnostics': return await this.drainDiagnostics();
 				case 'close': return await this.close();
 				default: throw new Error(`Ribix browser channel: command "${command}" not recognized.`);
 			}
@@ -49,6 +70,23 @@ export class RibixBrowserChannel implements IServerChannel {
 			console.error('Ribix browser channel error:', e);
 			throw e;
 		}
+	}
+
+	/**
+	 * Returns and clears the runtime signals accumulated since the last drain:
+	 * console errors/warnings, uncaught page errors, and failed/erroring network requests.
+	 * The browser agent calls this after each interaction turn to detect runtime problems.
+	 */
+	private async drainDiagnostics(): Promise<{ consoleMessages: CapturedConsole[]; pageErrors: string[]; networkFailures: CapturedNetworkFailure[] }> {
+		const out = {
+			consoleMessages: this.consoleMessages.slice(),
+			pageErrors: this.pageErrors.slice(),
+			networkFailures: this.networkFailures.slice(),
+		};
+		this.consoleMessages = [];
+		this.pageErrors = [];
+		this.networkFailures = [];
+		return out;
 	}
 
 	private async ensureBrowser(): Promise<void> {
@@ -68,7 +106,47 @@ export class RibixBrowserChannel implements IServerChannel {
 				deviceScaleFactor: 1,
 			});
 			this.page = await context.newPage();
+			this.attachDiagnosticListeners(this.page);
 		}
+	}
+
+	/**
+	 * Wires page-level listeners that feed the runtime-signal buffers. Buffers are capped
+	 * so a noisy app cannot grow them without bound (day-2 leak guard).
+	 */
+	private attachDiagnosticListeners(page: any): void {
+		const CAP = 200;
+		page.on('console', (msg: any) => {
+			const type = typeof msg.type === 'function' ? msg.type() : msg.type;
+			const text = typeof msg.text === 'function' ? msg.text() : String(msg.text ?? '');
+			if (this.consoleMessages.length < CAP) {
+				this.consoleMessages.push({ type, text });
+			}
+		});
+		page.on('pageerror', (err: any) => {
+			if (this.pageErrors.length < CAP) {
+				this.pageErrors.push(err?.message ? String(err.message) : String(err));
+			}
+		});
+		page.on('requestfailed', (req: any) => {
+			if (this.networkFailures.length < CAP) {
+				this.networkFailures.push({
+					url: typeof req.url === 'function' ? req.url() : String(req.url),
+					status: null,
+					failure: req.failure?.()?.errorText ?? null,
+				});
+			}
+		});
+		page.on('response', (res: any) => {
+			const status = typeof res.status === 'function' ? res.status() : res.status;
+			if (typeof status === 'number' && status >= 400 && this.networkFailures.length < CAP) {
+				this.networkFailures.push({
+					url: typeof res.url === 'function' ? res.url() : String(res.url),
+					status,
+					failure: null,
+				});
+			}
+		});
 	}
 
 	private async navigate(params: { url: string; width?: number; height?: number }): Promise<{ screenshotPath: string; title: string; url: string }> {
@@ -131,6 +209,9 @@ export class RibixBrowserChannel implements IServerChannel {
 	private async close(): Promise<{}> {
 		if (this.page) { await this.page.close().catch(() => {}); this.page = null; }
 		if (this.browser) { await this.browser.close().catch(() => {}); this.browser = null; }
+		this.consoleMessages = [];
+		this.pageErrors = [];
+		this.networkFailures = [];
 		return {};
 	}
 }

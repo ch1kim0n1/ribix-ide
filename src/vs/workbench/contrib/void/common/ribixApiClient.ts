@@ -89,6 +89,7 @@ export class RibixApiClient {
 		repoFullName: string,
 		findings: AgentFinding[],
 		missionId: string,
+		suppressionRules?: SubmitFindingsRequest['suppressionRules'],
 	): Promise<SubmitFindingsResponse> {
 		const mapped: SubmittedFinding[] = findings.map(f => ({
 			title: f.message.substring(0, 120),
@@ -103,6 +104,9 @@ export class RibixApiClient {
 		}));
 
 		const request: SubmitFindingsRequest = { repoFullName, findings: mapped };
+		if (suppressionRules) {
+			request.suppressionRules = suppressionRules;
+		}
 		return this.post<SubmitFindingsResponse>(config, '/cli/findings/submit', request);
 	}
 

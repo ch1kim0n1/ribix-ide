@@ -108,6 +108,9 @@ import './ribixChangeWatcherService.js'
 // register Ribix auto-trigger toggle command (Command Center)
 import './ribixAutoTriggerActions.js'
 
+// register Ribix single-file action (right-click "Run Ribix on this file")
+import './ribixFileActionContribution.js'
+
 // ---------- common (unclear if these actually need to be imported, because they're already imported wherever they're used) ----------
 
 // llmMessage

@@ -125,6 +125,58 @@ suite('RibixAgentService — agentic loop', () => {
 		service.dispose();
 	});
 
+	test('tool result from an early turn stays visible on later turns (true multi-turn, not one-shot)', async () => {
+		// Turn 1: read a file. Turn 2: read a second file (reacting to turn 1). Turn 3: done.
+		// We assert the FIRST tool result is still present in the messages sent on turn 3,
+		// which is the invariant that distinguishes an autonomous loop from a one-shot call.
+		const llm = makeLLMStub([
+			'Reading first.\n```json\n{"tool":"read_file","params":{"uri":"/repo/first.ts"}}\n```',
+			'Now the second.\n```json\n{"tool":"read_file","params":{"uri":"/repo/second.ts"}}\n```',
+			'Summary: combined both files.',
+		]);
+		// Distinct canned results per call so we can trace which result flows where.
+		let readCount = 0;
+		const tools = (() => {
+			const callTool: Record<string, any> = {};
+			const validateParams: Record<string, any> = {};
+			const stringOfResult: Record<string, any> = {};
+			const invoked: Array<{ tool: string; params: any }> = [];
+			validateParams['read_file'] = (p: any) => ({ ...p, uri: { fsPath: p.uri } });
+			callTool['read_file'] = async (p: any) => { invoked.push({ tool: 'read_file', params: p }); return { result: {} }; };
+			stringOfResult['read_file'] = () => (readCount++ === 0 ? 'CONTENT_FIRST_FILE' : 'CONTENT_SECOND_FILE');
+			return { invoked, service: { validateParams, callTool, stringOfResult } as any };
+		})();
+
+		const service = makeAgentService(llm.service, tools.service);
+		const completion = waitForCompletion(service);
+		await service.spawnAgent('m1', 't1', 'coder', 'Read two files then summarize');
+		const result = await completion;
+
+		assert.strictEqual(result.status, 'complete');
+		assert.strictEqual(llm.callCount(), 3, 'should perform 3 LLM turns');
+		assert.strictEqual(tools.invoked.length, 2, 'should read two files');
+
+		// Turn 2 must contain the first tool result.
+		const turn2 = llm.callsLog[1].messages;
+		assert.ok(
+			turn2.some((m: any) => typeof m.content === 'string' && m.content.includes('CONTENT_FIRST_FILE')),
+			'first tool result must be visible on turn 2',
+		);
+
+		// Turn 3 must STILL contain the first tool result AND the second — the message array grows.
+		const turn3 = llm.callsLog[2].messages;
+		assert.ok(
+			turn3.some((m: any) => typeof m.content === 'string' && m.content.includes('CONTENT_FIRST_FILE')),
+			'first tool result must remain visible on turn 3 (loop is not one-shot)',
+		);
+		assert.ok(
+			turn3.some((m: any) => typeof m.content === 'string' && m.content.includes('CONTENT_SECOND_FILE')),
+			'second tool result must be visible on turn 3',
+		);
+
+		service.dispose();
+	});
+
 	test('stops when the model emits no tool calls on the first turn', async () => {
 		const llm = makeLLMStub(['Nothing to do. Summary: trivial.']);
 		const tools = makeToolsStub({});

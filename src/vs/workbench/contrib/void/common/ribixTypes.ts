@@ -36,7 +36,7 @@ export type MissionState =
 	| 'aborted'
 	| 'failed'
 
-export type AgentType = 'planner' | 'coder' | 'tester' | 'debugger' | 'reviewer' | 'docs' | 'release' | 'onboarding-persona'
+export type AgentType = 'planner' | 'coder' | 'tester' | 'debugger' | 'reviewer' | 'docs' | 'release' | 'onboarding-persona' | 'browser'
 
 export type AgentStatus = 'idle' | 'planning' | 'executing' | 'blocked' | 'complete' | 'failed'
 
@@ -112,6 +112,7 @@ export type AgentFindingType =
 	| 'day-2-failure'
 	| 'code-architecture'
 	| 'onboarding-drop-off'
+	| 'ai-smell'
 
 /** Human-readable description for each AgentFindingType category. */
 export type DetectionCategory = Record<AgentFindingType, string>
@@ -127,6 +128,7 @@ export const DETECTION_CATEGORY_DESCRIPTIONS: DetectionCategory = {
 	'day-2-failure': 'Unbounded in-memory accumulators, event listener leaks, missing interval cleanup, unbounded DB queries, or log rotation gaps',
 	'code-architecture': 'God files, circular imports, all-mock test suites, mixed error contracts within a module, or magic literals',
 	'onboarding-drop-off': 'Flows that confuse non-technical users, missing next-step guidance, or unactionable error messages during setup',
+	'ai-smell': 'Telltale signs of unedited AI-generated output: em dashes in UI strings, pill/badge overuse, filler marketing copy (seamless/powerful/robust/intuitive), generic hero sections, comments that restate code, and generic non-domain variable names',
 }
 
 export type AgentFinding = {

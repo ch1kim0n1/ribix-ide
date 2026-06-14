@@ -22,6 +22,9 @@ import { RibixApiClient } from '../common/ribixApiClient.js';
 import { ChangedChunk } from '../common/ribixChangedChunk.js';
 import { SemverBump, maxBump, semverBumpFromConventionalCommits, semverBumpFromDiff } from '../common/ribixSemver.js';
 import { IMetricsService } from '../common/metricsService.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { SubmitFindingsRequest } from '../common/ribixAuthTypes.js';
+import { SuppressionRules, EMPTY_SUPPRESSION_RULES, loadSuppressionRules, filterSuppressed } from '../common/ribixSuppression.js';
 
 export interface IRibixMissionService {
 	readonly _serviceBrand: undefined;
@@ -109,6 +112,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		@IStorageService private readonly storageService: IStorageService,
 		@IHostService private readonly hostService: IHostService,
 		@IMetricsService private readonly metricsService: IMetricsService,
+		@IFileService private readonly fileService: IFileService,
 	) {
 		super();
 		this._register(this._onDidChangeMissions);
@@ -453,6 +457,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		// Hoist these so they are accessible in the catch block for queuing
 		let findings: AgentFinding[] = [];
 		let repoFullName: string | null = null;
+		let serializedRules: SubmitFindingsRequest['suppressionRules'] | undefined;
 
 		try {
 			// Collect findings from the mission result's reviewer findings.
@@ -470,8 +475,14 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 				}
 			}
 
+			// Apply .ribixignore locally so suppressed findings are never submitted, and
+			// forward the parsed rules so the backend honors the same ignore file.
+			const suppressionRules = await this.loadWorkspaceSuppressionRules();
+			serializedRules = this.serializeSuppressionRules(suppressionRules);
+			findings = filterSuppressed(findings, suppressionRules);
+
 			if (findings.length === 0) {
-				return; // Nothing to submit
+				return; // Nothing to submit (none, or all suppressed)
 			}
 
 			// Resolve auth config — skip silently if not signed in (not retryable here)
@@ -501,7 +512,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 			}
 
 			const apiClient = new RibixApiClient();
-			const response = await apiClient.submitFindings(config, repoFullName, findings, mission.id);
+			const response = await apiClient.submitFindings(config, repoFullName, findings, mission.id, serializedRules);
 			console.log(`submitFindingsToBackend: submitted ${response.submitted} findings, ${response.duplicates ?? 0} duplicates skipped for mission ${mission.id}`);
 
 			// Telemetry: findings submitted (fire-and-forget)
@@ -825,6 +836,31 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 			console.error('Failed to get workspace path:', e);
 		}
 		return null;
+	}
+
+	/**
+	 * Loads `.ribixignore` from the first workspace folder root. Best-effort: returns an
+	 * empty rule set when there is no workspace or no ignore file.
+	 */
+	private async loadWorkspaceSuppressionRules(): Promise<SuppressionRules> {
+		try {
+			const workspace = this.workspaceContextService.getWorkspace();
+			if (workspace.folders.length === 0) { return EMPTY_SUPPRESSION_RULES; }
+			return await loadSuppressionRules(this.fileService, workspace.folders[0].uri);
+		} catch (e) {
+			console.warn('loadWorkspaceSuppressionRules: failed, treating as no suppression:', e);
+			return EMPTY_SUPPRESSION_RULES;
+		}
+	}
+
+	/** Serializes parsed rules into the backend payload shape (drops compiled regexes). */
+	private serializeSuppressionRules(rules: SuppressionRules): SubmitFindingsRequest['suppressionRules'] | undefined {
+		if (rules.pathRules.length === 0 && rules.typeRules.length === 0) { return undefined; }
+		return {
+			paths: rules.pathRules.map(r => ({ glob: r.glob, negated: r.negated })),
+			types: rules.typeRules.map(r => r.findingType),
+			raw: rules.raw,
+		};
 	}
 }
 

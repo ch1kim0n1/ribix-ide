@@ -109,6 +109,16 @@ export interface SubmittedFinding {
 export interface SubmitFindingsRequest {
 	repoFullName: string;
 	findings: SubmittedFinding[];
+	/**
+	 * Parsed `.ribixignore` rules from the workspace root, forwarded so cloud-side
+	 * processing honors the same suppression file the IDE applies locally. Omitted when
+	 * no `.ribixignore` exists.
+	 */
+	suppressionRules?: {
+		paths: { glob: string; negated: boolean }[];
+		types: string[];
+		raw: string;
+	};
 }
 
 export interface SubmitFindingsResponse {

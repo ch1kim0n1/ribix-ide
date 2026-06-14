@@ -25,6 +25,7 @@ import { generateDebuggerPrompt } from '../common/prompt/ribixDebuggerPrompt.js'
 import { generateReviewerPrompt } from '../common/prompt/ribixReviewerPrompt.js';
 import { generateDocsPrompt } from '../common/prompt/ribixDocsPrompt.js';
 import { generateReleasePrompt } from '../common/prompt/ribixReleasePrompt.js';
+import { BROWSER_AGENT_PROMPT } from './ribixBrowserAgent.js';
 import { IVoidSettingsService } from '../common/voidSettingsService.js';
 
 export interface IRibixAgentService {
@@ -490,6 +491,10 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 						attachedContext: context?.attachedContext || '',
 					},
 				});
+			case 'browser':
+				// The browser agent normally runs via RibixBrowserAgent (driving the headless
+				// browser channel), but if spawned through the model loop it uses its own prompt.
+				return `${BROWSER_AGENT_PROMPT}\n\n## Task\n${taskDescription}`;
 			default:
 				throw new Error(`Unknown agent type: ${agentType}`);
 		}

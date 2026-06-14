@@ -48,6 +48,9 @@ export const DEFAULT_AGENT_BUDGETS: Record<AgentType, AgentLoopBudget> = {
 	docs: { maxTurns: 6, maxTokens: 80_000, deadlineMs: 3 * 60_000 },
 	release: { maxTurns: 6, maxTokens: 80_000, deadlineMs: 3 * 60_000 },
 	'onboarding-persona': { maxTurns: 10, maxTokens: 50_000, deadlineMs: 10 * 60 * 1000 },
+	// Browser agent drives a running app through many click/screenshot turns, so it gets
+	// generous turn/time room but a modest token ceiling (tool results are mostly DOM/console text).
+	browser: { maxTurns: 16, maxTokens: 80_000, deadlineMs: 10 * 60 * 1000 },
 };
 
 /** Rough token estimate (chars / 4) used only for the soft maxTokens budget guard. */

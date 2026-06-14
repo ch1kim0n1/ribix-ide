@@ -34,9 +34,12 @@ const authStub = { onDidChangeSession: () => ({ dispose() { } }) } as any;
 const planningStub = { plan: async () => [] } as any;
 const workspaceStub = { getWorkspace: () => ({ folders: [{ uri: { fsPath: '/repo', toString: () => 'file:///repo' } }] }) } as any;
 const hostStub = { onDidChangeFocus: () => ({ dispose() { } }) } as any;
+const metricsStub = { capture: async () => { } } as any;
+// .ribixignore loader probes exists(); return false so suppression is a no-op in these tests.
+const fileStub = { exists: async () => false, readFile: async () => ({ value: { toString: () => '' } }) } as any;
 
 function makeMissionService(storage: FakeStorage, memory: FakeMemory) {
-	return new RibixMissionService(memory as any, mainProcessStub, authStub, planningStub, workspaceStub, storage as any, hostStub);
+	return new RibixMissionService(memory as any, mainProcessStub, authStub, planningStub, workspaceStub, storage as any, hostStub, metricsStub, fileStub);
 }
 
 function makeMission(over: Partial<Mission> = {}): Mission {
@@ -70,7 +73,7 @@ suite('RibixMissionService — persistence', () => {
 		// does NOT auto-advance the mission to plan_ready — this test drives the
 		// transitions manually and asserts update-in-place persistence.
 		const pendingPlanning = { plan: () => new Promise<never>(() => { /* never resolves */ }) } as any;
-		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, pendingPlanning, workspaceStub, storage as any, hostStub);
+		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, pendingPlanning, workspaceStub, storage as any, hostStub, metricsStub, fileStub);
 		const mission = await service.createMission('o', { attachedFiles: [], attachedSelections: [], issueUrls: [], notes: '' });
 
 		await service.submitForPlanning(mission.id);
@@ -182,7 +185,7 @@ suite('RibixMissionService — scoped auto-QA + context', () => {
 		const storage = new FakeStorage();
 		let capturedContext: any = null;
 		const planning = { plan: async (_id: string, _outcome: string, ctx: any) => { capturedContext = ctx; return []; } } as any;
-		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, planning, workspaceStub, storage as any, hostStub);
+		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, planning, workspaceStub, storage as any, hostStub, metricsStub, fileStub);
 
 		const mission = await service.createScopedQAMission(sampleChunk);
 		await service.submitForPlanning(mission!.id);
