@@ -392,7 +392,7 @@ const SimpleModelSettingsDialog = ({
 		onClose();
 	};
 
-	const sourcecodeOverridesLink = `https://github.com/voideditor/void/blob/2e5ecb291d33afbe4565921664fb7e183189c1c5/src/vs/workbench/contrib/void/common/modelCapabilities.ts#L146-L172`
+	const sourcecodeOverridesLink = `https://github.com/ch1kim0n1/ribix-ide/blob/main/src/vs/workbench/contrib/void/common/modelCapabilities.ts`
 
 	return (
 		<div // Backdrop
