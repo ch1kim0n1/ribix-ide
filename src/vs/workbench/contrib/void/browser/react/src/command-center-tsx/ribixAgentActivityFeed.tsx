@@ -61,10 +61,36 @@ export const RibixAgentActivityFeed = ({ activities }: ribixAgentActivityFeedPro
 					}}
 				>
 					<div className="flex justify-between items-start mb-1">
-						<span className={`text-sm font-medium ${getActionColor(activity.action)}`}>
-							{activity.action}
-						</span>
-						<span className="text-xs text-[var(--ribix-text-secondary, #8A9E8A)]">
+						<div className="flex items-center gap-2 flex-1 min-w-0">
+							<span className={`text-sm font-medium ${getActionColor(activity.action)}`}>
+								{activity.action}
+							</span>
+							{activity.origin === 'cloud' && (
+								<span
+									className="text-xs font-semibold px-1.5 py-0.5 rounded shrink-0"
+									style={{
+										backgroundColor: 'var(--ribix-gold, #C6AA58)',
+										color: 'var(--ribix-bg-primary, #01311F)',
+									}}
+									title="Finding received from the Ribix cloud backend"
+								>
+									Cloud
+								</span>
+							)}
+							{activity.origin === 'ide' && (
+								<span
+									className="text-xs font-semibold px-1.5 py-0.5 rounded shrink-0"
+									style={{
+										backgroundColor: 'var(--ribix-border, #1E4A32)',
+										color: 'var(--ribix-text-secondary, #8A9E8A)',
+									}}
+									title="Finding produced by a local IDE agent"
+								>
+									IDE
+								</span>
+							)}
+						</div>
+						<span className="text-xs text-[var(--ribix-text-secondary, #8A9E8A)] ml-2 shrink-0">
 							{formatTimestamp(activity.timestamp)}
 						</span>
 					</div>

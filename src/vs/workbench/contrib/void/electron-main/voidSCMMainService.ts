@@ -87,4 +87,8 @@ export class VoidSCMService implements IVoidSCMService {
 	async gitCreateTag(path: string, tagName: string, message: string): Promise<void> {
 		await git(`git tag -a ${tagName} -m "${message}"`, path)
 	}
+
+	async gitRemoteUrl(path: string): Promise<string> {
+		return git('git remote get-url origin', path)
+	}
 }

@@ -159,6 +159,8 @@ export type AgentActivityEntry = {
 	detail: string | null     // optional additional detail
 	tool: string | null       // tool name if this was a tool call
 	filePath: string | null   // file affected if relevant
+	/** Origin of this activity entry: 'ide' for locally-generated, 'cloud' for backend SSE */
+	origin?: 'ide' | 'cloud'
 }
 
 export type MissionContext = {

@@ -46,6 +46,13 @@ export interface IVoidSCMService {
 	 * @param message Tag message
 	 */
 	gitCreateTag(path: string, tagName: string, message: string): Promise<void>
+
+	/**
+	 * Get the remote URL for the origin remote (e.g. git@github.com:org/repo.git)
+	 *
+	 * @param path Path to the git repository
+	 */
+	gitRemoteUrl(path: string): Promise<string>
 }
 
 export const IVoidSCMService = createDecorator<IVoidSCMService>('voidSCMService')

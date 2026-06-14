@@ -93,6 +93,41 @@ export interface GetMissionsResponse {
 	total: number;
 }
 
+/** Shape sent to /cli/findings/submit */
+export interface SubmittedFinding {
+	title: string;
+	description: string;
+	severity: 'p0' | 'p1' | 'p2' | 'p3';
+	type: string;
+	source: 'ide';
+	affectedFiles: string[];
+	evidence: string;
+	agentType: string;
+	missionId: string;
+}
+
+export interface SubmitFindingsRequest {
+	repoFullName: string;
+	findings: SubmittedFinding[];
+}
+
+export interface SubmitFindingsResponse {
+	submitted: number;
+}
+
+/** Shape received from the /cli/findings/stream SSE endpoint */
+export interface CloudFinding {
+	id: string;
+	title: string;
+	description: string;
+	severity: string;
+	type: string;
+	source: string;
+	affectedFiles: string[];
+	evidence: string;
+	createdAt: number;
+}
+
 // OAuth types
 export interface OAuthTokenRequest {
 	grant_type: 'authorization_code' | 'refresh_token';

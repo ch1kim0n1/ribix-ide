@@ -10,7 +10,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
-import { Mission, MissionContext, PlanTask, MISSION_SCHEMA_VERSION, isMission } from '../common/ribixTypes.js';
+import { Mission, MissionContext, PlanTask, MISSION_SCHEMA_VERSION, isMission, AgentFinding } from '../common/ribixTypes.js';
 import { IVoidSCMService } from '../common/voidSCMTypes.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
@@ -370,6 +370,94 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		} catch (e) {
 			console.warn('Failed to sync memory to org after mission completion:', e);
 		}
+
+		// Fire-and-forget: submit IDE findings to the backend.
+		// If the backend is unreachable we warn and continue — never fail the mission.
+		this.submitFindingsToBackend(mission).catch(e => {
+			console.warn('submitFindingsToBackend: unexpected error:', e);
+		});
+	}
+
+	/**
+	 * Collect all AgentFindings from the mission result and submit them to the backend.
+	 * Silently skips if auth, workspace path, or repoFullName are unavailable.
+	 */
+	private async submitFindingsToBackend(mission: Mission): Promise<void> {
+		try {
+			// Collect findings from the mission result's reviewer findings.
+			// reviewerFindings are plain strings; we also surface any structured
+			// AgentFindings that agents wrote into their output (available via result).
+			const findings: AgentFinding[] = [];
+
+			if (mission.result) {
+				// Map plain reviewer finding strings into AgentFinding shape
+				for (const text of mission.result.reviewerFindings) {
+					findings.push({
+						severity: 'medium',
+						file: '',
+						line: null,
+						message: text,
+					});
+				}
+			}
+
+			if (findings.length === 0) {
+				return; // Nothing to submit
+			}
+
+			// Resolve auth config — skip silently if not signed in
+			let config;
+			try {
+				config = await this.authService.getRequiredConfig();
+			} catch {
+				return; // Not signed in
+			}
+
+			// Resolve workspace path — skip silently if unavailable
+			const workspacePath = await this.getWorkspacePath();
+			if (!workspacePath) {
+				return;
+			}
+
+			// Resolve repoFullName from the git remote URL
+			let repoFullName: string | null = null;
+			try {
+				const remoteUrl = await this.voidSCM.gitRemoteUrl(workspacePath);
+				repoFullName = this.parseRepoFullName(remoteUrl);
+			} catch {
+				// No git remote configured — skip submission
+			}
+
+			if (!repoFullName) {
+				return;
+			}
+
+			const apiClient = new RibixApiClient();
+			const response = await apiClient.submitFindings(config, repoFullName, findings, mission.id);
+			console.log(`submitFindingsToBackend: submitted ${response.submitted} findings for mission ${mission.id}`);
+		} catch (e) {
+			console.warn('submitFindingsToBackend: failed to submit findings:', e);
+		}
+	}
+
+	/**
+	 * Parse a git remote URL into "owner/repo" format.
+	 * Handles both HTTPS (https://github.com/owner/repo.git) and
+	 * SSH (git@github.com:owner/repo.git) URL formats.
+	 * Returns null if the URL cannot be parsed.
+	 */
+	private parseRepoFullName(remoteUrl: string): string | null {
+		if (!remoteUrl) { return null; }
+
+		// SSH format: git@github.com:owner/repo.git
+		const sshMatch = remoteUrl.match(/git@[^:]+:([^/]+\/[^/]+?)(?:\.git)?$/);
+		if (sshMatch) { return sshMatch[1]; }
+
+		// HTTPS format: https://github.com/owner/repo.git
+		const httpsMatch = remoteUrl.match(/https?:\/\/[^/]+\/([^/]+\/[^/]+?)(?:\.git)?$/);
+		if (httpsMatch) { return httpsMatch[1]; }
+
+		return null;
 	}
 
 	async prepareRelease(id: string): Promise<void> {
