@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-09 (updated 2026-06-13)
 **Phase:** 14 — E2E Testing & Hardening
-**Status:** All scenarios Pending — no testable binary produced; core runtime gaps block execution
+**Status:** 5 of 119 scenarios verified by static code tracing (see `E2E_Test_Results_Verified.md`). Remaining 114 pending — no testable binary produced; core runtime gaps block execution.
 
 ---
 
