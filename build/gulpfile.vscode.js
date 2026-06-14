@@ -503,8 +503,13 @@ BUILD_TARGETS.forEach(buildTarget => {
 		const vscodeTaskCI = task.define(`vscode${dashed(platform)}${dashed(arch)}${dashed(minified)}-ci`, task.series(...tasks));
 		gulp.task(vscodeTaskCI);
 
+		// RIBIX_DISABLE_MANGLE lets the release build skip the TS->TS export mangler.
+		// Mangling is only a size optimization, not a correctness step, and a dependency's
+		// .d.ts (e.g. google-auth-library) can trigger an 'OVERLAPPING edit' crash. When the
+		// env var is set, even the minified target uses the non-mangling compile path.
+		const useMangling = minified && !process.env['RIBIX_DISABLE_MANGLE'];
 		const vscodeTask = task.define(`vscode${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-			minified ? compileBuildWithManglingTask : compileBuildWithoutManglingTask,
+			useMangling ? compileBuildWithManglingTask : compileBuildWithoutManglingTask,
 			cleanExtensionsBuildTask,
 			compileNonNativeExtensionsBuildTask,
 			compileExtensionMediaBuildTask,

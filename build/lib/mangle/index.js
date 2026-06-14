@@ -288,6 +288,9 @@ const skippedExportMangledProjects = [
     'microsoft-authentication',
     'github-authentication',
     'html-language-features/server',
+    // Dependency .d.ts files whose exported symbols collide during mangling and
+    // trigger 'OVERLAPPING edit' (e.g. google-auth-library declaration files).
+    'google-auth-library',
 ];
 const skippedExportMangledSymbols = [
     // Don't mangle extension entry points
