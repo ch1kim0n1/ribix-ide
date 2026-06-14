@@ -421,6 +421,12 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		this.submitFindingsToBackend(mission).catch(e => {
 			console.warn('submitFindingsToBackend: unexpected error:', e);
 		});
+
+		// Fire-and-forget: populate codebase memory with files touched during this mission.
+		const workspaceId = await this.memoryService.getWorkspaceId().catch(() => null);
+		if (workspaceId) {
+			this._populateCodebaseMemory(workspaceId, mission).catch(() => {});
+		}
 	}
 
 	/**
@@ -548,6 +554,26 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 			this.storageService.store(RIBIX_PENDING_FINDINGS_KEY, JSON.stringify(remaining), StorageScope.APPLICATION, StorageTarget.MACHINE);
 		} catch (e) {
 			console.warn('flushPendingFindings: unexpected error:', e);
+		}
+	}
+
+	private async _populateCodebaseMemory(workspaceId: string, mission: Mission): Promise<void> {
+		try {
+			const touchedFiles = (mission as any).checkpoints?.map((c: any) => c.filePath).filter(Boolean) ?? []
+			const uniqueFiles = [...new Set(touchedFiles)] as string[]
+
+			for (const filePath of uniqueFiles.slice(0, 10)) {
+				await this.memoryService.writeEntry({
+					type: 'codebase_file',
+					workspaceId,
+					content: `Modified during mission: ${mission.outcome}`,
+					metadata: { filePath, missionId: mission.id },
+					confidence: 0.7,
+					source: 'agent',
+				})
+			}
+		} catch (e) {
+			// non-blocking, ignore errors
 		}
 	}
 
