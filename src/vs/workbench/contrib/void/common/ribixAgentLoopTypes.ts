@@ -47,6 +47,7 @@ export const DEFAULT_AGENT_BUDGETS: Record<AgentType, AgentLoopBudget> = {
 	reviewer: { maxTurns: 6, maxTokens: 80_000, deadlineMs: 3 * 60_000 },
 	docs: { maxTurns: 6, maxTokens: 80_000, deadlineMs: 3 * 60_000 },
 	release: { maxTurns: 6, maxTokens: 80_000, deadlineMs: 3 * 60_000 },
+	'onboarding-persona': { maxTurns: 10, maxTokens: 50_000, deadlineMs: 10 * 60 * 1000 },
 };
 
 /** Rough token estimate (chars / 4) used only for the soft maxTokens budget guard. */
