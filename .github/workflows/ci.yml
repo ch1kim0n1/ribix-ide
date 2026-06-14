@@ -29,6 +29,8 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build React components
         run: npm run buildreact
@@ -61,6 +63,8 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build React components
         run: npm run buildreact
