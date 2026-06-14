@@ -41,7 +41,7 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 	private _optOut: boolean = false
 	private _apiUrl: string | null = null
 
-	// helper - looks like this is stored in a .vscdb file in ~/Library/Application Support/Void
+	// helper - looks like this is stored in a .vscdb file in ~/Library/Application Support
 	private _memoStorage(key: string, target: StorageTarget, setValIfNotExist?: string) {
 		const currVal = this._appStorage.get(key, StorageScope.APPLICATION)
 		if (currVal !== undefined) return currVal
@@ -50,37 +50,57 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 		return newVal
 	}
 
+	/**
+	 * Read a value from the canonical `ribix.*` key. If it is missing but a
+	 * legacy `void.*` value exists (a Void user upgrading to Ribix), migrate
+	 * that value into the `ribix.*` key once and then treat `ribix.*` as
+	 * canonical from then on. Returns the migrated value, or undefined if no
+	 * value exists under either key.
+	 */
+	private _migrateKey(ribixKey: string, legacyVoidKey: string, target: StorageTarget): string | undefined {
+		const ribixVal = this._appStorage.get(ribixKey, StorageScope.APPLICATION)
+		if (ribixVal !== undefined) return ribixVal
+
+		const legacyVal = this._appStorage.get(legacyVoidKey, StorageScope.APPLICATION)
+		if (legacyVal !== undefined) {
+			this._appStorage.store(ribixKey, legacyVal, StorageScope.APPLICATION, target)
+			return legacyVal
+		}
+		return undefined
+	}
+
 
 	// this is old, eventually we can just delete this since all the keys will have been transferred over
 	// returns 'NULL' or the old key
 	private get oldId() {
-		// check new storage key first
-		const newKey = 'void.app.oldMachineId'
-		const newOldId = this._appStorage.get(newKey, StorageScope.APPLICATION)
-		if (newOldId) return newOldId
+		// canonical ribix key first, falling back to the legacy void key (one-time migration)
+		const migrated = this._migrateKey('ribix.app.oldMachineId', 'void.app.oldMachineId', StorageTarget.MACHINE)
+		if (migrated) return migrated
 
-		// put old key into new key if didn't already
-		const oldValue = this._appStorage.get('void.machineId', StorageScope.APPLICATION) ?? 'NULL' // the old way of getting the key
-		this._appStorage.store(newKey, oldValue, StorageScope.APPLICATION, StorageTarget.MACHINE)
+		// otherwise seed from the original Void machineId (the oldest legacy key, READ-only) and persist under ribix.*
+		const oldValue = this._appStorage.get('void.machineId', StorageScope.APPLICATION) ?? 'NULL'
+		this._appStorage.store('ribix.app.oldMachineId', oldValue, StorageScope.APPLICATION, StorageTarget.MACHINE)
 		return oldValue
-
-		// in a few weeks we can replace above with this
-		// private get oldId() {
-		// 	return this._memoStorage('void.app.oldMachineId', StorageTarget.MACHINE, 'NULL')
-		// }
 	}
 
 
 	// the main id
 	private get distinctId() {
+		// migrate any legacy void.app.machineId into the canonical ribix key
+		const migrated = this._migrateKey('ribix.app.machineId', 'void.app.machineId', StorageTarget.MACHINE)
+		if (migrated) return migrated
+
+		// no existing id under either namespace — seed from oldId if present, else fresh uuid
 		const oldId = this.oldId
 		const setValIfNotExist = oldId === 'NULL' ? undefined : oldId
-		return this._memoStorage('void.app.machineId', StorageTarget.MACHINE, setValIfNotExist)
+		return this._memoStorage('ribix.app.machineId', StorageTarget.MACHINE, setValIfNotExist)
 	}
 
 	// just to see if there are ever multiple machineIDs per userID (instead of this, we should just track by the user's email)
 	private get userId() {
-		return this._memoStorage('void.app.userMachineId', StorageTarget.USER)
+		const migrated = this._migrateKey('ribix.app.userMachineId', 'void.app.userMachineId', StorageTarget.USER)
+		if (migrated) return migrated
+		return this._memoStorage('ribix.app.userMachineId', StorageTarget.USER)
 	}
 
 	constructor(
