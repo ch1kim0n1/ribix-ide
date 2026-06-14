@@ -36,6 +36,7 @@ jobs:
         timeout-minutes: 30
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RIBIX_POSTHOG_KEY: ${{ secrets.RIBIX_POSTHOG_KEY }}
 
       - name: Create DMG
         run: |
@@ -89,6 +90,8 @@ jobs:
       - name: Build Linux app
         run: node ./node_modules/gulp/bin/gulp.js vscode-linux-x64-min
         timeout-minutes: 30
+        env:
+          RIBIX_POSTHOG_KEY: ${{ secrets.RIBIX_POSTHOG_KEY }}
 
       - name: Package as tar.gz
         run: |
@@ -130,6 +133,7 @@ jobs:
         timeout-minutes: 45
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RIBIX_POSTHOG_KEY: ${{ secrets.RIBIX_POSTHOG_KEY }}
 
       - name: Package as zip
         run: |

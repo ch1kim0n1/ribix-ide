@@ -88,9 +88,9 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 		@IApplicationStorageMainService private readonly _appStorage: IApplicationStorageMainService,
 	) {
 		super()
-		// TODO: Replace RIBIX_POSTHOG_KEY with a Ribix-owned PostHog project key before
-		// public release. The placeholder below disables telemetry at the SDK level so no
-		// events are sent to the upstream Void project.
+		// Reads the PostHog project key injected at build time via the RIBIX_POSTHOG_KEY
+		// GitHub Actions secret. When the secret is absent the placeholder value is used,
+		// which causes the PostHog SDK to initialise in a disabled state and send no events.
 		const posthogKey = process.env['RIBIX_POSTHOG_KEY'] ?? 'phc_disabled_replace_with_ribix_key'
 		this.client = new PostHog(posthogKey, {
 			host: 'https://us.i.posthog.com',
@@ -129,7 +129,9 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 
 		const didOptOut = this._appStorage.getBoolean(OPT_OUT_KEY, StorageScope.APPLICATION, false)
 
-		console.log('User is opted out of basic Ribix metrics?', didOptOut)
+		if (process.env['RIBIX_DEBUG_TELEMETRY']) {
+			console.log('User is opted out of basic Ribix metrics?', didOptOut)
+		}
 		if (didOptOut) {
 			this.client.optOut()
 		}
@@ -138,8 +140,9 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 			this.client.identify(identifyMessage)
 		}
 
-
-		console.log('Ribix posthog metrics info:', JSON.stringify(identifyMessage, null, 2))
+		if (process.env['RIBIX_DEBUG_TELEMETRY']) {
+			console.log('Ribix posthog metrics info:', JSON.stringify(identifyMessage, null, 2))
+		}
 	}
 
 
