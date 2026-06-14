@@ -12,7 +12,6 @@ import { StorageTarget, StorageScope } from '../../../../platform/storage/common
 import { IApplicationStorageMainService } from '../../../../platform/storage/electron-main/storageMainService.js';
 
 import { IMetricsService } from '../common/metricsService.js';
-import { PostHog } from 'posthog-node'
 import { OPT_OUT_KEY } from '../common/storageKeys.js';
 
 
@@ -28,17 +27,19 @@ const _getOSInfo = () => {
 }
 const osInfo = _getOSInfo()
 
-// we'd like to use devDeviceId on telemetryService, but that gets sanitized by the time it gets here as 'someValue.devDeviceId'
+/** Module-level session ID — generated once per IDE process lifetime. */
+const sessionId = generateUuid()
 
+/** Storage key where ribixAuthService persists the API and app URLs. */
+const RIBIX_AUTH_URLS_KEY = 'ribix.auth.urls'
 
 
 export class MetricsMainService extends Disposable implements IMetricsService {
 	_serviceBrand: undefined;
 
-	private readonly client: PostHog
-
 	private _initProperties: object = {}
-
+	private _optOut: boolean = false
+	private _apiUrl: string | null = null
 
 	// helper - looks like this is stored in a .vscdb file in ~/Library/Application Support/Void
 	private _memoStorage(key: string, target: StorageTarget, setValIfNotExist?: string) {
@@ -88,14 +89,6 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 		@IApplicationStorageMainService private readonly _appStorage: IApplicationStorageMainService,
 	) {
 		super()
-		// Reads the PostHog project key injected at build time via the RIBIX_POSTHOG_KEY
-		// GitHub Actions secret. When the secret is absent the placeholder value is used,
-		// which causes the PostHog SDK to initialise in a disabled state and send no events.
-		const posthogKey = process.env['RIBIX_POSTHOG_KEY'] ?? 'phc_disabled_replace_with_ribix_key'
-		this.client = new PostHog(posthogKey, {
-			host: 'https://us.i.posthog.com',
-		})
-
 		this.initialize() // async
 	}
 
@@ -122,37 +115,55 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 			...osInfo,
 		}
 
-		const identifyMessage = {
-			distinctId: this.distinctId,
-			properties: this._initProperties,
-		}
+		this._optOut = this._appStorage.getBoolean(OPT_OUT_KEY, StorageScope.APPLICATION, false)
 
-		const didOptOut = this._appStorage.getBoolean(OPT_OUT_KEY, StorageScope.APPLICATION, false)
-
-		if (process.env['RIBIX_DEBUG_TELEMETRY']) {
-			console.log('User is opted out of basic Ribix metrics?', didOptOut)
-		}
-		if (didOptOut) {
-			this.client.optOut()
-		}
-		else {
-			this.client.optIn()
-			this.client.identify(identifyMessage)
+		// Read the API URL from auth storage (set when user signs in).
+		try {
+			const urlsRaw = this._appStorage.get(RIBIX_AUTH_URLS_KEY, StorageScope.APPLICATION)
+			if (urlsRaw) {
+				const urls = JSON.parse(urlsRaw) as { apiUrl?: string }
+				this._apiUrl = urls.apiUrl ?? null
+			}
+		} catch {
+			// malformed stored value — leave _apiUrl null
 		}
 
 		if (process.env['RIBIX_DEBUG_TELEMETRY']) {
-			console.log('Ribix posthog metrics info:', JSON.stringify(identifyMessage, null, 2))
+			console.log('Ribix telemetry: optOut =', this._optOut, ', apiUrl =', this._apiUrl)
 		}
 	}
 
+	/**
+	 * Send a telemetry event to the Ribix backend.
+	 * Fire-and-forget — never blocks the IDE.
+	 */
+	private async _sendEvent(eventName: string, properties: Record<string, unknown> = {}): Promise<void> {
+		if (this._optOut) return
+		if (!this._apiUrl) return
+
+		try {
+			await fetch(`${this._apiUrl.replace(/\/$/, '')}/api/telemetry/event`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					surface: 'ide',
+					event_name: eventName,
+					properties: { ...this._initProperties, ...properties },
+					session_id: sessionId,
+				}),
+				signal: AbortSignal.timeout(3000),
+			})
+		} catch {
+			// silent — telemetry must never crash the IDE
+		}
+	}
 
 	capture: IMetricsService['capture'] = (event, params) => {
-		const capture = { distinctId: this.distinctId, event, properties: params } as const
-		// console.log('full capture:', this.distinctId)
-		this.client.capture(capture)
+		void this._sendEvent(event, params as Record<string, unknown>)
 	}
 
 	setOptOut: IMetricsService['setOptOut'] = (newVal: boolean) => {
+		this._optOut = newVal
 		if (newVal) {
 			this._appStorage.store(OPT_OUT_KEY, 'true', StorageScope.APPLICATION, StorageTarget.MACHINE)
 		}
@@ -165,5 +176,3 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 		return this._initProperties
 	}
 }
-
-

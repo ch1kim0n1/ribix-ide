@@ -21,6 +21,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { RibixApiClient } from '../common/ribixApiClient.js';
 import { ChangedChunk } from '../common/ribixChangedChunk.js';
 import { SemverBump, maxBump, semverBumpFromConventionalCommits, semverBumpFromDiff } from '../common/ribixSemver.js';
+import { IMetricsService } from '../common/metricsService.js';
 
 export interface IRibixMissionService {
 	readonly _serviceBrand: undefined;
@@ -107,6 +108,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IHostService private readonly hostService: IHostService,
+		@IMetricsService private readonly metricsService: IMetricsService,
 	) {
 		super();
 		this._register(this._onDidChangeMissions);
@@ -316,6 +318,9 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.state = 'planning';
 		await this.saveMission(mission);
 
+		// Telemetry: mission started (fire-and-forget)
+		void this.metricsService.capture('mission:started', { agentTypes: mission.tasks.map((t: any) => t.agentType) });
+
 		// Kick off the planning service — produces task graph and transitions to plan_ready.
 		// Pass the mission's stored context so the planner is actually scoped (G-CONTEXT)
 		// instead of the previously-hardcoded empty context.
@@ -395,6 +400,9 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.state = 'aborted';
 		mission.completedAt = Date.now();
 		await this.saveMission(mission);
+
+		// Telemetry: mission aborted (fire-and-forget)
+		void this.metricsService.capture('mission:aborted', { reason: 'user_abort' });
 	}
 
 	async completeMission(id: string, result: Mission['result']): Promise<void> {
@@ -408,6 +416,12 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.completedAt = Date.now();
 		mission.result = result;
 		await this.saveMission(mission);
+
+		// Telemetry: mission completed (fire-and-forget)
+		void this.metricsService.capture('mission:completed', {
+			findingCount: result?.reviewerFindings?.length ?? 0,
+			durationMs: mission.completedAt - mission.createdAt,
+		});
 
 		// Sync memory to org on mission complete
 		try {
@@ -489,6 +503,9 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 			const apiClient = new RibixApiClient();
 			const response = await apiClient.submitFindings(config, repoFullName, findings, mission.id);
 			console.log(`submitFindingsToBackend: submitted ${response.submitted} findings, ${response.duplicates ?? 0} duplicates skipped for mission ${mission.id}`);
+
+			// Telemetry: findings submitted (fire-and-forget)
+			void this.metricsService.capture('finding:submitted', { count: response.submitted, source: 'ide' });
 		} catch (e) {
 			console.warn('submitFindingsToBackend: failed to submit findings, queuing for retry:', e);
 			// Queue for retry only when we have both findings and a repo target
