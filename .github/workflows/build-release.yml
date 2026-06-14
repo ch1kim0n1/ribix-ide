@@ -5,6 +5,12 @@ on:
     tags:
       - 'v*'
 
+# Required so softprops/action-gh-release can create/update the release and
+# upload binaries; without it the upload fails with 403 "Resource not
+# accessible by integration".
+permissions:
+  contents: write
+
 jobs:
   build-macos:
     name: Build macOS (arm64 + x64)
@@ -27,6 +33,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          # @vscode/ripgrep downloads its binary from GitHub releases during
+          # postinstall; without a token GitHub rate-limits with HTTP 403.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build React components
         run: npm run buildreact
@@ -85,6 +95,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          # @vscode/ripgrep downloads its binary from GitHub releases during
+          # postinstall; without a token GitHub rate-limits with HTTP 403.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build React components
         run: npm run buildreact
@@ -110,7 +124,9 @@ jobs:
 
   build-windows:
     name: Build Windows (x64)
-    runs-on: windows-latest
+    # Pinned to 2022: windows-latest ships a Visual Studio build that node-gyp
+    # 10.x cannot detect ("unknown version undefined"), breaking native rebuilds.
+    runs-on: windows-2022
     env:
       NODE_OPTIONS: --max-old-space-size=8192
       # Skip the TS->TS export mangler for release builds. It is a size optimization
@@ -132,6 +148,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          # @vscode/ripgrep downloads its binary from GitHub releases during
+          # postinstall; without a token GitHub rate-limits with HTTP 403.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build React components
         run: npm run buildreact
