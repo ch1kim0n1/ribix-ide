@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { useStore } from 'zustand';
 import { useAuthStore } from './stores/authStore';
 import { AIChatPanel } from './components/AIChatPanel';
+import { FileExplorer } from './components/FileExplorer';
 
 interface File {
   name: string;
@@ -297,21 +298,13 @@ This is the web-based version of Ribix IDE.
       </div>
       <div className="main-content">
         <div className="sidebar">
-          <div className="sidebar-header">Explorer</div>
-          <div className="sidebar-item active">
-            <span>📁</span>
-            <span>workspace</span>
-          </div>
-          {Array.from(files.keys()).map((fileName) => (
-            <div
-              key={fileName}
-              className={`sidebar-item ${activeFile === fileName ? 'active' : ''}`}
-              onClick={() => setActiveFile(fileName)}
-            >
-              <span>📄</span>
-              <span>{fileName}</span>
-            </div>
-          ))}
+          <FileExplorer
+            onFileSelect={(path, content, language) => {
+              setFile(path, content, language);
+              setActiveFile(path);
+            }}
+            currentFile={activeFile}
+          />
         </div>
         <div className="editor-container">
           <div className="tabs">
