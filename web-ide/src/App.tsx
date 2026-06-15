@@ -3,6 +3,7 @@ import Editor from '@monaco-editor/react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { useStore } from 'zustand';
 import { useAuthStore } from './stores/authStore';
+import { AIChatPanel } from './components/AIChatPanel';
 
 interface File {
   name: string;
@@ -181,6 +182,7 @@ function App() {
   const { isAuthenticated, user, login, logout, loginWithGitHub } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
 
   useEffect(() => {
     // Initialize with sample files
@@ -269,6 +271,9 @@ This is the web-based version of Ribix IDE.
       <div className="header">
         <div className="logo">🚀 Ribix IDE Web</div>
         <div className="header-actions">
+          <button className="btn btn-secondary" onClick={() => setShowAIChat(!showAIChat)}>
+            🤖 AI Chat
+          </button>
           {isAuthenticated ? (
             <>
               <span style={{ marginRight: '12px', fontSize: '13px' }}>
@@ -364,6 +369,7 @@ This is the web-based version of Ribix IDE.
           onGitHubLogin={handleGitHubLogin}
         />
       )}
+      {showAIChat && <AIChatPanel onClose={() => setShowAIChat(false)} />}
     </>
   );
 }
