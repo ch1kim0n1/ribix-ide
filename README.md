@@ -62,7 +62,7 @@ On first launch: the Ribix onboarding screen asks for an LLM API key (Anthropic/
 - **Memory** — `ribixMemoryService` persists to workspace storage and optionally syncs to the Ribix backend
 - **Auth** — OAuth PKCE flow connects to the Ribix backend for org features (optional for local-only use)
 
-All Ribix-specific code lives in `src/vs/workbench/contrib/void/browser/ribix*` and `src/vs/workbench/contrib/void/common/ribix*`.
+All Ribix-specific code lives in `src/vs/workbench/contrib/ribix/browser/ribix*` and `src/vs/workbench/contrib/ribix/common/ribix*`.
 
 ---
 

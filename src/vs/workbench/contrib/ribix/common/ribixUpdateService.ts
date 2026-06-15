@@ -7,40 +7,40 @@ import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
-import { VoidCheckUpdateRespose } from './voidUpdateServiceTypes.js';
+import { RibixCheckUpdateResponse } from './ribixUpdateServiceTypes.js';
 
 
 
-export interface IVoidUpdateService {
+export interface IRibixUpdateService {
 	readonly _serviceBrand: undefined;
-	check: (explicit: boolean) => Promise<VoidCheckUpdateRespose>;
+	check: (explicit: boolean) => Promise<RibixCheckUpdateResponse>;
 }
 
 
-export const IVoidUpdateService = createDecorator<IVoidUpdateService>('VoidUpdateService');
+export const IRibixUpdateService = createDecorator<IRibixUpdateService>('RibixUpdateService');
 
 
 // implemented by calling channel
-export class VoidUpdateService implements IVoidUpdateService {
+export class RibixUpdateService implements IRibixUpdateService {
 
 	readonly _serviceBrand: undefined;
-	private readonly voidUpdateService: IVoidUpdateService;
+	private readonly ribixUpdateService: IRibixUpdateService;
 
 	constructor(
 		@IMainProcessService mainProcessService: IMainProcessService, // (only usable on client side)
 	) {
 		// creates an IPC proxy to use metricsMainService.ts
-		this.voidUpdateService = ProxyChannel.toService<IVoidUpdateService>(mainProcessService.getChannel('void-channel-update'));
+		this.ribixUpdateService = ProxyChannel.toService<IRibixUpdateService>(mainProcessService.getChannel('ribix-channel-update'));
 	}
 
 
 	// anything transmitted over a channel must be async even if it looks like it doesn't have to be
-	check: IVoidUpdateService['check'] = async (explicit) => {
-		const res = await this.voidUpdateService.check(explicit)
+	check: IRibixUpdateService['check'] = async (explicit) => {
+		const res = await this.ribixUpdateService.check(explicit)
 		return res
 	}
 }
 
-registerSingleton(IVoidUpdateService, VoidUpdateService, InstantiationType.Eager);
+registerSingleton(IRibixUpdateService, RibixUpdateService, InstantiationType.Eager);
 
 

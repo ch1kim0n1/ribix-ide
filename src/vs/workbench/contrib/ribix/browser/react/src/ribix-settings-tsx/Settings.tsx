@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'; // Added useRef import just in case it was missed, though likely already present
-import { ProviderName, SettingName, displayInfoOfSettingName, providerNames, VoidStatefulModelInfo, customSettingNamesOfProvider, RefreshableProviderName, refreshableProviderNames, displayInfoOfProviderName, nonlocalProviderNames, localProviderNames, GlobalSettingName, featureNames, displayInfoOfFeatureName, isProviderNameDisabled, FeatureName, hasDownloadButtonsOnModelsProviderNames, subTextMdOfProviderName } from '../../../../common/voidSettingsTypes.js'
+import { ProviderName, SettingName, displayInfoOfSettingName, providerNames, VoidStatefulModelInfo, customSettingNamesOfProvider, RefreshableProviderName, refreshableProviderNames, displayInfoOfProviderName, nonlocalProviderNames, localProviderNames, GlobalSettingName, featureNames, displayInfoOfFeatureName, isProviderNameDisabled, FeatureName, hasDownloadButtonsOnModelsProviderNames, subTextMdOfProviderName } from '../../../../common/ribixSettingsTypes.js'
 import ErrorBoundary from '../sidebar-tsx/ErrorBoundary.js'
 import { VoidButtonBgDarken, VoidCustomDropdownBox, VoidInputBox2, VoidSimpleInputBox, VoidSwitch } from '../util/inputs.js'
 import { useAccessor, useIsDark, useIsOptedOut, useRefreshModelListener, useRefreshModelState, useSettingsState } from '../util/services.js'
@@ -37,7 +37,7 @@ type Tab =
 
 const ButtonLeftTextRightOption = ({ text, leftButton }: { text: string, leftButton?: React.ReactNode }) => {
 
-	return <div className='flex items-center text-void-fg-3 px-3 py-0.5 rounded-sm overflow-hidden gap-2'>
+	return <div className='flex items-center text-ribix-fg-3 px-3 py-0.5 rounded-sm overflow-hidden gap-2'>
 		{leftButton ? leftButton : null}
 		<span>
 			{text}
@@ -97,13 +97,13 @@ const AuthStatusSection = () => {
 	}
 
 	if (loading) {
-		return <div className='text-void-fg-3 text-sm'>Loading auth status...</div>
+		return <div className='text-ribix-fg-3 text-sm'>Loading auth status...</div>
 	}
 
 	return (
-		<div className='my-4 p-4 bg-void-bg-2 rounded-sm'>
+		<div className='my-4 p-4 bg-ribix-bg-2 rounded-sm'>
 			<h4 className={`text-base mb-2`}>Ribix Authentication</h4>
-			<div className='text-sm text-void-fg-3 mb-3'>
+			<div className='text-sm text-ribix-fg-3 mb-3'>
 				Sign in to enable org memory sync and other Ribix cloud features.
 			</div>
 			{authSummary?.status === 'signed_in' ? (
@@ -112,11 +112,11 @@ const AuthStatusSection = () => {
 						<Check className='size-4' />
 						<span className='text-sm'>Signed in as {authSummary.workspaceRole}</span>
 					</div>
-					<div className='text-xs text-void-fg-3'>
+					<div className='text-xs text-ribix-fg-3'>
 						Workspace: {authSummary.workspaceId}
 					</div>
 					<button
-						className='mt-2 px-3 py-1 bg-void-bg-3 hover:bg-void-bg-4 rounded-sm text-sm text-void-fg-1'
+						className='mt-2 px-3 py-1 bg-ribix-bg-3 hover:bg-ribix-bg-4 rounded-sm text-sm text-ribix-fg-1'
 						onClick={handleSignOut}
 					>
 						Sign Out
@@ -129,7 +129,7 @@ const AuthStatusSection = () => {
 						<span className='text-sm'>Session expired</span>
 					</div>
 					<button
-						className='mt-2 px-3 py-1 bg-void-bg-3 hover:bg-void-bg-4 rounded-sm text-sm text-void-fg-1'
+						className='mt-2 px-3 py-1 bg-ribix-bg-3 hover:bg-ribix-bg-4 rounded-sm text-sm text-ribix-fg-1'
 						onClick={handleSignIn}
 					>
 						Sign In Again
@@ -137,12 +137,12 @@ const AuthStatusSection = () => {
 				</div>
 			) : (
 				<div className='space-y-2'>
-					<div className='flex items-center gap-2 text-void-fg-3'>
+					<div className='flex items-center gap-2 text-ribix-fg-3'>
 						<X className='size-4' />
 						<span className='text-sm'>Not signed in</span>
 					</div>
 					<button
-						className='mt-2 px-3 py-1 bg-void-bg-3 hover:bg-void-bg-4 rounded-sm text-sm text-void-fg-1'
+						className='mt-2 px-3 py-1 bg-ribix-bg-3 hover:bg-ribix-bg-4 rounded-sm text-sm text-ribix-fg-1'
 						onClick={handleSignIn}
 					>
 						Sign In
@@ -392,7 +392,7 @@ const SimpleModelSettingsDialog = ({
 		onClose();
 	};
 
-	const sourcecodeOverridesLink = `https://github.com/ch1kim0n1/ribix-ide/blob/main/src/vs/workbench/contrib/void/common/modelCapabilities.ts`
+	const sourcecodeOverridesLink = `https://github.com/ch1kim0n1/ribix-ide/blob/main/src/vs/workbench/contrib/ribix/common/modelCapabilities.ts`
 
 	return (
 		<div // Backdrop
@@ -409,7 +409,7 @@ const SimpleModelSettingsDialog = ({
 		>
 			{/* MODAL */}
 			<div
-				className="bg-void-bg-1 rounded-md p-4 max-w-xl w-full shadow-xl overflow-y-auto max-h-[90vh]"
+				className="bg-ribix-bg-1 rounded-md p-4 max-w-xl w-full shadow-xl overflow-y-auto max-h-[90vh]"
 				onClick={(e) => e.stopPropagation()} // Keep stopping propagation for normal clicks inside
 				onMouseDown={(e) => {
 					mouseDownInsideModal.current = true;
@@ -422,14 +422,14 @@ const SimpleModelSettingsDialog = ({
 					</h3>
 					<button
 						onClick={onClose}
-						className="text-void-fg-3 hover:text-void-fg-1"
+						className="text-ribix-fg-3 hover:text-ribix-fg-1"
 					>
 						<X className="size-5" />
 					</button>
 				</div>
 
 				{/* Display model recognition status */}
-				<div className="text-sm text-void-fg-3 mb-4">
+				<div className="text-sm text-ribix-fg-3 mb-4">
 					{type === 'default' ? `${modelName} comes packaged with Ribix IDE, so you shouldn't need to change these settings.`
 						: isUnrecognizedModel
 							? `Model not recognized by Ribix IDE.`
@@ -440,18 +440,18 @@ const SimpleModelSettingsDialog = ({
 				{/* override toggle */}
 				<div className="flex items-center gap-2 mb-4">
 					<VoidSwitch size='xs' value={overrideEnabled} onChange={setOverrideEnabled} />
-					<span className="text-void-fg-3 text-sm">Override model defaults</span>
+					<span className="text-ribix-fg-3 text-sm">Override model defaults</span>
 				</div>
 
 				{/* Informational link */}
-				{overrideEnabled && <div className="text-sm text-void-fg-3 mb-4">
+				{overrideEnabled && <div className="text-sm text-ribix-fg-3 mb-4">
 					<ChatMarkdownRender string={`See the [sourcecode](${sourcecodeOverridesLink}) for a reference on how to set this JSON (advanced).`} chatMessageLocation={undefined} />
 				</div>}
 
 				<textarea
 					key={overrideEnabled + ''}
 					ref={textAreaRef}
-					className={`w-full min-h-[200px] p-2 rounded-sm border border-void-border-2 bg-void-bg-2 resize-none font-mono text-sm ${!overrideEnabled ? 'text-void-fg-3' : ''}`}
+					className={`w-full min-h-[200px] p-2 rounded-sm border border-ribix-border-2 bg-ribix-bg-2 resize-none font-mono text-sm ${!overrideEnabled ? 'text-ribix-fg-3' : ''}`}
 					defaultValue={overrideEnabled && currentOverrides ? JSON.stringify(currentOverrides, null, 2) : placeholder}
 					placeholder={placeholder}
 					readOnly={!overrideEnabled}
@@ -563,9 +563,9 @@ export const ModelDump = ({ filteredProviders }: { filteredProviders?: ProviderN
 
 
 			const detailAboutModel = type === 'autodetected' ?
-				<Asterisk size={14} className="inline-block align-text-top brightness-115 stroke-[2] text-[#0e70c0]" data-tooltip-id='void-tooltip' data-tooltip-place='right' data-tooltip-content='Detected locally' />
+				<Asterisk size={14} className="inline-block align-text-top brightness-115 stroke-[2] text-[#0e70c0]" data-tooltip-id='ribix-tooltip' data-tooltip-place='right' data-tooltip-content='Detected locally' />
 				: type === 'custom' ?
-					<Asterisk size={14} className="inline-block align-text-top brightness-115 stroke-[2] text-[#0e70c0]" data-tooltip-id='void-tooltip' data-tooltip-place='right' data-tooltip-content='Custom model' />
+					<Asterisk size={14} className="inline-block align-text-top brightness-115 stroke-[2] text-[#0e70c0]" data-tooltip-id='ribix-tooltip' data-tooltip-place='right' data-tooltip-content='Custom model' />
 					: undefined
 
 			const hasOverrides = !!settingsState.overridesOfModel?.[providerName]?.[modelName]
@@ -588,12 +588,12 @@ export const ModelDump = ({ filteredProviders }: { filteredProviders?: ProviderN
 						<div className="w-5 flex items-center justify-center">
 							<button
 								onClick={() => { setOpenSettingsModel({ modelName, providerName, type }) }}
-								data-tooltip-id='void-tooltip'
+								data-tooltip-id='ribix-tooltip'
 								data-tooltip-place='right'
 								data-tooltip-content='Advanced Settings'
 								className={`${hasOverrides ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
 							>
-								<Plus size={12} className="text-void-fg-3 opacity-50" />
+								<Plus size={12} className="text-ribix-fg-3 opacity-50" />
 							</button>
 						</div>
 					)}
@@ -609,7 +609,7 @@ export const ModelDump = ({ filteredProviders }: { filteredProviders?: ProviderN
 						disabled={disabled}
 						size='sm'
 
-						data-tooltip-id='void-tooltip'
+						data-tooltip-id='ribix-tooltip'
 						data-tooltip-place='right'
 						data-tooltip-content={tooltipName}
 					/>
@@ -618,12 +618,12 @@ export const ModelDump = ({ filteredProviders }: { filteredProviders?: ProviderN
 					<div className={`w-5 flex items-center justify-center`}>
 						{type === 'default' || type === 'autodetected' ? null : <button
 							onClick={() => { settingsStateService.deleteModel(providerName, modelName); }}
-							data-tooltip-id='void-tooltip'
+							data-tooltip-id='ribix-tooltip'
 							data-tooltip-place='right'
 							data-tooltip-content='Delete'
 							className={`${hasOverrides ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
 						>
-							<X size={12} className="text-void-fg-3 opacity-50" />
+							<X size={12} className="text-ribix-fg-3 opacity-50" />
 						</button>}
 					</div>
 				</div>
@@ -648,7 +648,7 @@ export const ModelDump = ({ filteredProviders }: { filteredProviders?: ProviderN
 							getOptionDisplayName={(pn) => pn ? displayInfoOfProviderName(pn).title : 'Provider Name'}
 							getOptionDropdownName={(pn) => pn ? displayInfoOfProviderName(pn).title : 'Provider Name'}
 							getOptionsEqual={(a, b) => a === b}
-							className="max-w-32 mx-2 w-full resize-none bg-void-bg-1 text-void-fg-1 placeholder:text-void-fg-3 border border-void-border-2 focus:border-void-border-1 py-1 px-2 rounded"
+							className="max-w-32 mx-2 w-full resize-none bg-ribix-bg-1 text-ribix-fg-1 placeholder:text-ribix-fg-3 border border-ribix-border-2 focus:border-ribix-border-1 py-1 px-2 rounded"
 							arrowTouchesText={false}
 						/>
 					</ErrorBoundary>
@@ -682,7 +682,7 @@ export const ModelDump = ({ filteredProviders }: { filteredProviders?: ProviderN
 							setModelName('');
 							setUserChosenProviderName(null);
 						}}
-						className='text-void-fg-4'
+						className='text-ribix-fg-4'
 					>
 						<X className='size-4' />
 					</button>
@@ -696,7 +696,7 @@ export const ModelDump = ({ filteredProviders }: { filteredProviders?: ProviderN
 			</div>
 		) : (
 			<div
-				className="text-void-fg-4 flex flex-nowrap text-nowrap items-center hover:brightness-110 cursor-pointer mt-4"
+				className="text-ribix-fg-4 flex flex-nowrap text-nowrap items-center hover:brightness-110 cursor-pointer mt-4"
 				onClick={() => setIsAddModelOpen(true)}
 			>
 				<div className="flex items-center gap-1">
@@ -724,7 +724,7 @@ const ProviderSetting = ({ providerName, settingName, subTextMd }: { providerNam
 	const { title: settingTitle, placeholder, isPasswordField } = displayInfoOfSettingName(providerName, settingName)
 
 	const accessor = useAccessor()
-	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const ribixSettingsService = accessor.get('IRibixSettingsService')
 	const settingsState = useSettingsState()
 
 	const settingValue = settingsState.settingsOfProvider[providerName][settingName] as string // this should always be a string in this component
@@ -735,8 +735,8 @@ const ProviderSetting = ({ providerName, settingName, subTextMd }: { providerNam
 
 	// Create a stable callback reference using useCallback with proper dependencies
 	const handleChangeValue = useCallback((newVal: string) => {
-		voidSettingsService.setSettingOfProvider(providerName, settingName, newVal)
-	}, [voidSettingsService, providerName, settingName]);
+		ribixSettingsService.setSettingOfProvider(providerName, settingName, newVal)
+	}, [ribixSettingsService, providerName, settingName]);
 
 	return <ErrorBoundary>
 		<div className='my-1'>
@@ -755,14 +755,14 @@ const ProviderSetting = ({ providerName, settingName, subTextMd }: { providerNam
 }
 
 // const OldSettingsForProvider = ({ providerName, showProviderTitle }: { providerName: ProviderName, showProviderTitle: boolean }) => {
-// 	const voidSettingsState = useSettingsState()
+// 	const ribixSettingsState = useSettingsState()
 
-// 	const needsModel = isProviderNameDisabled(providerName, voidSettingsState) === 'addModel'
+// 	const needsModel = isProviderNameDisabled(providerName, ribixSettingsState) === 'addModel'
 
 // 	// const accessor = useAccessor()
-// 	// const voidSettingsService = accessor.get('IVoidSettingsService')
+// 	// const ribixSettingsService = accessor.get('IRibixSettingsService')
 
-// 	// const { enabled } = voidSettingsState.settingsOfProvider[providerName]
+// 	// const { enabled } = ribixSettingsState.settingsOfProvider[providerName]
 // 	const settingNames = customSettingNamesOfProvider(providerName)
 
 // 	const { title: providerTitle } = displayInfoOfProviderName(providerName)
@@ -777,9 +777,9 @@ const ProviderSetting = ({ providerName, settingName, subTextMd }: { providerNam
 // 				value={!!enabled}
 // 				onChange={
 // 					useCallback(() => {
-// 						const enabledRef = voidSettingsService.state.settingsOfProvider[providerName].enabled
-// 						voidSettingsService.setSettingOfProvider(providerName, 'enabled', !enabledRef)
-// 					}, [voidSettingsService, providerName])}
+// 						const enabledRef = ribixSettingsService.state.settingsOfProvider[providerName].enabled
+// 						ribixSettingsService.setSettingOfProvider(providerName, 'enabled', !enabledRef)
+// 					}, [ribixSettingsService, providerName])}
 // 				size='sm+'
 // 			/> */}
 // 		</div>
@@ -801,14 +801,14 @@ const ProviderSetting = ({ providerName, settingName, subTextMd }: { providerNam
 
 
 export const SettingsForProvider = ({ providerName, showProviderTitle, showProviderSuggestions }: { providerName: ProviderName, showProviderTitle: boolean, showProviderSuggestions: boolean }) => {
-	const voidSettingsState = useSettingsState()
+	const ribixSettingsState = useSettingsState()
 
-	const needsModel = isProviderNameDisabled(providerName, voidSettingsState) === 'addModel'
+	const needsModel = isProviderNameDisabled(providerName, ribixSettingsState) === 'addModel'
 
 	// const accessor = useAccessor()
-	// const voidSettingsService = accessor.get('IVoidSettingsService')
+	// const ribixSettingsService = accessor.get('IRibixSettingsService')
 
-	// const { enabled } = voidSettingsState.settingsOfProvider[providerName]
+	// const { enabled } = ribixSettingsState.settingsOfProvider[providerName]
 	const settingNames = customSettingNamesOfProvider(providerName)
 
 	const { title: providerTitle } = displayInfoOfProviderName(providerName)
@@ -823,9 +823,9 @@ export const SettingsForProvider = ({ providerName, showProviderTitle, showProvi
 				value={!!enabled}
 				onChange={
 					useCallback(() => {
-						const enabledRef = voidSettingsService.state.settingsOfProvider[providerName].enabled
-						voidSettingsService.setSettingOfProvider(providerName, 'enabled', !enabledRef)
-					}, [voidSettingsService, providerName])}
+						const enabledRef = ribixSettingsService.state.settingsOfProvider[providerName].enabled
+						ribixSettingsService.setSettingOfProvider(providerName, 'enabled', !enabledRef)
+					}, [ribixSettingsService, providerName])}
 				size='sm+'
 			/> */}
 		</div>
@@ -867,20 +867,20 @@ export const AutoDetectLocalModelsToggle = () => {
 	const settingName: GlobalSettingName = 'autoRefreshModels'
 
 	const accessor = useAccessor()
-	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const ribixSettingsService = accessor.get('IRibixSettingsService')
 	const metricsService = accessor.get('IMetricsService')
 
-	const voidSettingsState = useSettingsState()
+	const ribixSettingsState = useSettingsState()
 
 	// right now this is just `enabled_autoRefreshModels`
-	const enabled = voidSettingsState.globalSettings[settingName]
+	const enabled = ribixSettingsState.globalSettings[settingName]
 
 	return <ButtonLeftTextRightOption
 		leftButton={<VoidSwitch
 			size='xxs'
 			value={enabled}
 			onChange={(newVal) => {
-				voidSettingsService.setGlobalSetting(settingName, newVal)
+				ribixSettingsService.setGlobalSetting(settingName, newVal)
 				metricsService.capture('Click', { action: 'Autorefresh Toggle', settingName, enabled: newVal })
 			}}
 		/>}
@@ -892,33 +892,33 @@ export const AutoDetectLocalModelsToggle = () => {
 
 export const AIInstructionsBox = () => {
 	const accessor = useAccessor()
-	const voidSettingsService = accessor.get('IVoidSettingsService')
-	const voidSettingsState = useSettingsState()
+	const ribixSettingsService = accessor.get('IRibixSettingsService')
+	const ribixSettingsState = useSettingsState()
 	return <VoidInputBox2
 		className='min-h-[81px] p-3 rounded-sm'
-		initValue={voidSettingsState.globalSettings.aiInstructions}
+		initValue={ribixSettingsState.globalSettings.aiInstructions}
 		placeholder={`Do not change my indentation or delete my comments. When writing TS or JS, do not add ;'s. Write new code using Rust if possible. `}
 		multiline
 		onChangeText={(newText) => {
-			voidSettingsService.setGlobalSetting('aiInstructions', newText)
+			ribixSettingsService.setGlobalSetting('aiInstructions', newText)
 		}}
 	/>
 }
 
 const FastApplyMethodDropdown = () => {
 	const accessor = useAccessor()
-	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const ribixSettingsService = accessor.get('IRibixSettingsService')
 
 	const options = useMemo(() => [true, false], [])
 
 	const onChangeOption = useCallback((newVal: boolean) => {
-		voidSettingsService.setGlobalSetting('enableFastApply', newVal)
-	}, [voidSettingsService])
+		ribixSettingsService.setGlobalSetting('enableFastApply', newVal)
+	}, [ribixSettingsService])
 
 	return <VoidCustomDropdownBox
-		className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-1 rounded p-0.5 px-1'
+		className='text-xs text-ribix-fg-3 bg-ribix-bg-1 border border-ribix-border-1 rounded p-0.5 px-1'
 		options={options}
-		selectedOption={voidSettingsService.state.globalSettings.enableFastApply}
+		selectedOption={ribixSettingsService.state.globalSettings.enableFastApply}
 		onChangeOption={onChangeOption}
 		getOptionDisplayName={(val) => val ? 'Fast Apply' : 'Slow Apply'}
 		getOptionDropdownName={(val) => val ? 'Fast Apply' : 'Slow Apply'}
@@ -930,13 +930,13 @@ const FastApplyMethodDropdown = () => {
 
 
 export const OllamaSetupInstructions = ({ sayWeAutoDetect }: { sayWeAutoDetect?: boolean }) => {
-	return <div className='prose-p:my-0 prose-ol:list-decimal prose-p:py-0 prose-ol:my-0 prose-ol:py-0 prose-span:my-0 prose-span:py-0 text-void-fg-3 text-sm list-decimal select-text'>
+	return <div className='prose-p:my-0 prose-ol:list-decimal prose-p:py-0 prose-ol:my-0 prose-ol:py-0 prose-span:my-0 prose-span:py-0 text-ribix-fg-3 text-sm list-decimal select-text'>
 		<div className=''><ChatMarkdownRender string={`Ollama Setup Instructions`} chatMessageLocation={undefined} /></div>
 		<div className=' pl-6'><ChatMarkdownRender string={`1. Download [Ollama](https://ollama.com/download).`} chatMessageLocation={undefined} /></div>
 		<div className=' pl-6'><ChatMarkdownRender string={`2. Open your terminal.`} chatMessageLocation={undefined} /></div>
 		<div
 			className='pl-6 flex items-center w-fit'
-			data-tooltip-id='void-tooltip-ollama-settings'
+			data-tooltip-id='ribix-tooltip-ollama-settings'
 		>
 			<ChatMarkdownRender string={`3. Run \`ollama pull your_model\` to install a model.`} chatMessageLocation={undefined} />
 		</div>
@@ -947,10 +947,10 @@ export const OllamaSetupInstructions = ({ sayWeAutoDetect }: { sayWeAutoDetect?:
 
 const RedoOnboardingButton = ({ className }: { className?: string }) => {
 	const accessor = useAccessor()
-	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const ribixSettingsService = accessor.get('IRibixSettingsService')
 	return <div
-		className={`text-void-fg-4 flex flex-nowrap text-nowrap items-center hover:brightness-110 cursor-pointer ${className}`}
-		onClick={() => { voidSettingsService.setGlobalSetting('isOnboardingComplete', false) }}
+		className={`text-ribix-fg-4 flex flex-nowrap text-nowrap items-center hover:brightness-110 cursor-pointer ${className}`}
+		onClick={() => { ribixSettingsService.setGlobalSetting('isOnboardingComplete', false) }}
 	>
 		See onboarding screen?
 	</div>
@@ -965,25 +965,25 @@ const RedoOnboardingButton = ({ className }: { className?: string }) => {
 
 export const ToolApprovalTypeSwitch = ({ approvalType, size, desc }: { approvalType: ToolApprovalType, size: "xxs" | "xs" | "sm" | "sm+" | "md", desc: string }) => {
 	const accessor = useAccessor()
-	const voidSettingsService = accessor.get('IVoidSettingsService')
-	const voidSettingsState = useSettingsState()
+	const ribixSettingsService = accessor.get('IRibixSettingsService')
+	const ribixSettingsState = useSettingsState()
 	const metricsService = accessor.get('IMetricsService')
 
 	const onToggleAutoApprove = useCallback((approvalType: ToolApprovalType, newValue: boolean) => {
-		voidSettingsService.setGlobalSetting('autoApprove', {
-			...voidSettingsService.state.globalSettings.autoApprove,
+		ribixSettingsService.setGlobalSetting('autoApprove', {
+			...ribixSettingsService.state.globalSettings.autoApprove,
 			[approvalType]: newValue
 		})
 		metricsService.capture('Tool Auto-Accept Toggle', { enabled: newValue })
-	}, [voidSettingsService, metricsService])
+	}, [ribixSettingsService, metricsService])
 
 	return <>
 		<VoidSwitch
 			size={size}
-			value={voidSettingsState.globalSettings.autoApprove[approvalType] ?? false}
+			value={ribixSettingsState.globalSettings.autoApprove[approvalType] ?? false}
 			onChange={(newVal) => onToggleAutoApprove(approvalType, newVal)}
 		/>
-		<span className="text-void-fg-3 text-xs">{desc}</span>
+		<span className="text-ribix-fg-3 text-xs">{desc}</span>
 	</>
 }
 
@@ -1035,13 +1035,13 @@ const MCPServerComponent = ({ name, server }: { name: string, server: MCPServer 
 	const accessor = useAccessor();
 	const mcpService = accessor.get('IMCPService');
 
-	const voidSettings = useSettingsState()
-	const isOn = voidSettings.mcpUserStateOfName[name]?.isOn
+	const ribixSettings = useSettingsState()
+	const isOn = ribixSettings.mcpUserStateOfName[name]?.isOn
 
 	const removeUniquePrefix = (name: string) => name.split('_').slice(1).join('_')
 
 	return (
-		<div className="border border-void-border-2 bg-void-bg-1 py-3 px-4 rounded-sm my-2">
+		<div className="border border-ribix-border-2 bg-ribix-bg-1 py-3 px-4 rounded-sm my-2">
 			<div className="flex items-center justify-between">
 				{/* Left side - status and name */}
 				<div className="flex items-center gap-2">
@@ -1050,12 +1050,12 @@ const MCPServerComponent = ({ name, server }: { name: string, server: MCPServer 
 						${server.status === 'success' ? 'bg-green-500'
 							: server.status === 'error' ? 'bg-red-500'
 								: server.status === 'loading' ? 'bg-yellow-500'
-									: server.status === 'offline' ? 'bg-void-fg-3'
+									: server.status === 'offline' ? 'bg-ribix-fg-3'
 										: ''}
 					`}></div>
 
 					{/* Server name */}
-					<div className="text-sm font-medium text-void-fg-1">{name}</div>
+					<div className="text-sm font-medium text-ribix-fg-1">{name}</div>
 				</div>
 
 				{/* Right side - power toggle switch */}
@@ -1075,17 +1075,17 @@ const MCPServerComponent = ({ name, server }: { name: string, server: MCPServer 
 							(server.tools ?? []).map((tool: { name: string; description?: string }) => (
 								<span
 									key={tool.name}
-									className="px-2 py-0.5 bg-void-bg-2 text-void-fg-3 rounded-sm text-xs"
+									className="px-2 py-0.5 bg-ribix-bg-2 text-ribix-fg-3 rounded-sm text-xs"
 
-									data-tooltip-id='void-tooltip'
+									data-tooltip-id='ribix-tooltip'
 									data-tooltip-content={tool.description || ''}
-									data-tooltip-class-name='void-max-w-[300px]'
+									data-tooltip-class-name='ribix-max-w-[300px]'
 								>
 									{removeUniquePrefix(tool.name)}
 								</span>
 							))
 						) : (
-							<span className="text-xs text-void-fg-3">No tools available</span>
+							<span className="text-xs text-ribix-fg-3">No tools available</span>
 						)}
 					</div>
 				</div>
@@ -1094,8 +1094,8 @@ const MCPServerComponent = ({ name, server }: { name: string, server: MCPServer 
 			{/* Command badge */}
 			{isOn && server.command && (
 				<div className="mt-3">
-					<div className="text-xs text-void-fg-3 mb-1">Command:</div>
-					<div className="px-2 py-1 bg-void-bg-2 text-xs font-mono overflow-x-auto whitespace-nowrap text-void-fg-2 rounded-sm">
+					<div className="text-xs text-ribix-fg-3 mb-1">Command:</div>
+					<div className="px-2 py-1 bg-ribix-bg-2 text-xs font-mono overflow-x-auto whitespace-nowrap text-ribix-fg-2 rounded-sm">
 						{server.command}
 					</div>
 				</div>
@@ -1117,14 +1117,14 @@ const MCPServersList = () => {
 
 	let content: React.ReactNode
 	if (mcpServiceState.error) {
-		content = <div className="text-void-fg-3 text-sm mt-2">
+		content = <div className="text-ribix-fg-3 text-sm mt-2">
 			{mcpServiceState.error}
 		</div>
 	}
 	else {
 		const entries = Object.entries(mcpServiceState.mcpServerOfName)
 		if (entries.length === 0) {
-			content = <div className="text-void-fg-3 text-sm mt-2">
+			content = <div className="text-ribix-fg-3 text-sm mt-2">
 				No servers found
 			</div>
 		}
@@ -1160,7 +1160,7 @@ export const Settings = () => {
 	const environmentService = accessor.get('IEnvironmentService')
 	const nativeHostService = accessor.get('INativeHostService')
 	const settingsState = useSettingsState()
-	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const ribixSettingsService = accessor.get('IRibixSettingsService')
 	const chatThreadsService = accessor.get('IChatThreadService')
 	const notificationService = accessor.get('INotificationService')
 	const mcpService = accessor.get('IMCPService')
@@ -1174,12 +1174,12 @@ export const Settings = () => {
 		if (t === 'Chats') {
 			// Export chat threads
 			dataStr = JSON.stringify(chatThreadsService.state, null, 2)
-			downloadName = 'void-chats.json'
+			downloadName = 'ribix-chats.json'
 		}
 		else if (t === 'Settings') {
 			// Export user settings
-			dataStr = JSON.stringify(voidSettingsService.state, null, 2)
-			downloadName = 'void-settings.json'
+			dataStr = JSON.stringify(ribixSettingsService.state, null, 2)
+			downloadName = 'ribix-settings.json'
 		}
 		else {
 			dataStr = ''
@@ -1217,7 +1217,7 @@ export const Settings = () => {
 					chatThreadsService.dangerousSetState(json as any)
 				}
 				else if (t === 'Settings') {
-					voidSettingsService.dangerousSetState(json as any)
+					ribixSettingsService.dangerousSetState(json as any)
 				}
 
 				notificationService.info(`${t} imported successfully!`)
@@ -1233,7 +1233,7 @@ export const Settings = () => {
 
 
 	return (
-		<div className={`@@void-scope ${isDark ? 'dark' : ''}`} style={{ height: '100%', width: '100%', overflow: 'auto' }}>
+		<div className={`@@ribix-scope ${isDark ? 'dark' : ''}`} style={{ height: '100%', width: '100%', overflow: 'auto' }}>
 			<div className="flex flex-col md:flex-row w-full gap-6 max-w-[900px] mx-auto mb-32" style={{ minHeight: '80vh' }}>
 				{/* ──────────────  SIDEBAR  ────────────── */}
 
@@ -1255,7 +1255,7 @@ export const Settings = () => {
           py-2 px-4 rounded-md text-left transition-all duration-200
           ${selectedSection === tab
 										? 'bg-[#0e70c0]/80 text-white font-medium shadow-sm'
-										: 'bg-void-bg-2 hover:bg-void-bg-2/80 text-void-fg-1'}
+										: 'bg-ribix-bg-2 hover:bg-ribix-bg-2/80 text-ribix-fg-1'}
         `}
 							>
 								{label}
@@ -1299,7 +1299,7 @@ export const Settings = () => {
 							<div className={shouldShowTab('localProviders') ? `` : 'hidden'}>
 								<ErrorBoundary>
 									<h2 className={`text-3xl mb-2`}>Local Providers</h2>
-									<h3 className={`text-void-fg-3 mb-2`}>{`Ribix IDE can access any model that you host locally. We automatically detect your local models by default.`}</h3>
+									<h3 className={`text-ribix-fg-3 mb-2`}>{`Ribix IDE can access any model that you host locally. We automatically detect your local models by default.`}</h3>
 
 									<div className='opacity-80 mb-4'>
 										<OllamaSetupInstructions sayWeAutoDetect={true} />
@@ -1313,7 +1313,7 @@ export const Settings = () => {
 							<div className={shouldShowTab('providers') ? `` : 'hidden'}>
 								<ErrorBoundary>
 									<h2 className={`text-3xl mb-2`}>Main Providers</h2>
-									<h3 className={`text-void-fg-3 mb-2`}>{`Ribix IDE can access models from Anthropic, OpenAI, OpenRouter, and more.`}</h3>
+									<h3 className={`text-ribix-fg-3 mb-2`}>{`Ribix IDE can access models from Anthropic, OpenAI, OpenRouter, and more.`}</h3>
 
 									<VoidProviderSettings providerNames={nonlocalProviderNames} />
 								</ErrorBoundary>
@@ -1329,15 +1329,15 @@ export const Settings = () => {
 											{/* FIM */}
 											<div>
 												<h4 className={`text-base`}>{displayInfoOfFeatureName('Autocomplete')}</h4>
-												<div className='text-sm text-void-fg-3 mt-1'>
+												<div className='text-sm text-ribix-fg-3 mt-1'>
 													<span>
 														Experimental.{' '}
 													</span>
 													<span
 														className='hover:brightness-110'
-														data-tooltip-id='void-tooltip'
+														data-tooltip-id='ribix-tooltip'
 														data-tooltip-content='We recommend using the largest qwen2.5-coder model you can with Ollama (try qwen2.5-coder:3b).'
-														data-tooltip-class-name='void-max-w-[20px]'
+														data-tooltip-class-name='ribix-max-w-[20px]'
 													>
 														Only works with FIM models.*
 													</span>
@@ -1350,16 +1350,16 @@ export const Settings = () => {
 															<VoidSwitch
 																size='xs'
 																value={settingsState.globalSettings.enableAutocomplete}
-																onChange={(newVal) => voidSettingsService.setGlobalSetting('enableAutocomplete', newVal)}
+																onChange={(newVal) => ribixSettingsService.setGlobalSetting('enableAutocomplete', newVal)}
 															/>
-															<span className='text-void-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.enableAutocomplete ? 'Enabled' : 'Disabled'}</span>
+															<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.enableAutocomplete ? 'Enabled' : 'Disabled'}</span>
 														</div>
 													</ErrorBoundary>
 
 													{/* Model Dropdown */}
 													<ErrorBoundary>
 														<div className={`my-2 ${!settingsState.globalSettings.enableAutocomplete ? 'hidden' : ''}`}>
-															<ModelDropdown featureName={'Autocomplete'} className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-1 rounded p-0.5 px-1' />
+															<ModelDropdown featureName={'Autocomplete'} className='text-xs text-ribix-fg-3 bg-ribix-bg-1 border border-ribix-border-1 rounded p-0.5 px-1' />
 														</div>
 													</ErrorBoundary>
 
@@ -1373,7 +1373,7 @@ export const Settings = () => {
 
 											<div className='w-full'>
 												<h4 className={`text-base`}>{displayInfoOfFeatureName('Apply')}</h4>
-												<div className='text-sm text-void-fg-3 mt-1'>Settings that control the behavior of the Apply button.</div>
+												<div className='text-sm text-ribix-fg-3 mt-1'>Settings that control the behavior of the Apply button.</div>
 
 												<div className='my-2'>
 													{/* Sync to Chat Switch */}
@@ -1381,14 +1381,14 @@ export const Settings = () => {
 														<VoidSwitch
 															size='xs'
 															value={settingsState.globalSettings.syncApplyToChat}
-															onChange={(newVal) => voidSettingsService.setGlobalSetting('syncApplyToChat', newVal)}
+															onChange={(newVal) => ribixSettingsService.setGlobalSetting('syncApplyToChat', newVal)}
 														/>
-														<span className='text-void-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.syncApplyToChat ? 'Same as Chat model' : 'Different model'}</span>
+														<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.syncApplyToChat ? 'Same as Chat model' : 'Different model'}</span>
 													</div>
 
 													{/* Model Dropdown */}
 													<div className={`my-2 ${settingsState.globalSettings.syncApplyToChat ? 'hidden' : ''}`}>
-														<ModelDropdown featureName={'Apply'} className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-1 rounded p-0.5 px-1' />
+														<ModelDropdown featureName={'Apply'} className='text-xs text-ribix-fg-3 bg-ribix-bg-1 border border-ribix-border-1 rounded p-0.5 px-1' />
 													</div>
 												</div>
 
@@ -1409,7 +1409,7 @@ export const Settings = () => {
 										{/* Tools Section */}
 										<div>
 											<h4 className={`text-base`}>Tools</h4>
-											<div className='text-sm text-void-fg-3 mt-1'>{`Tools are functions that LLMs can call. Some tools require user approval.`}</div>
+											<div className='text-sm text-ribix-fg-3 mt-1'>{`Tools are functions that LLMs can call. Some tools require user approval.`}</div>
 
 											<div className='my-2'>
 												{/* Auto Accept Switch */}
@@ -1429,9 +1429,9 @@ export const Settings = () => {
 														<VoidSwitch
 															size='xs'
 															value={settingsState.globalSettings.includeToolLintErrors}
-															onChange={(newVal) => voidSettingsService.setGlobalSetting('includeToolLintErrors', newVal)}
+															onChange={(newVal) => ribixSettingsService.setGlobalSetting('includeToolLintErrors', newVal)}
 														/>
-														<span className='text-void-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.includeToolLintErrors ? 'Fix lint errors' : `Fix lint errors`}</span>
+														<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.includeToolLintErrors ? 'Fix lint errors' : `Fix lint errors`}</span>
 													</div>
 												</ErrorBoundary>
 
@@ -1441,9 +1441,9 @@ export const Settings = () => {
 														<VoidSwitch
 															size='xs'
 															value={settingsState.globalSettings.autoAcceptLLMChanges}
-															onChange={(newVal) => voidSettingsService.setGlobalSetting('autoAcceptLLMChanges', newVal)}
+															onChange={(newVal) => ribixSettingsService.setGlobalSetting('autoAcceptLLMChanges', newVal)}
 														/>
-														<span className='text-void-fg-3 text-xs pointer-events-none'>Auto-accept LLM changes</span>
+														<span className='text-ribix-fg-3 text-xs pointer-events-none'>Auto-accept LLM changes</span>
 													</div>
 												</ErrorBoundary>
 											</div>
@@ -1453,7 +1453,7 @@ export const Settings = () => {
 
 										<div className='w-full'>
 											<h4 className={`text-base`}>Editor</h4>
-											<div className='text-sm text-void-fg-3 mt-1'>{`Settings that control the visibility of Ribix IDE suggestions in the code editor.`}</div>
+											<div className='text-sm text-ribix-fg-3 mt-1'>{`Settings that control the visibility of Ribix IDE suggestions in the code editor.`}</div>
 
 											<div className='my-2'>
 												{/* Auto Accept Switch */}
@@ -1462,9 +1462,9 @@ export const Settings = () => {
 														<VoidSwitch
 															size='xs'
 															value={settingsState.globalSettings.showInlineSuggestions}
-															onChange={(newVal) => voidSettingsService.setGlobalSetting('showInlineSuggestions', newVal)}
+															onChange={(newVal) => ribixSettingsService.setGlobalSetting('showInlineSuggestions', newVal)}
 														/>
-														<span className='text-void-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.showInlineSuggestions ? 'Show suggestions on select' : 'Show suggestions on select'}</span>
+														<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.showInlineSuggestions ? 'Show suggestions on select' : 'Show suggestions on select'}</span>
 													</div>
 												</ErrorBoundary>
 											</div>
@@ -1475,7 +1475,7 @@ export const Settings = () => {
 
 											<div className='w-full'>
 												<h4 className={`text-base`}>{displayInfoOfFeatureName('SCM')}</h4>
-												<div className='text-sm text-void-fg-3 mt-1'>Settings that control the behavior of the commit message generator.</div>
+												<div className='text-sm text-ribix-fg-3 mt-1'>Settings that control the behavior of the commit message generator.</div>
 
 												<div className='my-2'>
 													{/* Sync to Chat Switch */}
@@ -1483,14 +1483,14 @@ export const Settings = () => {
 														<VoidSwitch
 															size='xs'
 															value={settingsState.globalSettings.syncSCMToChat}
-															onChange={(newVal) => voidSettingsService.setGlobalSetting('syncSCMToChat', newVal)}
+															onChange={(newVal) => ribixSettingsService.setGlobalSetting('syncSCMToChat', newVal)}
 														/>
-														<span className='text-void-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.syncSCMToChat ? 'Same as Chat model' : 'Different model'}</span>
+														<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.syncSCMToChat ? 'Same as Chat model' : 'Different model'}</span>
 													</div>
 
 													{/* Model Dropdown */}
 													<div className={`my-2 ${settingsState.globalSettings.syncSCMToChat ? 'hidden' : ''}`}>
-														<ModelDropdown featureName={'SCM'} className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-1 rounded p-0.5 px-1' />
+														<ModelDropdown featureName={'SCM'} className='text-xs text-ribix-fg-3 bg-ribix-bg-1 border border-ribix-border-1 rounded p-0.5 px-1' />
 													</div>
 												</div>
 
@@ -1506,7 +1506,7 @@ export const Settings = () => {
 								<div>
 									<ErrorBoundary>
 										<h2 className='text-3xl mb-2'>One-Click Switch</h2>
-										<h4 className='text-void-fg-3 mb-4'>{`Transfer your editor settings into Ribix IDE.`}</h4>
+										<h4 className='text-ribix-fg-3 mb-4'>{`Transfer your editor settings into Ribix IDE.`}</h4>
 
 										<div className='flex flex-col gap-2'>
 											<OneClickSwitchButton className='w-48' fromEditor="VS Code" />
@@ -1519,7 +1519,7 @@ export const Settings = () => {
 								{/* Import/Export section */}
 								<div>
 									<h2 className='text-3xl mb-2'>Import/Export</h2>
-									<h4 className='text-void-fg-3 mb-4'>{`Transfer Ribix IDE's settings and chats in and out of Ribix IDE.`}</h4>
+									<h4 className='text-ribix-fg-3 mb-4'>{`Transfer Ribix IDE's settings and chats in and out of Ribix IDE.`}</h4>
 									<div className='flex flex-col gap-8'>
 										{/* Settings Subcategory */}
 										<div className='flex flex-col gap-2 max-w-48 w-full'>
@@ -1530,7 +1530,7 @@ export const Settings = () => {
 											<VoidButtonBgDarken className='px-4 py-1 w-full' onClick={() => onDownload('Settings')}>
 												Export Settings
 											</VoidButtonBgDarken>
-											<ConfirmButton className='px-4 py-1 w-full' onConfirm={() => { voidSettingsService.resetState(); }}>
+											<ConfirmButton className='px-4 py-1 w-full' onConfirm={() => { ribixSettingsService.resetState(); }}>
 												Reset Settings
 											</ConfirmButton>
 										</div>
@@ -1556,7 +1556,7 @@ export const Settings = () => {
 								{/* Built-in Settings section */}
 								<div>
 									<h2 className={`text-3xl mb-2`}>Built-in Settings</h2>
-									<h4 className={`text-void-fg-3 mb-4`}>{`IDE settings, keyboard settings, and theme customization.`}</h4>
+									<h4 className={`text-ribix-fg-3 mb-4`}>{`IDE settings, keyboard settings, and theme customization.`}</h4>
 
 									<ErrorBoundary>
 										<div className='flex flex-col gap-2 justify-center max-w-48 w-full'>
@@ -1580,7 +1580,7 @@ export const Settings = () => {
 								{/* Metrics section */}
 								<div className='max-w-[600px]'>
 									<h2 className={`text-3xl mb-2`}>Metrics</h2>
-									<h4 className={`text-void-fg-3 mb-4`}>Very basic anonymous usage tracking helps us keep Ribix IDE running smoothly. You may opt out below. Regardless of this setting, Ribix IDE never sees your code, messages, or API keys.</h4>
+									<h4 className={`text-ribix-fg-3 mb-4`}>Very basic anonymous usage tracking helps us keep Ribix IDE running smoothly. You may opt out below. Regardless of this setting, Ribix IDE never sees your code, messages, or API keys.</h4>
 
 									<div className='my-2'>
 										{/* Disable All Metrics Switch */}
@@ -1594,7 +1594,7 @@ export const Settings = () => {
 														metricsService.capture(`Set metrics opt-out to ${newVal}`, {}) // this only fires if it's enabled, so it's fine to have here
 													}}
 												/>
-												<span className='text-void-fg-3 text-xs pointer-events-none'>{'Opt-out (requires restart)'}</span>
+												<span className='text-ribix-fg-3 text-xs pointer-events-none'>{'Opt-out (requires restart)'}</span>
 											</div>
 										</ErrorBoundary>
 									</div>
@@ -1603,10 +1603,10 @@ export const Settings = () => {
 								{/* AI Instructions section */}
 								<div className='max-w-[600px]'>
 									<h2 className={`text-3xl mb-2`}>AI Instructions</h2>
-									<h4 className={`text-void-fg-3 mb-4`}>
+									<h4 className={`text-ribix-fg-3 mb-4`}>
 										<ChatMarkdownRender inPTag={true} string={`
 System instructions to include with all AI requests.
-Alternatively, place a \`.voidrules\` file in the root of your workspace.
+Alternatively, place a \`.ribixrules\` file in the root of your workspace.
 								`} chatMessageLocation={undefined} />
 									</h4>
 									<ErrorBoundary>
@@ -1620,15 +1620,15 @@ Alternatively, place a \`.voidrules\` file in the root of your workspace.
 													size='xs'
 													value={!!settingsState.globalSettings.disableSystemMessage}
 													onChange={(newValue) => {
-														voidSettingsService.setGlobalSetting('disableSystemMessage', newValue);
+														ribixSettingsService.setGlobalSetting('disableSystemMessage', newValue);
 													}}
 												/>
-												<span className='text-void-fg-3 text-xs pointer-events-none'>
+												<span className='text-ribix-fg-3 text-xs pointer-events-none'>
 													{'Disable system message'}
 												</span>
 											</div>
 										</ErrorBoundary>
-										<div className='text-void-fg-3 text-xs mt-1'>
+										<div className='text-ribix-fg-3 text-xs mt-1'>
 											{`When disabled, Ribix IDE will not include anything in the system message except for content you specified above.`}
 										</div>
 									</div>
@@ -1642,7 +1642,7 @@ Alternatively, place a \`.voidrules\` file in the root of your workspace.
 							<div className={shouldShowTab('mcp') ? `` : 'hidden'}>
 								<ErrorBoundary>
 									<h2 className='text-3xl mb-2'>MCP</h2>
-									<h4 className={`text-void-fg-3 mb-4`}>
+									<h4 className={`text-ribix-fg-3 mb-4`}>
 										<ChatMarkdownRender inPTag={true} string={`
 Use Model Context Protocol to provide Agent mode with more tools.
 							`} chatMessageLocation={undefined} />
@@ -1663,7 +1663,7 @@ Use Model Context Protocol to provide Agent mode with more tools.
 								<div className={shouldShowTab('ribix') ? `` : 'hidden'}>
 									<ErrorBoundary>
 										<h2 className='text-3xl mb-2'>Ribix Command Center</h2>
-										<h4 className={`text-void-fg-3 mb-4`}>
+										<h4 className={`text-ribix-fg-3 mb-4`}>
 											<ChatMarkdownRender inPTag={true} string={`
 	Configure Ribix's multi-agent mission system.
 											`} chatMessageLocation={undefined} />
@@ -1678,12 +1678,12 @@ Use Model Context Protocol to provide Agent mode with more tools.
 											{/* Mission Configuration */}
 											<div>
 												<h4 className={`text-base`}>Mission Configuration</h4>
-												<div className='text-sm text-void-fg-3 mt-1'>Settings for mission execution and agent management.</div>
+												<div className='text-sm text-ribix-fg-3 mt-1'>Settings for mission execution and agent management.</div>
 
 												<div className='my-2'>
 													<ErrorBoundary>
 														<div className='flex items-center gap-x-2 my-2'>
-															<span className='text-void-fg-3 text-xs w-48'>Max Concurrent Missions</span>
+															<span className='text-ribix-fg-3 text-xs w-48'>Max Concurrent Missions</span>
 															<VoidSimpleInputBox
 																className='w-24'
 																type='number'
@@ -1691,7 +1691,7 @@ Use Model Context Protocol to provide Agent mode with more tools.
 																onChange={(newVal) => {
 																	const numVal = parseInt(newVal);
 																	if (!isNaN(numVal) && numVal > 0) {
-																		voidSettingsService.setGlobalSetting('ribix', {
+																		ribixSettingsService.setGlobalSetting('ribix', {
 																			...settingsState.globalSettings.ribix,
 																			maxConcurrentMissions: numVal
 																		});
@@ -1705,7 +1705,7 @@ Use Model Context Protocol to provide Agent mode with more tools.
 												<div className='my-2'>
 													<ErrorBoundary>
 														<div className='flex items-center gap-x-2 my-2'>
-															<span className='text-void-fg-3 text-xs w-48'>Max Agents Per Mission</span>
+															<span className='text-ribix-fg-3 text-xs w-48'>Max Agents Per Mission</span>
 															<VoidSimpleInputBox
 																className='w-24'
 																type='number'
@@ -1713,7 +1713,7 @@ Use Model Context Protocol to provide Agent mode with more tools.
 																onChange={(newVal) => {
 																	const numVal = parseInt(newVal);
 																	if (!isNaN(numVal) && numVal > 0) {
-																		voidSettingsService.setGlobalSetting('ribix', {
+																		ribixSettingsService.setGlobalSetting('ribix', {
 																			...settingsState.globalSettings.ribix,
 																			maxAgentsPerMission: numVal
 																		});
@@ -1728,7 +1728,7 @@ Use Model Context Protocol to provide Agent mode with more tools.
 											{/* Behavior Settings */}
 											<div>
 												<h4 className={`text-base`}>Behavior</h4>
-												<div className='text-sm text-void-fg-3 mt-1'>Control Ribix Command Center behavior and synchronization.</div>
+												<div className='text-sm text-ribix-fg-3 mt-1'>Control Ribix Command Center behavior and synchronization.</div>
 
 												<div className='my-2'>
 													<ErrorBoundary>
@@ -1737,13 +1737,13 @@ Use Model Context Protocol to provide Agent mode with more tools.
 																size='xs'
 																value={settingsState.globalSettings.ribix.autoOpenCommandCenter}
 																onChange={(newVal) => {
-																	voidSettingsService.setGlobalSetting('ribix', {
+																	ribixSettingsService.setGlobalSetting('ribix', {
 																		...settingsState.globalSettings.ribix,
 																		autoOpenCommandCenter: newVal
 																	});
 																}}
 															/>
-															<span className='text-void-fg-3 text-xs pointer-events-none'>Auto-open Command Center on startup</span>
+															<span className='text-ribix-fg-3 text-xs pointer-events-none'>Auto-open Command Center on startup</span>
 														</div>
 													</ErrorBoundary>
 												</div>
@@ -1755,13 +1755,13 @@ Use Model Context Protocol to provide Agent mode with more tools.
 																size='xs'
 																value={settingsState.globalSettings.ribix.orgSyncEnabled}
 																onChange={(newVal) => {
-																	voidSettingsService.setGlobalSetting('ribix', {
+																	ribixSettingsService.setGlobalSetting('ribix', {
 																		...settingsState.globalSettings.ribix,
 																		orgSyncEnabled: newVal
 																	});
 																}}
 															/>
-															<span className='text-void-fg-3 text-xs pointer-events-none'>Sync memory to org on mission complete</span>
+															<span className='text-ribix-fg-3 text-xs pointer-events-none'>Sync memory to org on mission complete</span>
 														</div>
 													</ErrorBoundary>
 												</div>
@@ -1773,13 +1773,13 @@ Use Model Context Protocol to provide Agent mode with more tools.
 																size='xs'
 																value={settingsState.globalSettings.ribix.checkpointOnEveryWrite}
 																onChange={(newVal) => {
-																	voidSettingsService.setGlobalSetting('ribix', {
+																	ribixSettingsService.setGlobalSetting('ribix', {
 																		...settingsState.globalSettings.ribix,
 																		checkpointOnEveryWrite: newVal
 																	});
 																}}
 															/>
-															<span className='text-void-fg-3 text-xs pointer-events-none'>Checkpoint before every agent file write</span>
+															<span className='text-ribix-fg-3 text-xs pointer-events-none'>Checkpoint before every agent file write</span>
 														</div>
 													</ErrorBoundary>
 												</div>

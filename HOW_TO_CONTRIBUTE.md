@@ -77,7 +77,7 @@ sudo apt-get install build-essential g++ libx11-dev libxkbfile-dev libsecret-1-d
 
 ## Where Ribix Code Lives
 
-Ribix-specific code is under `src/vs/workbench/contrib/void/`. See `CODEBASE_GUIDE.md` for a full architectural overview.
+Ribix-specific code is under `src/vs/workbench/contrib/ribix/`. See `CODEBASE_GUIDE.md` for a full architectural overview.
 
 Key areas:
 - `browser/` — UI components (runs in Electron renderer process)

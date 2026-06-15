@@ -60,7 +60,7 @@ function findDesiredPathFromLocalPath(localDesiredPath, currentPath) {
 function saveStylesFile() {
 	setTimeout(() => {
 		try {
-			const pathToCssFile = findDesiredPathFromLocalPath('./src/vs/workbench/contrib/void/browser/react/src2/styles.css', __dirname);
+			const pathToCssFile = findDesiredPathFromLocalPath('./src/vs/workbench/contrib/ribix/browser/react/src2/styles.css', __dirname);
 
 			if (pathToCssFile === undefined) {
 				console.error('[scope-tailwind] Error finding styles.css');

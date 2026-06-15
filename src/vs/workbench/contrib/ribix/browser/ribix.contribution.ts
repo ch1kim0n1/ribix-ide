@@ -25,13 +25,13 @@ import './autocompleteService.js'
 // import './contextUserChangesService.js'
 
 // settings pane
-import './voidSettingsPane.js'
+import './ribixSettingsPane.js'
 
 // register css
-import './media/void.css'
+import './media/ribix.css'
 
 // update (frontend part, also see platform/)
-import './voidUpdateActions.js'
+import './ribixUpdateActions.js'
 
 import './convertToLLMMessageWorkbenchContrib.js'
 
@@ -52,13 +52,13 @@ import './helperServices/consistentItemService.js'
 import './ribixFileWatcherService.js'
 
 // register selection helper
-import './voidSelectionHelperWidget.js'
+import './ribixSelectionHelperWidget.js'
 
 // register tooltip service
 import './tooltipService.js'
 
 // register onboarding service
-import './voidOnboardingService.js'
+import './ribixOnboardingService.js'
 
 // register misc service
 import './miscWokrbenchContrib.js'
@@ -67,7 +67,7 @@ import './miscWokrbenchContrib.js'
 import './fileService.js'
 
 // register source control management
-import './voidSCMService.js'
+import './ribixSCMService.js'
 
 // register Ribix memory service
 import './ribixMemoryService.js'
@@ -123,7 +123,7 @@ import './extensionCompatibilityCommands.js'
 import '../common/sendLLMMessageService.js'
 
 // voidSettings
-import '../common/voidSettingsService.js'
+import '../common/ribixSettingsService.js'
 
 // refreshModel
 import '../common/refreshModelService.js'
@@ -132,10 +132,10 @@ import '../common/refreshModelService.js'
 import '../common/metricsService.js'
 
 // updates
-import '../common/voidUpdateService.js'
+import '../common/ribixUpdateService.js'
 
 // model service
-import '../common/voidModelService.js'
+import '../common/ribixModelService.js'
 
 // Ribix services
 import '../common/ribixTaskQueueService.js'

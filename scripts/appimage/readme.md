@@ -87,8 +87,8 @@ These dependencies are installed within the Docker container (Ubuntu 20.04 base)
     Copy the following files to the directory where the app binary is being bundled (created during the build process):
 
     *   `create_appimage.sh`
-    *   `void.desktop`
-    *   `void.png`
+    *   `ribix.desktop`
+    *   `ribix.png`
 
 4.  **Run the Script:**
 
@@ -109,9 +109,9 @@ These dependencies are installed within the Docker container (Ubuntu 20.04 base)
 *   **Dockerfile Creation:** Creates a temporary `Dockerfile.build` for the Ubuntu-based environment.
 *   **Docker Image Build:** Builds a Docker image and runs the build process.
 *   **AppImage Creation:**
-    *   Creates the `VoidApp.AppDir` structure.
+    *   Creates the `RibixApp.AppDir` structure.
     *   Copies binaries, resources, and the `.desktop` entry.
-    *   Copies `void.desktop` and `void.png`.
+    *   Copies `ribix.desktop` and `ribix.png`.
     *   Strips unnecessary symbols from the binary.
     *   Runs `appimagetool` to generate the AppImage.
 *   **Cleanup:** Removes the temporary `Dockerfile.build`.

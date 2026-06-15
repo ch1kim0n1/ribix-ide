@@ -102,67 +102,67 @@ echo "Creating AppImage..."
 docker run --rm --privileged -v "$(pwd):/app" "$BUILD_IMAGE_NAME" bash -c '
 cd /app && \
 rm -rf VoidApp.AppDir && \
-mkdir -p VoidApp.AppDir/usr/bin VoidApp.AppDir/usr/lib VoidApp.AppDir/usr/share/applications && \
-find . -maxdepth 1 ! -name VoidApp.AppDir ! -name "." ! -name ".." -exec cp -r {} VoidApp.AppDir/usr/bin/ \; && \
-cp void.png VoidApp.AppDir/ && \
-echo "[Desktop Entry]" > VoidApp.AppDir/void.desktop && \
-echo "Name=Void" >> VoidApp.AppDir/void.desktop && \
-echo "Comment=Open source AI code editor." >> VoidApp.AppDir/void.desktop && \
-echo "GenericName=Text Editor" >> VoidApp.AppDir/void.desktop && \
-echo "Exec=void %F" >> VoidApp.AppDir/void.desktop && \
-echo "Icon=void" >> VoidApp.AppDir/void.desktop && \
-echo "Type=Application" >> VoidApp.AppDir/void.desktop && \
-echo "StartupNotify=false" >> VoidApp.AppDir/void.desktop && \
-echo "StartupWMClass=Void" >> VoidApp.AppDir/void.desktop && \
-echo "Categories=TextEditor;Development;IDE;" >> VoidApp.AppDir/void.desktop && \
-echo "MimeType=application/x-void-workspace;" >> VoidApp.AppDir/void.desktop && \
-echo "Keywords=void;" >> VoidApp.AppDir/void.desktop && \
-echo "Actions=new-empty-window;" >> VoidApp.AppDir/void.desktop && \
-echo "[Desktop Action new-empty-window]" >> VoidApp.AppDir/void.desktop && \
-echo "Name=New Empty Window" >> VoidApp.AppDir/void.desktop && \
-echo "Name[de]=Neues leeres Fenster" >> VoidApp.AppDir/void.desktop && \
-echo "Name[es]=Nueva ventana vacía" >> VoidApp.AppDir/void.desktop && \
-echo "Name[fr]=Nouvelle fenêtre vide" >> VoidApp.AppDir/void.desktop && \
-echo "Name[it]=Nuova finestra vuota" >> VoidApp.AppDir/void.desktop && \
-echo "Name[ja]=新しい空のウィンドウ" >> VoidApp.AppDir/void.desktop && \
-echo "Name[ko]=새 빈 창" >> VoidApp.AppDir/void.desktop && \
-echo "Name[ru]=Новое пустое окно" >> VoidApp.AppDir/void.desktop && \
-echo "Name[zh_CN]=新建空窗口" >> VoidApp.AppDir/void.desktop && \
-echo "Name[zh_TW]=開新空視窗" >> VoidApp.AppDir/void.desktop && \
-echo "Exec=void --new-window %F" >> VoidApp.AppDir/void.desktop && \
-echo "Icon=void" >> VoidApp.AppDir/void.desktop && \
-chmod +x VoidApp.AppDir/void.desktop && \
-cp VoidApp.AppDir/void.desktop VoidApp.AppDir/usr/share/applications/ && \
-echo "[Desktop Entry]" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "Name=Void - URL Handler" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "Comment=Open source AI code editor." > VoidApp.AppDir/void-url-handler.desktop && \
-echo "GenericName=Text Editor" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "Exec=void --open-url %U" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "Icon=void" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "Type=Application" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "NoDisplay=true" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "StartupNotify=true" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "Categories=Utility;TextEditor;Development;IDE;" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "MimeType=x-scheme-handler/void;" > VoidApp.AppDir/void-url-handler.desktop && \
-echo "Keywords=void;" > VoidApp.AppDir/void-url-handler.desktop && \
-chmod +x VoidApp.AppDir/void-url-handler.desktop && \
-cp VoidApp.AppDir/void-url-handler.desktop VoidApp.AppDir/usr/share/applications/ && \
-echo "#!/bin/bash" > VoidApp.AppDir/AppRun && \
-echo "HERE=\$(dirname \"\$(readlink -f \"\${0}\")\")" >> VoidApp.AppDir/AppRun && \
-echo "export PATH=\${HERE}/usr/bin:\${PATH}" >> VoidApp.AppDir/AppRun && \
-echo "export LD_LIBRARY_PATH=\${HERE}/usr/lib:\${LD_LIBRARY_PATH}" >> VoidApp.AppDir/AppRun && \
-echo "exec \${HERE}/usr/bin/void --no-sandbox \"\$@\"" >> VoidApp.AppDir/AppRun && \
-chmod +x VoidApp.AppDir/AppRun && \
-chmod -R 755 VoidApp.AppDir && \
+mkdir -p RibixApp.AppDir/usr/bin RibixApp.AppDir/usr/lib RibixApp.AppDir/usr/share/applications && \
+find . -maxdepth 1 ! -name RibixApp.AppDir ! -name "." ! -name ".." -exec cp -r {} RibixApp.AppDir/usr/bin/ \; && \
+cp ribix.png RibixApp.AppDir/ && \
+echo "[Desktop Entry]" > RibixApp.AppDir/ribix.desktop && \
+echo "Name=Ribix IDE" >> RibixApp.AppDir/ribix.desktop && \
+echo "Comment=Open source AI code editor." >> RibixApp.AppDir/ribix.desktop && \
+echo "GenericName=Text Editor" >> RibixApp.AppDir/ribix.desktop && \
+echo "Exec=ribix-ide %F" >> RibixApp.AppDir/ribix.desktop && \
+echo "Icon=ribix" >> RibixApp.AppDir/ribix.desktop && \
+echo "Type=Application" >> RibixApp.AppDir/ribix.desktop && \
+echo "StartupNotify=false" >> RibixApp.AppDir/ribix.desktop && \
+echo "StartupWMClass=RibixIDE" >> RibixApp.AppDir/ribix.desktop && \
+echo "Categories=TextEditor;Development;IDE;" >> RibixApp.AppDir/ribix.desktop && \
+echo "MimeType=application/x-ribix-workspace;" >> RibixApp.AppDir/ribix.desktop && \
+echo "Keywords=ribix;" >> RibixApp.AppDir/ribix.desktop && \
+echo "Actions=new-empty-window;" >> RibixApp.AppDir/ribix.desktop && \
+echo "[Desktop Action new-empty-window]" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name=New Empty Window" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name[de]=Neues leeres Fenster" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name[es]=Nueva ventana vacía" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name[fr]=Nouvelle fenêtre vide" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name[it]=Nuova finestra vuota" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name[ja]=新しい空のウィンドウ" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name[ko]=새 빈 창" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name[ru]=Новое пустое окно" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name[zh_CN]=新建空窗口" >> RibixApp.AppDir/ribix.desktop && \
+echo "Name[zh_TW]=開新空視窗" >> RibixApp.AppDir/ribix.desktop && \
+echo "Exec=ribix-ide --new-window %F" >> RibixApp.AppDir/ribix.desktop && \
+echo "Icon=ribix" >> RibixApp.AppDir/ribix.desktop && \
+chmod +x RibixApp.AppDir/ribix.desktop && \
+cp RibixApp.AppDir/ribix.desktop RibixApp.AppDir/usr/share/applications/ && \
+echo "[Desktop Entry]" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "Name=Ribix IDE - URL Handler" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "Comment=Open source AI code editor." > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "GenericName=Text Editor" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "Exec=ribix-ide --open-url %U" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "Icon=ribix" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "Type=Application" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "NoDisplay=true" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "StartupNotify=true" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "Categories=Utility;TextEditor;Development;IDE;" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "MimeType=x-scheme-handler/ribix-ide;" > RibixApp.AppDir/ribix-url-handler.desktop && \
+echo "Keywords=ribix;" > RibixApp.AppDir/ribix-url-handler.desktop && \
+chmod +x RibixApp.AppDir/ribix-url-handler.desktop && \
+cp RibixApp.AppDir/ribix-url-handler.desktop RibixApp.AppDir/usr/share/applications/ && \
+echo "#!/bin/bash" > RibixApp.AppDir/AppRun && \
+echo "HERE=\$(dirname \"\$(readlink -f \"\${0}\")\")" >> RibixApp.AppDir/AppRun && \
+echo "export PATH=\${HERE}/usr/bin:\${PATH}" >> RibixApp.AppDir/AppRun && \
+echo "export LD_LIBRARY_PATH=\${HERE}/usr/lib:\${LD_LIBRARY_PATH}" >> RibixApp.AppDir/AppRun && \
+echo "exec \${HERE}/usr/bin/ribix-ide --no-sandbox \"\$@\"" >> RibixApp.AppDir/AppRun && \
+chmod +x RibixApp.AppDir/AppRun && \
+chmod -R 755 RibixApp.AppDir && \
 
 # Strip unneeded symbols from the binary to reduce size
-strip --strip-unneeded VoidApp.AppDir/usr/bin/void
+strip --strip-unneeded RibixApp.AppDir/usr/bin/ribix-ide
 
-ls -la VoidApp.AppDir/ && \
-ARCH=x86_64 ./appimagetool -n VoidApp.AppDir Void-x86_64.AppImage
+ls -la RibixApp.AppDir/ && \
+ARCH=x86_64 ./appimagetool -n RibixApp.AppDir Ribix-x86_64.AppImage
 '
 
 # Clean up
-rm -rf VoidApp.AppDir .dockerignore appimagetool
+rm -rf RibixApp.AppDir .dockerignore appimagetool
 
-echo "AppImage creation complete! Your AppImage is: Void-x86_64.AppImage"
+echo "AppImage creation complete! Your AppImage is: Ribix-x86_64.AppImage"

@@ -46,7 +46,7 @@ The IDE is where the "acts like a real user on your own codebase" experience liv
 
 **Alpha scaffold. Core autonomous loop not yet functional.**
 
-The scaffold is real: ~49 Ribix files / ~6k LOC, cleanly namespaced under `src/vs/workbench/contrib/void/ribix*`. The Command Center UI, mission lifecycle state machine, planning service, orchestration, OAuth, API client, file locking, checkpoints, and diff annotation widget are all wired and demoable. A mission can be created, planned, and agents will spawn and make real LLM calls.
+The scaffold is real: ~49 Ribix files / ~6k LOC, cleanly namespaced under `src/vs/workbench/contrib/ribix/ribix*`. The Command Center UI, mission lifecycle state machine, planning service, orchestration, OAuth, API client, file locking, checkpoints, and diff annotation widget are all wired and demoable. A mission can be created, planned, and agents will spawn and make real LLM calls.
 
 However, the product's defining behaviors do not yet work:
 
@@ -65,9 +65,9 @@ The P0/P1 phases in `Engineering_Plan.md` are the remediation roadmap for these 
 
 ## IDE vs Extension: The Open Strategic Question
 
-ribix-ide is a VS Code fork — specifically a fork of Void, which is itself a fork of Code-OSS 1.99.3. The maintenance cost is real: gulp build, Electron, pinned Node version, ~8–10 minute cold builds, and periodic upstream rebases. Every Code-OSS release that Void or ribix-ide wants to track requires a rebase against ~6000 upstream files.
+ribix-ide is a VS Code fork — specifically a fork of Code-OSS 1.99.3. The maintenance cost is real: gulp build, Electron, pinned Node version, ~8–10 minute cold builds, and periodic upstream rebases. Every Code-OSS release that ribix-ide wants to track requires a rebase against ~6000 upstream files.
 
-The mitigating discipline is that all Ribix code lives under `contrib/void/ribix*` and the only intentional upstream-file edits are at registration seams (`void.contribution.ts`, `app.ts` channel registration, the settings pane). This keeps rebase conflicts bounded and predictable.
+The mitigating discipline is that all Ribix code lives under `contrib/ribix/ribix*` and the only intentional upstream-file edits are at registration seams (`ribix.contribution.ts`, `app.ts` channel registration, the settings pane). This keeps rebase conflicts bounded and predictable.
 
 The strategic question — whether `ribix-vscode` (the extension) should eventually replace the fork, with the IDE serving as an internal development surface rather than a distributed product — is open. The fork delivers capabilities the extension cannot easily replicate (full Electron process model, custom build, main-process IPC for the Playwright browser channel). The extension trades those for zero maintenance cost and instant distribution via the VS Code Marketplace. This decision has not been made. Both surfaces are in active development.
 
@@ -90,8 +90,8 @@ The strategic question — whether `ribix-vscode` (the extension) should eventua
 ## Current Source of Truth for Code
 
 - [`../README.md`](../README.md)
-- [`../VOID_CODEBASE_GUIDE.md`](../VOID_CODEBASE_GUIDE.md)
-- [`../src/vs/workbench/contrib/void/`](../src/vs/workbench/contrib/void/)
+- [`../CODEBASE_GUIDE.md`](../CODEBASE_GUIDE.md)
+- [`../src/vs/workbench/contrib/ribix/`](../src/vs/workbench/contrib/ribix/)
 
 ---
 

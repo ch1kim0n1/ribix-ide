@@ -76,7 +76,7 @@ Phase numbering is notional. All Phase 16+ items are blocked on P0 (functioning 
 
 ---
 
-**Base:** Void editor fork (forks Code-OSS 1.99.3) — `ribix-ide/`. ~6000 base files; Ribix adds ~49 files / ~6k LOC, cleanly namespaced under `src/vs/workbench/contrib/void/{browser,common,electron-main}/ribix*` plus React UI under `react/src/command-center-tsx/`.
+**Base:** VS Code fork (forks Code-OSS 1.99.3) — `ribix-ide/`. ~6000 base files; Ribix adds ~49 files / ~6k LOC, cleanly namespaced under `src/vs/workbench/contrib/ribix/{browser,common,electron-main}/ribix*` plus React UI under `react/src/command-center-tsx/`.
 
 **Goal of this repo (`ribix-ide`):** Be the desktop IDE surface of Ribix — an autonomous AI QA Engineer. The system's core loop is **IDENTIFY → DOCUMENT → SOLVE (real PR)** plus a UI/UX vision pass. It must run **unsupervised**: automatically on the changed chunk per commit/save, *or* on explicit user demand.
 
@@ -149,19 +149,19 @@ Secondary gaps that block depth: cosmetic inter-agent handoff (G-HANDOFF), `setI
 
 ## Key architectural patterns (follow in all new code)
 
-These are the Void/Code-OSS idioms every new Ribix file must conform to. They are *not* optional — deviating from them is what makes upstream rebases painful.
+These are the VS Code/Code-OSS idioms every new Ribix file must conform to. They are *not* optional — deviating from them is what makes upstream rebases painful.
 
 - **Service definition:** `export const IFooService = createDecorator<IFooService>('fooService')` next to an `export interface IFooService { readonly _serviceBrand: undefined; ... }`.
-- **Service registration:** `registerSingleton(IFooService, FooService, InstantiationType.Delayed)` at the bottom of the file; add a side-effect `import './fooService.js'` to `browser/void.contribution.ts` (or the `common/` block at its tail) so registration runs. **This is the only edit to an upstream-adjacent file that a new service should require.**
+- **Service registration:** `registerSingleton(IFooService, FooService, InstantiationType.Delayed)` at the bottom of the file; add a side-effect `import './fooService.js'` to `browser/ribix.contribution.ts` (or the `common/` block at its tail) so registration runs. **This is the only edit to an upstream-adjacent file that a new service should require.**
 - **Service consumption:** constructor injection — `@IFooService private readonly fooService: IFooService`. Extend `Disposable` and `super()` first.
 - **Events:** `private readonly _onDidX = new Emitter<T>(); readonly onDidX = this._onDidX.event;` from `base/common/event.js`. Register listeners with `this._register(other.onDidY(() => ...))`. Prefer events over polling.
 - **Cancellation:** `CancellationTokenSource` / `CancellationToken` from `base/common/cancellation.js`; pair with `AbortController` when crossing into fetch/IPC (the agent service already does this at `ribixAgentService.ts:147-148`).
-- **Browser ↔ main (Node) work:** implement in `electron-main/`, expose a channel, register it in `app.ts`, and consume from the browser via `ProxyChannel.toService<IFoo>(mainProcessService.getChannel('void-channel-foo'))` (see `ribixMissionService.ts:65` and `electron-main/ribixBrowserChannel.ts`).
+- **Browser ↔ main (Node) work:** implement in `electron-main/`, expose a channel, register it in `app.ts`, and consume from the browser via `ProxyChannel.toService<IFoo>(mainProcessService.getChannel('ribix-channel-foo'))` (see `ribixMissionService.ts:65` and `electron-main/ribixBrowserChannel.ts`).
 - **LLM calls:** `ILLMMessageService.sendLLMMessage({ messagesType: 'chatMessages', messages, modelSelection, logging, onText, onFinalMessage, onError, onAbort })` returns a `requestId | null`; cancel via `.abort(requestId)`. The callback hooks are stripped before crossing IPC (`sendLLMMessageService.ts:104-139`). Wrap in a `Promise` that resolves on `onFinalMessage` and rejects on `onError`/`onAbort` (existing pattern at `ribixAgentService.ts:279-313`).
 - **Tools:** `IToolsService` exposes three parallel maps keyed by tool name — `validateParams[tool](rawParams)` → typed params, `callTool[tool](typed)` → `{ result, interruptTool? }`, and **`stringOfResult[tool](typed, result)` → string**. The last one is the key to the agentic loop: it turns a tool result into text to feed back to the model.
 - **Storage:** `IStorageService` with `StorageScope.WORKSPACE` (per-repo) or `StorageScope.PROFILE` (global) + `StorageTarget.USER`. Serialize JSON; guard `JSON.parse` (see `ribixMemoryService.ts:65-75`).
 - **React layer:** lives under `react/src/command-center-tsx/`, bundled separately (`node build.js` / `npm run buildreact`), mounted via `ReactDOM.createRoot` from the pane (`ribixCommandCenterPane.ts`). React talks to services through injected accessors, not by importing service singletons directly.
-- **Test harness:** Void/Code-OSS uses Mocha with the `suite()`/`test()` globals and `assert` from `assert`. Service unit tests instantiate via `TestInstantiationService` (`platform/instantiation/test/common/instantiationServiceMock.ts`) and run under `./scripts/test.sh` (browser/common) or the integration runner. New `*.test.ts` files live beside the code under a `test/` sibling, mirroring upstream layout.
+- **Test harness:** VS Code/Code-OSS uses Mocha with the `suite()`/`test()` globals and `assert` from `assert`. Service unit tests instantiate via `TestInstantiationService` (`platform/instantiation/test/common/instantiationServiceMock.ts`) and run under `./scripts/test.sh` (browser/common) or the integration runner. New `*.test.ts` files live beside the code under a `test/` sibling, mirroring upstream layout.
 
 ---
 
@@ -366,7 +366,7 @@ this._register(listener);
 
 ### P1-1 — `ribixChangeWatcherService` (save + commit watcher with debounce)
 
-**Files (new):** `browser/ribixChangeWatcherService.ts`; register in `void.contribution.ts`. **Reuses:** `ITextFileService` (already imported in `voidModelService.ts:7,33`) for save events; `IVoidSCMService` (`common/voidSCMTypes.ts`) for commit/branch context.
+**Files (new):** `browser/ribixChangeWatcherService.ts`; register in `ribix.contribution.ts`. **Reuses:** `ITextFileService` (already imported in `ribixModelService.ts:7,33`) for save events; `IRibixSCMService` (`common/ribixSCMTypes.ts`) for commit/branch context.
 
 **What to implement.** A `Disposable` service registered `InstantiationType.Eager` (it must start listening at startup, not lazily). It listens to `ITextFileService.files.onDidSave` (and a workspace git HEAD-change signal for commits), buffers changed URIs, and debounces (default 2500 ms of quiet) before emitting a single `onDidDetectChange` event carrying the batch:
 
@@ -399,11 +399,11 @@ Gate everything behind `enabled` and the `ribix.autoTriggerMode` setting (P1-4).
 
 ### P1-2 — Changed-chunk computation (changed files + line ranges)
 
-**Files (new):** `common/ribixChangedChunk.ts` (pure helpers); consumed by `ribixChangeWatcherService`. **Reuses:** `IVoidSCMService.gitSampledDiffs`/`gitStat` (`voidSCMTypes.ts:15-21`) for commit-scoped diffs; for save-scoped ranges, diff the saved buffer against its on-disk/last-checkpoint baseline.
+**Files (new):** `common/ribixChangedChunk.ts` (pure helpers); consumed by `ribixChangeWatcherService`. **Reuses:** `IRibixSCMService.gitSampledDiffs`/`gitStat` (`ribixSCMTypes.ts:15-21`) for commit-scoped diffs; for save-scoped ranges, diff the saved buffer against its on-disk/last-checkpoint baseline.
 
 **What to implement.** Given a set of changed URIs, produce per-file changed line ranges. For the `commit` trigger, parse `gitSampledDiffs` hunks into ranges. For the `save` trigger (no git diff yet), compute ranges from the editor model's dirty/changed regions (or a cheap line-level diff against the last saved snapshot). The result is the `files[].ranges` of `ChangedChunk`. Keep this pure and unit-testable; no service state.
 
-> **Gap to flag for backend coordination:** `IVoidSCMService` exposes `gitStat`, `gitSampledDiffs`, `gitBranch`, `gitLog` but **no per-file ranged `git diff`**. If commit-scoped precise ranges are required, add a `gitDiffFile(path, file): Promise<string>` method to `IVoidSCMService` (`common/voidSCMTypes.ts`) and its `electron-main` channel implementation — a small, isolated addition that does not touch upstream files.
+> **Gap to flag for backend coordination:** `IRibixSCMService` exposes `gitStat`, `gitSampledDiffs`, `gitBranch`, `gitLog` but **no per-file ranged `git diff`**. If commit-scoped precise ranges are required, add a `gitDiffFile(path, file): Promise<string>` method to `IRibixSCMService` (`common/ribixSCMTypes.ts`) and its `electron-main` channel implementation — a small, isolated addition that does not touch upstream files.
 
 **Rationale.** The QA mission must be *scoped* to what changed, not the whole repo — that is what makes autonomous runs cheap enough to run on every save.
 
@@ -455,9 +455,9 @@ Gate everything behind `enabled` and the `ribix.autoTriggerMode` setting (P1-4).
 
 ### P2-1 — Real `determineSemverBump`
 
-**Files:** `browser/ribixMissionService.ts` (`determineSemverBump` `:292-299`); reuse `IVoidSCMService.gitLog`/`gitSampledDiffs`.
+**Files:** `browser/ribixMissionService.ts` (`determineSemverBump` `:292-299`); reuse `IRibixSCMService.gitLog`/`gitSampledDiffs`.
 
-**What to implement.** Replace the hardcoded `return 'patch'`. Strategy: (a) parse conventional-commit prefixes from `gitLog` (`voidSCMTypes.ts:33`) over the mission branch — `feat:` → minor, `fix:`/`chore:` → patch, `BREAKING CHANGE`/`!` → major; (b) fall back to diff heuristics from `gitSampledDiffs` (public API signature deletions/renames → major; new exported files/functions → minor; else patch). Take the max bump found.
+**What to implement.** Replace the hardcoded `return 'patch'`. Strategy: (a) parse conventional-commit prefixes from `gitLog` (`ribixSCMTypes.ts:33`) over the mission branch — `feat:` → minor, `fix:`/`chore:` → patch, `BREAKING CHANGE`/`!` → major; (b) fall back to diff heuristics from `gitSampledDiffs` (public API signature deletions/renames → major; new exported files/functions → minor; else patch). Take the max bump found.
 
 **Acceptance criteria.** A branch with a `feat:` commit yields `minor`; a `BREAKING CHANGE:` footer yields `major`; pure bug-fix commits yield `patch`.
 
@@ -585,7 +585,7 @@ Gate everything behind `enabled` and the `ribix.autoTriggerMode` setting (P1-4).
 
 **Files (docs):** `absolute-docs/` runbook; no source changes.
 
-**What to implement.** A concrete procedure for rebasing onto a newer Void/Code-OSS: pin the upstream tag, rebase, expect conflicts essentially only at the registration seams (`void.contribution.ts`, `app.ts` channel registration, settings pane), re-run `npm run buildreact` + gulp, and a regression checklist (mission run, auto-trigger, OAuth, autocomplete/Cmd+K still work). Document the Node pin and the ~8–10 min build expectation so the cost is planned, not discovered.
+**What to implement.** A concrete procedure for rebasing onto a newer Code-OSS: pin the upstream tag, rebase, expect conflicts essentially only at the registration seams (`ribix.contribution.ts`, `app.ts` channel registration, settings pane), re-run `npm run buildreact` + gulp, and a regression checklist (mission run, auto-trigger, OAuth, autocomplete/Cmd+K still work). Document the Node pin and the ~8–10 min build expectation so the cost is planned, not discovered.
 
 **Acceptance criteria.** A new engineer can follow the runbook to land an upstream bump without guessing where conflicts will be.
 

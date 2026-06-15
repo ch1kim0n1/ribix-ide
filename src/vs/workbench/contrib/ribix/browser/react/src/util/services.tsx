@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------*/
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { MCPUserState, RefreshableProviderName, SettingsOfProvider } from '../../../../../../../workbench/contrib/void/common/voidSettingsTypes.js'
+import { MCPUserState, RefreshableProviderName, SettingsOfProvider } from '../../../../../../../workbench/contrib/ribix/common/voidSettingsTypes.js'
 import { DisposableStore, IDisposable } from '../../../../../../../base/common/lifecycle.js'
-import { VoidSettingsState } from '../../../../../../../workbench/contrib/void/common/voidSettingsService.js'
+import { VoidSettingsState } from '../../../../../../../workbench/contrib/ribix/common/voidSettingsService.js'
 import { ColorScheme } from '../../../../../../../platform/theme/common/theme.js'
-import { RefreshModelStateOfProvider } from '../../../../../../../workbench/contrib/void/common/refreshModelService.js'
+import { RefreshModelStateOfProvider } from '../../../../../../../workbench/contrib/ribix/common/refreshModelService.js'
 
 import { ServicesAccessor } from '../../../../../../../editor/browser/editorExtensions.js';
 import { IExplorerService } from '../../../../../../../workbench/contrib/files/browser/files.js'
@@ -19,9 +19,9 @@ import { IFileService } from '../../../../../../../platform/files/common/files.j
 import { IHoverService } from '../../../../../../../platform/hover/browser/hover.js';
 import { IThemeService } from '../../../../../../../platform/theme/common/themeService.js';
 import { ILLMMessageService } from '../../../../common/sendLLMMessageService.js';
-import { IRefreshModelService } from '../../../../../../../workbench/contrib/void/common/refreshModelService.js';
-import { IVoidSettingsService } from '../../../../../../../workbench/contrib/void/common/voidSettingsService.js';
-import { IExtensionTransferService } from '../../../../../../../workbench/contrib/void/browser/extensionTransferService.js'
+import { IRefreshModelService } from '../../../../../../../workbench/contrib/ribix/common/refreshModelService.js';
+import { IVoidSettingsService } from '../../../../../../../workbench/contrib/ribix/common/voidSettingsService.js';
+import { IExtensionTransferService } from '../../../../../../../workbench/contrib/ribix/browser/extensionTransferService.js'
 
 import { IInstantiationService } from '../../../../../../../platform/instantiation/common/instantiation.js'
 import { ICodeEditorService } from '../../../../../../../editor/browser/services/codeEditorService.js'
@@ -36,14 +36,14 @@ import { IKeybindingService } from '../../../../../../../platform/keybinding/com
 import { IEnvironmentService } from '../../../../../../../platform/environment/common/environment.js'
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js'
 import { IPathService } from '../../../../../../../workbench/services/path/common/pathService.js'
-import { IMetricsService } from '../../../../../../../workbench/contrib/void/common/metricsService.js'
+import { IMetricsService } from '../../../../../../../workbench/contrib/ribix/common/metricsService.js'
 import { URI } from '../../../../../../../base/common/uri.js'
 import { IChatThreadService, ThreadsState, ThreadStreamState } from '../../../chatThreadService.js'
 import { ITerminalToolService } from '../../../terminalToolService.js'
 import { ILanguageService } from '../../../../../../../editor/common/languages/language.js'
-import { IVoidModelService } from '../../../../common/voidModelService.js'
+import { IRibixModelService } from '../../../../common/ribixModelService.js'
 import { IWorkspaceContextService } from '../../../../../../../platform/workspace/common/workspace.js'
-import { IVoidCommandBarService } from '../../../voidCommandBarService.js'
+import { IRibixCommandBarService } from '../../../ribixCommandBarService.js'
 import { INativeHostService } from '../../../../../../../platform/native/common/native.js';
 import { IEditCodeService } from '../../../editCodeServiceInterface.js'
 import { IConvertToLLMMessageService } from '../../../convertToLLMMessageService.js'
@@ -66,7 +66,7 @@ const chatThreadsStateListeners: Set<(s: ThreadsState) => void> = new Set()
 let chatThreadsStreamState: ThreadStreamState
 const chatThreadsStreamStateListeners: Set<(threadId: string) => void> = new Set()
 
-let settingsState: VoidSettingsState
+let settingsState: VoidSettingsState // TODO: Rename to RibixSettingsState
 const settingsStateListeners: Set<(s: VoidSettingsState) => void> = new Set()
 
 let refreshModelState: RefreshModelStateOfProvider
@@ -93,16 +93,16 @@ export const _registerServices = (accessor: ServicesAccessor) => {
 
 	const stateServices = {
 		chatThreadsStateService: accessor.get(IChatThreadService),
-		settingsStateService: accessor.get(IVoidSettingsService),
+		settingsStateService: accessor.get(IRibixSettingsService),
 		refreshModelService: accessor.get(IRefreshModelService),
 		themeService: accessor.get(IThemeService),
 		editCodeService: accessor.get(IEditCodeService),
-		voidCommandBarService: accessor.get(IVoidCommandBarService),
+		ribixCommandBarService: accessor.get(IRibixCommandBarService),
 		modelService: accessor.get(IModelService),
 		mcpService: accessor.get(IMCPService),
 	}
 
-	const { settingsStateService, chatThreadsStateService, refreshModelService, themeService, editCodeService, voidCommandBarService, modelService, mcpService } = stateServices
+	const { settingsStateService, chatThreadsStateService, refreshModelService, themeService, editCodeService, ribixCommandBarService, modelService, mcpService } = stateServices
 
 
 
@@ -158,13 +158,13 @@ export const _registerServices = (accessor: ServicesAccessor) => {
 	)
 
 	disposables.push(
-		voidCommandBarService.onDidChangeState(({ uri }) => {
+		ribixCommandBarService.onDidChangeState(({ uri }) => {
 			commandBarURIStateListeners.forEach(l => l(uri));
 		})
 	)
 
 	disposables.push(
-		voidCommandBarService.onDidChangeActiveURI(({ uri }) => {
+		ribixCommandBarService.onDidChangeActiveURI(({ uri }) => {
 			activeURIListeners.forEach(l => l(uri));
 		})
 	)
@@ -192,7 +192,7 @@ const getReactAccessor = (accessor: ServicesAccessor) => {
 		IThemeService: accessor.get(IThemeService),
 		ILLMMessageService: accessor.get(ILLMMessageService),
 		IRefreshModelService: accessor.get(IRefreshModelService),
-		IVoidSettingsService: accessor.get(IVoidSettingsService),
+		IRibixSettingsService: accessor.get(IRibixSettingsService),
 		IEditCodeService: accessor.get(IEditCodeService),
 		IChatThreadService: accessor.get(IChatThreadService),
 
@@ -215,10 +215,10 @@ const getReactAccessor = (accessor: ServicesAccessor) => {
 		IMetricsService: accessor.get(IMetricsService),
 		ITerminalToolService: accessor.get(ITerminalToolService),
 		ILanguageService: accessor.get(ILanguageService),
-		IVoidModelService: accessor.get(IVoidModelService),
+		IRibixModelService: accessor.get(IRibixModelService),
 		IWorkspaceContextService: accessor.get(IWorkspaceContextService),
 
-		IVoidCommandBarService: accessor.get(IVoidCommandBarService),
+		IRibixCommandBarService: accessor.get(IRibixCommandBarService),
 		INativeHostService: accessor.get(INativeHostService),
 		IConvertToLLMMessageService: accessor.get(IConvertToLLMMessageService),
 		ITerminalService: accessor.get(ITerminalService),
@@ -379,7 +379,7 @@ export const useCommandBarURIListener = (listener: (uri: URI) => void) => {
 };
 export const useCommandBarState = () => {
 	const accessor = useAccessor()
-	const commandBarService = accessor.get('IVoidCommandBarService')
+	const commandBarService = accessor.get('IRibixCommandBarService')
 	const [s, ss] = useState({ stateOfURI: commandBarService.stateOfURI, sortedURIs: commandBarService.sortedURIs });
 	const listener = useCallback(() => {
 		ss({ stateOfURI: commandBarService.stateOfURI, sortedURIs: commandBarService.sortedURIs });
@@ -394,7 +394,7 @@ export const useCommandBarState = () => {
 // roughly gets the active URI - this is used to get the history of recent URIs
 export const useActiveURI = () => {
 	const accessor = useAccessor()
-	const commandBarService = accessor.get('IVoidCommandBarService')
+	const commandBarService = accessor.get('IRibixCommandBarService')
 	const [s, ss] = useState(commandBarService.activeURI)
 	useEffect(() => {
 		const listener = () => { ss(commandBarService.activeURI) }

@@ -1,13 +1,13 @@
 # Ribix IDE Codebase Guide
 
-Ribix IDE is a fork of VS Code (via the Void project) with an agentic engineering intelligence layer added on top. The VS Code base is largely untouched — nearly all Ribix-specific code lives under one folder.
+Ribix IDE is a fork of VS Code with an agentic engineering intelligence layer added on top. The VS Code base is largely untouched — nearly all Ribix-specific code lives under one folder.
 
 ---
 
 ## Where Ribix Code Lives
 
 ```
-src/vs/workbench/contrib/void/
+src/vs/workbench/contrib/ribix/
   browser/          UI panels and React entry points (renderer process)
   electron-main/    Node services: metrics, update checks, file watchers (main process)
   common/           Shared types, task queues, file lock service (both processes)
