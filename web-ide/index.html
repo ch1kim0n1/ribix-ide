@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ribix IDE - Web</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            overflow: hidden;
+        }
+        
+        #root {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: #252526;
+            border-bottom: 1px solid #3c3c3c;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .logo {
+            font-weight: 600;
+            font-size: 16px;
+            color: #fff;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            background: #0e639c;
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        
+        .btn:hover {
+            background: #1177bb;
+        }
+        
+        .btn-secondary {
+            background: #3c3c3c;
+        }
+        
+        .btn-secondary:hover {
+            background: #4c4c4c;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background: #252526;
+            border-right: 1px solid #3c3c3c;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #bbbbbb;
+            letter-spacing: 0.5px;
+        }
+        
+        .sidebar-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .sidebar-item:hover {
+            background: #2a2d2e;
+        }
+        
+        .sidebar-item.active {
+            background: #37373d;
+        }
+        
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .tabs {
+            background: #252526;
+            display: flex;
+            border-bottom: 1px solid #3c3c3c;
+        }
+        
+        .tab {
+            padding: 8px 16px;
+            background: #2d2d2d;
+            border-right: 1px solid #3c3c3c;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .tab.active {
+            background: #1e1e1e;
+        }
+        
+        .tab-close {
+            opacity: 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .tab:hover .tab-close {
+            opacity: 1;
+        }
+        
+        #monaco-editor {
+            flex: 1;
+            min-height: 0;
+        }
+        
+        .status-bar {
+            background: #007acc;
+            color: #fff;
+            padding: 4px 12px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #252526;
+            padding: 24px;
+            border-radius: 8px;
+            border: 1px solid #3c3c3c;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 3px solid #3c3c3c;
+            border-top: 3px solid #007acc;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="loading">
+            <div class="spinner"></div>
+            <div>Loading Ribix IDE...</div>
+        </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
