@@ -210,7 +210,7 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
       collaborationManager = new CollaborationManager(userId, userName);
     }
 
-    const websocketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:1234';
+    const websocketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:1234/collaboration';
     const session = collaborationManager.joinSession(fileId, websocketUrl);
 
     set({
