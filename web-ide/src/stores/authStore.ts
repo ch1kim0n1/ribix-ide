@@ -20,6 +20,7 @@ interface AuthState {
 
 interface AuthActions {
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   loginWithGitHub: () => Promise<void>;
   setToken: (token: string) => void;
@@ -67,8 +68,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error);
+        const error = await response.json();
+        throw new Error(error.error || 'Login failed');
       }
 
       const data = await response.json();
@@ -87,6 +88,43 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Login failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  register: async (email, password, name) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const response = await fetch('http://localhost:3000/web-ide/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Registration failed');
+      }
+
+      const data = await response.json();
+      
+      localStorage.setItem('ribix_token', data.token);
+      localStorage.setItem('ribix_user', JSON.stringify(data.user));
+      localStorage.setItem('ribix_workspace', JSON.stringify(data.workspace));
+
+      set({
+        isAuthenticated: true,
+        user: data.user,
+        token: data.token,
+        workspace: data.workspace,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Registration failed',
         isLoading: false,
       });
       throw error;

@@ -42,17 +42,24 @@ const useEditorStore = create<EditorState>((set) => ({
     }),
 }));
 
-function LoginModal({ onClose, onLogin, onGitHubLogin }: {
+function LoginModal({ onClose, onLogin, onRegister, onGitHubLogin }: {
   onClose: () => void;
   onLogin: (email: string, password: string) => Promise<void>;
+  onRegister: (email: string, password: string, name: string) => Promise<void>;
   onGitHubLogin: () => Promise<void>;
 }) {
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onLogin(email, password);
+    if (isLogin) {
+      await onLogin(email, password);
+    } else {
+      await onRegister(email, password, name);
+    }
   };
 
   return (
@@ -76,7 +83,9 @@ function LoginModal({ onClose, onLogin, onGitHubLogin }: {
         minWidth: '400px',
         maxWidth: '500px',
       }}>
-        <h2 style={{ color: '#fff', marginBottom: '24px' }}>Sign in to Ribix IDE</h2>
+        <h2 style={{ color: '#fff', marginBottom: '24px' }}>
+          {isLogin ? 'Sign in' : 'Sign up'} to Ribix IDE
+        </h2>
         
         <button
           onClick={onGitHubLogin}
@@ -92,12 +101,35 @@ function LoginModal({ onClose, onLogin, onGitHubLogin }: {
             marginBottom: '16px',
           }}
         >
-          Sign in with GitHub
+          {isLogin ? 'Sign in' : 'Sign up'} with GitHub
         </button>
         
         <div style={{ color: '#888', textAlign: 'center', margin: '16px 0' }}>or</div>
         
         <form onSubmit={handleSubmit}>
+          {!isLogin && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: '#d4d4d4', marginBottom: '8px' }}>
+                Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  backgroundColor: '#3c3c3c',
+                  border: '1px solid #3c3c3c',
+                  color: '#fff',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+          )}
+          
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', color: '#d4d4d4', marginBottom: '8px' }}>
               Email
@@ -128,6 +160,7 @@ function LoginModal({ onClose, onLogin, onGitHubLogin }: {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -138,6 +171,22 @@ function LoginModal({ onClose, onLogin, onGitHubLogin }: {
                 fontSize: '14px',
               }}
             />
+          </div>
+          
+          <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#4ec9b0',
+                cursor: 'pointer',
+                fontSize: '13px',
+              }}
+            >
+              {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+            </button>
           </div>
           
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -181,7 +230,7 @@ function LoginModal({ onClose, onLogin, onGitHubLogin }: {
 
 function App() {
   const { files, activeFile, openFiles, setFile, setActiveFile, closeFile } = useEditorStore();
-  const { isAuthenticated, user, login, logout, loginWithGitHub } = useAuthStore();
+  const { isAuthenticated, user, login, register, logout, loginWithGitHub } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
@@ -252,6 +301,16 @@ This is the web-based version of Ribix IDE.
     } catch (error) {
       console.error('GitHub login failed:', error);
       alert('GitHub login failed. Please try again.');
+    }
+  };
+
+  const handleRegister = async (email: string, password: string, name: string) => {
+    try {
+      await register(email, password, name);
+      setShowLoginModal(false);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      alert('Registration failed. Please try again.');
     }
   };
 
@@ -376,6 +435,7 @@ This is the web-based version of Ribix IDE.
         <LoginModal
           onClose={() => setShowLoginModal(false)}
           onLogin={handleLogin}
+          onRegister={handleRegister}
           onGitHubLogin={handleGitHubLogin}
         />
       )}
