@@ -111,6 +111,9 @@ import './ribixAutoTriggerActions.js'
 // register Ribix single-file action (right-click "Run Ribix on this file")
 import './ribixFileActionContribution.js'
 
+// register extension compatibility commands
+import './extensionCompatibilityCommands.js'
+
 // ---------- common (unclear if these actually need to be imported, because they're already imported wherever they're used) ----------
 
 // llmMessage
