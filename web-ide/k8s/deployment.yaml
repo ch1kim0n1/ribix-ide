@@ -1,0 +1,225 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ribix-ide
+  labels:
+    name: ribix-ide
+    app: ribix-ide
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ribix-ide-config
+  namespace: ribix-ide
+data:
+  NODE_ENV: "production"
+  WS_PORT: "1234"
+  API_URL: "http://ribix-backend:3000"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ribix-ide-secrets
+  namespace: ribix-ide
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://user:password@postgres:5432/ribix"
+  REDIS_URL: "redis://redis:6379"
+  JWT_SECRET: "your-jwt-secret-here"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ribix-ide-web
+  namespace: ribix-ide
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ribix-ide-web
+  template:
+    metadata:
+      labels:
+        app: ribix-ide-web
+    spec:
+      containers:
+      - name: ribix-ide-web
+        image: ribix/ide-web:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: ribix-ide-config
+              key: NODE_ENV
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ribix-ide-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: ribix-ide-secrets
+              key: REDIS_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ribix-ide-web
+  namespace: ribix-ide
+spec:
+  selector:
+    app: ribix-ide-web
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+  type: LoadBalancer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ribix-ide-websocket
+  namespace: ribix-ide
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ribix-ide-websocket
+  template:
+    metadata:
+      labels:
+        app: ribix-ide-websocket
+    spec:
+      containers:
+      - name: ribix-ide-websocket
+        image: ribix/ide-websocket:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 1234
+        env:
+        - name: WS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ribix-ide-config
+              key: WS_PORT
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: ribix-ide-secrets
+              key: REDIS_URL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          tcpSocket:
+            port: 1234
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ribix-ide-websocket
+  namespace: ribix-ide
+spec:
+  selector:
+    app: ribix-ide-websocket
+  ports:
+  - protocol: TCP
+    port: 1234
+    targetPort: 1234
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ribix-ide-ingress
+  namespace: ribix-ide
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/websocket-services: "ribix-ide-websocket"
+spec:
+  tls:
+  - hosts:
+    - ide.ribix.dev
+    secretName: ribix-ide-tls
+  rules:
+  - host: ide.ribix.dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ribix-ide-web
+            port:
+              number: 80
+      - path: /collaboration
+        pathType: Prefix
+        backend:
+          service:
+            name: ribix-ide-websocket
+            port:
+              number: 1234
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ribix-ide-web-hpa
+  namespace: ribix-ide
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ribix-ide-web
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

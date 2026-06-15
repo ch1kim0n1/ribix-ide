@@ -16,7 +16,10 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
     "zustand": "^4.5.0",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "yjs": "^13.6.10",
+    "y-websocket": "^1.5.0",
+    "y-protocols": "^1.0.6"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
