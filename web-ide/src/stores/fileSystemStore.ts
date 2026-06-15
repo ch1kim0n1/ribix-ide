@@ -167,7 +167,11 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch(`http://localhost:3000/web-ide/filesystem/read?path=${encodeURIComponent(path)}`);
+      const response = await fetch('http://localhost:3000/web-ide/filesystem/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      });
 
       if (!response.ok) {
         throw new Error('Failed to read file');
