@@ -201,7 +201,13 @@ export class MCPChannel implements IServerChannel {
 				args: server.args,
 				env: {
 					...server.env,
-					...process.env
+					// Only include safe environment variables
+					PATH: process.env.PATH,
+					HOME: process.env.HOME,
+					USERPROFILE: process.env.USERPROFILE,
+					USER: process.env.USER,
+					LANG: process.env.LANG,
+					LC_ALL: process.env.LC_ALL,
 				} as Record<string, string>,
 			});
 
