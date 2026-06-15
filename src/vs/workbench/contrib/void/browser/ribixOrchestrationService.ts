@@ -266,45 +266,29 @@ export class RibixOrchestrationService extends Disposable implements IRibixOrche
 			const output = dep?.output;
 			if (!output) { continue; }
 
-			const summaryText = this.formatOutputForPrompt(output);
-
+			// Pass structured fields directly instead of converting to text blob
 			if (task.agentType === 'coder' && dep.agentType === 'planner') {
-				context.plannerOutput = summaryText;
+				context.plannerOutput = output.summary;
+				context.plannerPlan = output.rawFinalMessage; // Full plan for detailed context
 			} else if (task.agentType === 'tester' && dep.agentType === 'coder') {
-				context.coderOutput = summaryText;
+				context.coderOutput = output.summary;
+				context.filesChanged = output.filesChanged;
 			} else if (task.agentType === 'debugger' && dep.agentType === 'tester') {
-				context.testerOutput = summaryText;
+				context.testerOutput = output.summary;
+				context.testReport = output.testReport ?? '';
 				context.errorLogs = output.testReport ?? '';
 			} else if (task.agentType === 'reviewer') {
-				context.implementationSummary = summaryText;
+				context.implementationSummary = output.summary;
 				context.testReport = output.testReport ?? '';
+				context.filesChanged = output.filesChanged;
+				context.findings = output.findings;
 			} else if (task.agentType === 'docs' && dep.agentType === 'coder') {
-				context.implementationSummary = summaryText;
+				context.implementationSummary = output.summary;
+				context.filesChanged = output.filesChanged;
 			}
 		}
 
 		return context;
-	}
-
-	/** Renders a structured AgentOutput into a prompt-friendly text block for a downstream agent. */
-	private formatOutputForPrompt(output: AgentOutput): string {
-		const lines: string[] = [output.summary];
-		if (output.filesChanged.length > 0) {
-			lines.push(`Files changed: ${output.filesChanged.join(', ')}`);
-		}
-		if (output.testReport) {
-			lines.push(`Test report:\n${output.testReport}`);
-		}
-		if (output.findings.length > 0) {
-			lines.push('Findings:');
-			for (const f of output.findings) {
-				lines.push(`- [${f.severity}] ${f.file}${f.line !== null ? `:${f.line}` : ''} — ${f.message}`);
-			}
-		}
-		if (output.blocked) {
-			lines.push(`BLOCKED: ${output.blocked.reason}`);
-		}
-		return lines.join('\n');
 	}
 
 	private monitorAgentCompletion(missionId: string, taskId: string, agentId: string, state: OrchestrationState): void {
