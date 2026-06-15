@@ -48,6 +48,9 @@ import './metricsPollService.js'
 // helper services
 import './helperServices/consistentItemService.js'
 
+// file watcher for auto-trigger (G-AUTOTRIGGER)
+import './ribixFileWatcherService.js'
+
 // register selection helper
 import './voidSelectionHelperWidget.js'
 
