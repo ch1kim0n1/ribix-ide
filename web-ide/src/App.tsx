@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { useStore } from 'zustand';
+import { useAuthStore } from './stores/authStore';
 
 interface File {
   name: string;
@@ -38,9 +39,148 @@ const useEditorStore = create<EditorState>((set) => ({
     }),
 }));
 
+function LoginModal({ onClose, onLogin, onGitHubLogin }: {
+  onClose: () => void;
+  onLogin: (email: string, password: string) => Promise<void>;
+  onGitHubLogin: () => Promise<void>;
+}) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onLogin(email, password);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+    }}>
+      <div style={{
+        backgroundColor: '#252526',
+        padding: '32px',
+        borderRadius: '8px',
+        border: '1px solid #3c3c3c',
+        minWidth: '400px',
+        maxWidth: '500px',
+      }}>
+        <h2 style={{ color: '#fff', marginBottom: '24px' }}>Sign in to Ribix IDE</h2>
+        
+        <button
+          onClick={onGitHubLogin}
+          style={{
+            width: '100%',
+            padding: '12px',
+            backgroundColor: '#24292e',
+            color: '#fff',
+            border: '1px solid #3c3c3c',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            marginBottom: '16px',
+          }}
+        >
+          Sign in with GitHub
+        </button>
+        
+        <div style={{ color: '#888', textAlign: 'center', margin: '16px 0' }}>or</div>
+        
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', color: '#d4d4d4', marginBottom: '8px' }}>
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                backgroundColor: '#3c3c3c',
+                border: '1px solid #3c3c3c',
+                color: '#fff',
+                borderRadius: '4px',
+                fontSize: '14px',
+              }}
+            />
+          </div>
+          
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', color: '#d4d4d4', marginBottom: '8px' }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                backgroundColor: '#3c3c3c',
+                border: '1px solid #3c3c3c',
+                color: '#fff',
+                borderRadius: '4px',
+                fontSize: '14px',
+              }}
+            />
+          </div>
+          
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                flex: 1,
+                padding: '8px 16px',
+                backgroundColor: '#3c3c3c',
+                color: '#fff',
+                border: '1px solid #3c3c3c',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={{
+                flex: 1,
+                padding: '8px 16px',
+                backgroundColor: '#0e639c',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: pointer,
+                fontSize: '14px',
+              }}
+            >
+              Sign In
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const { files, activeFile, openFiles, setFile, setActiveFile, closeFile } = useEditorStore();
+  const { isAuthenticated, user, login, logout, loginWithGitHub } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
     // Initialize with sample files
@@ -78,7 +218,45 @@ This is the web-based version of Ribix IDE.
       );
       setLoading(false);
     }, 1000);
+
+    // Check for existing auth
+    const existingToken = localStorage.getItem('ribix_token');
+    const existingUser = localStorage.getItem('ribix_user');
+    if (existingToken && existingUser) {
+      useAuthStore.getState().setToken(existingToken);
+      useAuthStore.setState({
+        user: JSON.parse(existingUser),
+        isAuthenticated: true,
+      });
+    }
   }, []);
+
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      await login(email, password);
+      setShowLoginModal(false);
+    } catch (error) {
+      console.error('Login failed:', error);
+      alert('Login failed. Please try again.');
+    }
+  };
+
+  const handleGitHubLogin = async () => {
+    try {
+      await loginWithGitHub();
+    } catch (error) {
+      console.error('GitHub login failed:', error);
+      alert('GitHub login failed. Please try again.');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   if (loading) {
     return null;
@@ -87,11 +265,30 @@ This is the web-based version of Ribix IDE.
   const activeFileData = activeFile ? files.get(activeFile) : null;
 
   return (
-    <div className="header">
-      <div className="logo">🚀 Ribix IDE Web</div>
-      <div className="header-actions">
-        <button className="btn btn-secondary">Settings</button>
-        <button className="btn">Sign In</button>
+    <>
+      <div className="header">
+        <div className="logo">🚀 Ribix IDE Web</div>
+        <div className="header-actions">
+          {isAuthenticated ? (
+            <>
+              <span style={{ marginRight: '12px', fontSize: '13px' }}>
+                {user?.email}
+              </span>
+              <button className="btn btn-secondary" onClick={handleLogout}>
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn btn-secondary" onClick={() => setShowLoginModal(true)}>
+                Sign In
+              </button>
+              <button className="btn" onClick={() => setShowLoginModal(true)}>
+                Sign In with GitHub
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <div className="main-content">
         <div className="sidebar">
@@ -160,7 +357,14 @@ This is the web-based version of Ribix IDE.
         <span>Ready</span>
         <span>TypeScript • UTF-8</span>
       </div>
-    </div>
+      {showLoginModal && (
+        <LoginModal
+          onClose={() => setShowLoginModal(false)}
+          onLogin={handleLogin}
+          onGitHubLogin={handleGitHubLogin}
+        />
+      )}
+    </>
   );
 }
 
