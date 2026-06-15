@@ -5,6 +5,7 @@ import { useStore } from 'zustand';
 import { useAuthStore } from './stores/authStore';
 import { AIChatPanel } from './components/AIChatPanel';
 import { FileExplorer } from './components/FileExplorer';
+import { TerminalPanel } from './components/TerminalPanel';
 
 interface File {
   name: string;
@@ -184,6 +185,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
+  const [showTerminal, setShowTerminal] = useState(false);
 
   useEffect(() => {
     // Initialize with sample files
@@ -353,7 +355,22 @@ This is the web-based version of Ribix IDE.
       </div>
       <div className="status-bar">
         <span>Ready</span>
-        <span>TypeScript • UTF-8</span>
+        <div style={{ display: 'flex', gap: '16px' }}>
+          <button
+            onClick={() => setShowTerminal(!showTerminal)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#fff',
+              cursor: 'pointer',
+              fontSize: '12px',
+              padding: '0',
+            }}
+          >
+            💻 Terminal
+          </button>
+          <span>TypeScript • UTF-8</span>
+        </div>
       </div>
       {showLoginModal && (
         <LoginModal
@@ -363,6 +380,7 @@ This is the web-based version of Ribix IDE.
         />
       )}
       {showAIChat && <AIChatPanel onClose={() => setShowAIChat(false)} />}
+      {showTerminal && <TerminalPanel onClose={() => setShowTerminal(false)} />}
     </>
   );
 }
