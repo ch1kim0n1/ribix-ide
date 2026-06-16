@@ -1,7 +1,7 @@
 {
   "name": "ribix-ide",
   "version": "1.0.5",
-  "description": "Ribix IDE - An agent-first software engineering OS",
+  "description": "The QA-first IDE — autonomous agents find bugs, write tests, and generate fixes while you code.",
   "distro": "21c8d8ea1e46d97c5639a7cabda6c0e063cc8dd5",
   "author": {
     "name": "Ribix Inc."

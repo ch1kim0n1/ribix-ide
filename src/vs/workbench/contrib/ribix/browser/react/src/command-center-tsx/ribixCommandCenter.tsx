@@ -85,6 +85,10 @@ export const RibixCommandCenter = ({ className }: { className: string }) => {
 				{/* Tab Content */}
 				<div className="w-full h-[calc(100%-48px)] overflow-auto">
 					<ErrorBoundary>
+						{/* TODO(#45): Add a "Share mission" button to the mission creation/detail UI in
+						    RibixMissionsPanel. Wire it to missionCollaboration.addCollaborator() and
+						    display the current collaborators list. The button should only appear for
+						    missions owned by the current user. */}
 						{activeTab === 'missions' && <RibixMissionsPanel />}
 						{activeTab === 'agents' && <RibixAgentsPanel />}
 						{activeTab === 'memory' && <RibixMemoryPanel />}

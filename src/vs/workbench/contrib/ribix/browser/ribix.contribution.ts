@@ -111,6 +111,12 @@ import './ribixChangeWatcherService.js'
 // register Ribix auto-trigger toggle command (Command Center)
 import './ribixAutoTriggerActions.js'
 
+// register Ribix file lock manager UI (status bar + showFileLocks command)
+import './fileLockManager.js'
+
+// register Ribix provider switch command
+import './ribixProviderActions.js'
+
 // register Ribix single-file action (right-click "Run Ribix on this file")
 import './ribixFileActionContribution.js'
 
@@ -140,3 +146,21 @@ import '../common/ribixModelService.js'
 // Ribix services
 import '../common/ribixTaskQueueService.js'
 import '../common/ribixFileLockService.js'
+
+// register Ribix mission collaboration (#45)
+import './missionCollaboration.js'
+
+// register Ribix mission templates (#46)
+import './missionTemplates.js'
+
+// register Ribix mission replay command (ribix.replayMission)
+import './ribixReplayActions.js'
+
+// register Ribix CI/CD trigger integration (GitHub Actions failure → repair mission)
+import './ciIntegration.js'
+
+// register Ribix unified findings provider (backend + mission merge, SSE, filter toggle)
+import './unifiedFindingsProvider.js'
+
+// register Ribix fix memory service (cross-mission learning, fix reuse suggestions)
+import './fixMemory.js'

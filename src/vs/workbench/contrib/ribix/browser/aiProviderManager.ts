@@ -51,6 +51,16 @@ export interface AIProviderInterface {
   getAvailableModels(): AIModel[];
 }
 
+export interface LLMMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface LLMOptions {
+  temperature?: number;
+  maxTokens?: number;
+}
+
 /**
  * Anthropic Provider
  */
@@ -373,7 +383,7 @@ export class RibixProvider implements AIProviderInterface {
  */
 export class AIProviderManager {
   private providers: Map<AIProvider, AIProviderInterface> = new Map();
-  private defaultProvider: AIProvider = 'anthropic';
+  private currentProvider: AIProvider = 'anthropic';
   private currentConfig: AIProviderConfig;
 
   constructor() {
@@ -384,22 +394,26 @@ export class AIProviderManager {
 
     // Default configuration
     this.currentConfig = {
-      provider: this.defaultProvider,
+      provider: this.currentProvider,
       model: 'claude-3-sonnet-20240229',
       temperature: 0.7,
       maxTokens: 4096,
     };
   }
 
-  setProvider(provider: AIProvider, config: Partial<AIProviderConfig>): void {
+  getProvider(): AIProvider {
+    return this.currentProvider;
+  }
+
+  setProvider(provider: AIProvider): void {
     const providerImpl = this.providers.get(provider);
     if (!providerImpl) {
       throw new Error(`Unknown provider: ${provider}`);
     }
 
+    this.currentProvider = provider;
     this.currentConfig = {
       ...this.currentConfig,
-      ...config,
       provider,
     };
   }
@@ -426,13 +440,68 @@ export class AIProviderManager {
     return provider.chat(messages, this.currentConfig);
   }
 
-  estimateCost(prompt: string): number {
-    const provider = this.providers.get(this.currentConfig.provider);
-    if (!provider) {
-      throw new Error(`Provider not found: ${this.currentConfig.provider}`);
+  async callLLM(messages: LLMMessage[], opts?: LLMOptions): Promise<string> {
+    const config: AIProviderConfig = {
+      ...this.currentConfig,
+      ...(opts?.temperature !== undefined ? { temperature: opts.temperature } : {}),
+      ...(opts?.maxTokens !== undefined ? { maxTokens: opts.maxTokens } : {}),
+    };
+
+    let response: AIResponse;
+    switch (this.currentProvider) {
+      case 'anthropic':
+        response = await this.callAnthropic(messages, config);
+        break;
+      case 'openai':
+        response = await this.callOpenAI(messages, config);
+        break;
+      case 'ollama':
+        response = await this.callOllama(messages, config);
+        break;
+      case 'ribix':
+        response = await this.callRibixBackend(messages, config);
+        break;
+      default:
+        throw new Error(`Unsupported provider: ${this.currentProvider}`);
     }
 
-    return provider.estimateCost(prompt, this.currentConfig);
+    return response.content;
+  }
+
+  private async callAnthropic(messages: LLMMessage[], config: AIProviderConfig): Promise<AIResponse> {
+    const provider = this.providers.get('anthropic')!;
+    return provider.chat(messages, config);
+  }
+
+  private async callOpenAI(messages: LLMMessage[], config: AIProviderConfig): Promise<AIResponse> {
+    const provider = this.providers.get('openai')!;
+    return provider.chat(messages, config);
+  }
+
+  private async callOllama(messages: LLMMessage[], config: AIProviderConfig): Promise<AIResponse> {
+    const provider = this.providers.get('ollama')!;
+    return provider.chat(messages, config);
+  }
+
+  private async callRibixBackend(messages: LLMMessage[], config: AIProviderConfig): Promise<AIResponse> {
+    const provider = this.providers.get('ribix')!;
+    return provider.chat(messages, config);
+  }
+
+  estimateCost(tokens: number): { provider: AIProvider; costUsd: number } {
+    const costs: Record<string, number> = {
+      'claude-3-opus-20240229': 0.015,
+      'claude-3-sonnet-20240229': 0.003,
+      'claude-3-haiku-20240307': 0.00025,
+      'gpt-4-turbo-2024-04-09': 0.01,
+      'gpt-4-0125-preview': 0.03,
+      'gpt-3.5-turbo-0125': 0.0005,
+    };
+    const costPer1k = costs[this.currentConfig.model as string] ?? 0;
+    return {
+      provider: this.currentProvider,
+      costUsd: (tokens / 1000) * costPer1k,
+    };
   }
 
   getAvailableProviders(): AIProvider[] {

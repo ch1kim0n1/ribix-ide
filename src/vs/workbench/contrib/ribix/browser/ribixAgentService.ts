@@ -27,6 +27,15 @@ import { generateDocsPrompt } from '../common/prompt/ribixDocsPrompt.js';
 import { generateReleasePrompt } from '../common/prompt/ribixReleasePrompt.js';
 import { BROWSER_AGENT_PROMPT } from './ribixBrowserAgent.js';
 import { IVoidSettingsService } from '../common/voidSettingsService.js';
+import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { PlaywrightRunner, PlaywrightFinding } from './playwrightRunner.js';
+import { agentProgressFeed } from './agentProgressFeed.js';
+import { aiProviderManager } from './aiProviderManager.js';
+import { IFixMemoryService } from './fixMemory.js';
+
+/** Storage key under which the workspace staging URL is persisted. */
+const RIBIX_STAGING_URL_KEY = 'ribix.stagingUrl';
 
 export interface IRibixAgentService {
 	readonly _serviceBrand: undefined;
@@ -82,6 +91,9 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		@IRibixCheckpointService private readonly checkpointService: IRibixCheckpointService,
 		@IVoidSettingsService private readonly settingsService: IVoidSettingsService,
 		@IMCPService private readonly mcpService: IMCPService,
+		@IStorageService private readonly storageService: IStorageService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IFixMemoryService private readonly fixMemoryService: IFixMemoryService,
 	) {
 		super();
 		this._register(this._onDidChangeAgents);
@@ -203,6 +215,20 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			const memoryEntries = await this.memoryService.getEntries('codebase_file' as any, workspaceId);
 			this.addActivityLog(agent, 'Read memory', `Loaded ${memoryEntries.length} memory entries`, null, null);
 
+			// -----------------------------------------------------------------------
+			// Tester agent: run Playwright QA against the staging URL before handing
+			// off to the LLM loop. Findings are emitted through agentProgressFeed so
+			// the Command Center panel can display them in real-time, and also stored
+			// in the agent's output findings list for downstream reviewer/debugger use.
+			// -----------------------------------------------------------------------
+			if (agent.type === 'tester' && !tokenSource.token.isCancellationRequested) {
+				const playwrightFindings = await this.runPlaywrightQA(agent, context);
+				// Merge Playwright findings into the agent output findings list.
+				// We mutate the pre-built output after the LLM loop finishes, so we
+				// accumulate them on the agent instance temporarily.
+				(agent as any).__playwrightFindings = playwrightFindings;
+			}
+
 			const messages: AgentTurnMessage[] = [
 				{ role: 'system', content: this.generatePrompt(agent.type, taskDescription, memoryEntries, context) },
 				{ role: 'user', content: taskDescription },
@@ -242,9 +268,47 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 
 			agent.output = this.buildAgentOutput(agent, lastAssistantMessage, lastTestReport, budgetHit);
 
+			// Merge any pre-collected Playwright findings into the final output.
+			const pwFindings: PlaywrightFinding[] | undefined = (agent as any).__playwrightFindings;
+			if (pwFindings && pwFindings.length > 0 && agent.output) {
+				const converted: AgentFinding[] = pwFindings.map(f => ({
+					severity: f.severity === 'p0' ? 'high' : f.severity === 'p1' ? 'high' : f.severity === 'p2' ? 'medium' : 'low' as const,
+					file: f.url,
+					line: null,
+					message: `[${f.severity.toUpperCase()}] ${f.title}: ${f.errorMessage}`,
+				}));
+				agent.output.findings = [...agent.output.findings, ...converted];
+			}
+
 			this.updateAgentStatus(agent, 'executing', 'Writing memory');
 			await this.writeMemory(agent, taskDescription, agent.output);
 			this.addActivityLog(agent, 'Write memory', 'Saved agent run to memory', null, null);
+
+			// Fix memory integration:
+			// 1. When a coder agent completes successfully with a test report (indicating
+			//    tests passed), record the fix so it can be reused in future missions.
+			if (agent.type === 'coder' && !budgetHit && agent.output && agent.output.testReport) {
+				const primaryFile = agent.filesWritten[0] ?? agent.filesRead[0] ?? '';
+				this.fixMemoryService.recordFix({
+					filePath: primaryFile,
+					errorPattern: '',
+					bugDescription: taskDescription,
+					fixDiff: agent.output.filesChanged.join('\n'),
+					testCode: agent.output.testReport,
+					missionId: agent.missionId,
+					appliedAt: new Date().toISOString(),
+				}).catch(e => {
+					console.warn('fixMemoryService.recordFix failed:', e);
+				});
+			}
+
+			// 2. When any agent produces findings (reviewer, tester), check fix memory for
+			//    similar past fixes and surface suggestions via IDE notification.
+			if (agent.output && agent.output.findings.length > 0) {
+				this.fixMemoryService.showSuggestions(agent.output.findings).catch(e => {
+					console.warn('fixMemoryService.showSuggestions failed:', e);
+				});
+			}
 
 			agent.completedAt = Date.now();
 			const completionDetail = budgetHit ? `Completed (budget: ${budgetHit})` : 'Task completed';
@@ -350,6 +414,16 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 	 * which the loop feeds back to the model as a `tool` message. Write tools acquire a
 	 * lock and checkpoint before mutating; the lock is always released in `finally`.
 	 */
+	// TODO(replay): Record tool calls and file reads/writes here.
+	//   After obtaining `resultText` at the end of this method, call:
+	//     missionRecorder?.record({
+	//       agentId: agent.id,
+	//       agentRole: agent.type,
+	//       type: tool === 'readFile' ? 'file_read' : tool === 'writeFile' ? 'file_write' : 'tool_call',
+	//       durationMs: Date.now() - callStart,
+	//       data: { toolName: tool, filePath, resultSnippet: resultText.slice(0, 200) },
+	//     });
+	//   Obtain missionRecorder from IRibixMissionService._recorders.get(agent.missionId).
 	private async runOneTool(agent: AgentInstance, call: ParsedToolCall): Promise<string> {
 		const { tool, params } = call;
 
@@ -502,8 +576,19 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 
 	/**
 	 * Sends the running message array to the model and resolves with the assistant text.
-	 * The leading `system` message is passed via `separateSystemMessage`; remaining turns
-	 * (including fed-back `tool` results) are flattened into provider-agnostic chat messages.
+	 *
+	 * Routing logic:
+	 *   - When the active provider is 'anthropic' (the default), the call goes through
+	 *     `ILLMMessageService`, the VS Code-native provider pipeline (streaming, model
+	 *     selection from settings, metering).
+	 *   - When the active provider is 'openai', 'ollama', or 'ribix', the call routes
+	 *     through `aiProviderManager.callLLM()`, which talks directly to those providers.
+	 *     The Anthropic client is not initialized in that path — VS Code model settings
+	 *     are bypassed intentionally; the provider's own config drives the call.
+	 *
+	 * The leading `system` message is extracted from the turn array and passed as a
+	 * `separateSystemMessage` to the native path, or prepended as a system-role message
+	 * on the aiProviderManager path.
 	 */
 	private async callLLM(messages: AgentTurnMessage[], token: CancellationToken): Promise<string> {
 		const systemMessage = messages.find(m => m.role === 'system');
@@ -522,6 +607,23 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			}
 		}
 
+		if (token.isCancellationRequested) {
+			throw new Error('LLM call cancelled');
+		}
+
+		// Route non-Anthropic providers through aiProviderManager.
+		// The Anthropic provider uses the VS Code-native ILLMMessageService pipeline
+		// (streaming, settings-driven model selection, token metering).
+		const activeProvider = aiProviderManager.getProvider();
+		if (activeProvider !== 'anthropic') {
+			const providerMessages = [
+				...(systemMessage ? [{ role: 'system' as const, content: systemMessage.content }] : []),
+				...chatMessages,
+			];
+			return aiProviderManager.callLLM(providerMessages, { maxTokens: 4096 });
+		}
+
+		// Anthropic path: use the VS Code-native ILLMMessageService.
 		return new Promise((resolve, reject) => {
 			if (token.isCancellationRequested) {
 				reject(new Error('LLM call cancelled'));
@@ -555,6 +657,107 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 				this.llmMessageService.abort(requestId);
 			});
 		});
+	}
+
+	/**
+	 * Reads the staging URL from workspace storage, launches `PlaywrightRunner` against
+	 * it, converts each `PlaywrightFinding` into an `AgentProgressEvent` on
+	 * `agentProgressFeed`, and returns the raw findings for merging into `AgentOutput`.
+	 *
+	 * If no staging URL is configured the method logs a skip notice and returns [].
+	 * Playwright errors are surfaced as P1 findings rather than thrown so a broken
+	 * Playwright setup can never crash the tester agent outright.
+	 */
+	private async runPlaywrightQA(agent: AgentInstance, context?: any): Promise<PlaywrightFinding[]> {
+		// Resolve staging URL (in priority order):
+		//  1. context override — supplied by orchestration (e.g. from mission metadata)
+		//  2. VS Code workspace configuration — set via `ribix.configureSandbox` or user settings
+		//  3. IStorageService workspace scope — programmatic fallback
+		const stagingUrl: string =
+			(context?.stagingUrl as string | undefined) ||
+			(this.configurationService.getValue<string>('ribix.stagingUrl') ?? '') ||
+			this.storageService.get(RIBIX_STAGING_URL_KEY, StorageScope.WORKSPACE, '');
+
+		if (!stagingUrl) {
+			this.addActivityLog(agent, 'Playwright skip', 'No staging URL configured — skipping Playwright QA. Set one via ribix.configureSandbox.', null, null);
+			agentProgressFeed.emit({
+				agentId: `${agent.missionId}:Tester`,
+				agentRole: 'Tester',
+				stage: 'testing',
+				message: 'Playwright QA skipped: no staging URL configured.',
+				timestamp: Date.now(),
+			});
+			return [];
+		}
+
+		this.addActivityLog(agent, 'Playwright start', `Running QA against ${stagingUrl}`, null, null);
+		agentProgressFeed.emit({
+			agentId: `${agent.missionId}:Tester`,
+			agentRole: 'Tester',
+			stage: 'testing',
+			message: `Playwright: navigating ${stagingUrl}…`,
+			timestamp: Date.now(),
+		});
+
+		const runner = new PlaywrightRunner(stagingUrl);
+		const extraPages: string[] = Array.isArray(context?.playwrightPages) ? context.playwrightPages : [];
+
+		let findings: PlaywrightFinding[];
+		try {
+			findings = await runner.run({ timeoutMs: 90_000, pages: extraPages });
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			this.addActivityLog(agent, 'Playwright error', message, null, null);
+			agentProgressFeed.emit({
+				agentId: `${agent.missionId}:Tester`,
+				agentRole: 'Tester',
+				stage: 'error',
+				message: `Playwright runner failed: ${message}`,
+				timestamp: Date.now(),
+			});
+			return [{
+				title: 'Playwright runner crashed',
+				severity: 'p1',
+				url: stagingUrl,
+				errorMessage: message,
+			}];
+		}
+
+		// Emit each finding as a progress event so the Command Center shows live updates.
+		for (const finding of findings) {
+			agentProgressFeed.emit({
+				agentId: `${agent.missionId}:Tester`,
+				agentRole: 'Tester',
+				stage: 'testing',
+				message: `[${finding.severity.toUpperCase()}] ${finding.title}`,
+				timestamp: Date.now(),
+				filesAffected: finding.screenshotPath ? [finding.screenshotPath] : undefined,
+			});
+			this.addActivityLog(
+				agent,
+				`Finding ${finding.severity.toUpperCase()}`,
+				`${finding.title} — ${finding.errorMessage.slice(0, 200)}`,
+				null,
+				finding.screenshotPath ?? null,
+			);
+		}
+
+		// Emit a completion summary.
+		const p0Count = findings.filter(f => f.severity === 'p0').length;
+		const summaryMsg = findings.length === 0
+			? `Playwright QA complete — no anomalies found on ${stagingUrl}`
+			: `Playwright QA complete — ${findings.length} finding(s) (${p0Count} P0) on ${stagingUrl}`;
+
+		agentProgressFeed.emit({
+			agentId: `${agent.missionId}:Tester`,
+			agentRole: 'Tester',
+			stage: findings.length === 0 ? 'complete' : 'testing',
+			message: summaryMsg,
+			timestamp: Date.now(),
+		});
+
+		this.addActivityLog(agent, 'Playwright complete', summaryMsg, null, null);
+		return findings;
 	}
 
 	/**

@@ -3,6 +3,11 @@
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
+// TODO(#47): Integrate wcagChecker.checkContrastRatio() and getWCAGSummary() into the
+// design reviewer output. Import from '../browser/wcagChecker.js'. Call checkContrastRatio()
+// for each colour pair extracted from the target component's CSS, then include the
+// WCAGSummary in the reviewer's structured findings output.
+
 export interface ReviewerPromptContext {
 	memoryEntries: string[];
 	taskDescription: string;

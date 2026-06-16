@@ -1,19 +1,37 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  push:
     branches: [main]
 
 jobs:
-  typecheck:
-    name: Type Check & React Build
-    runs-on: ubuntu-latest
+  ci:
+    name: CI (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+          # Pinned to 2022: windows-latest ships a Visual Studio build that
+          # node-gyp 10.x cannot detect ("unknown version undefined"), breaking
+          # native rebuilds.
+          - os: windows-2022
+            platform: windows
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y \
@@ -22,53 +40,36 @@ jobs:
             libsecret-1-dev libkrb5-dev \
             python3 python-is-python3
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v4
         with:
           node-version: '20.18.2'
           cache: 'npm'
 
+      - name: Configure npm retries (Windows — avoids node-gyp EBUSY lock)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-maxtimeout 120000
+
       - name: Install dependencies
         run: npm ci
         env:
+          # @vscode/ripgrep downloads its binary from GitHub releases during
+          # postinstall; without a token GitHub rate-limits with HTTP 403.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build React components
         run: npm run buildreact
 
       - name: Type check (fast path — no gulp required)
+        # Uses tsc --noEmit against src/tsconfig.json; catches type errors in
+        # ~60s on all platforms without the full ~5 min gulp compile + C++ build.
         run: npx tsc --noEmit -p src/tsconfig.json
-        # Full gulp compile (~5 min + C++ build tools) is verified on local dev.
-        # TSC noEmit catches type errors in CI in ~60s.
 
-  compile:
-    name: Full Compile (on main push only)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y \
-            build-essential g++ \
-            libx11-dev libxkbfile-dev \
-            libsecret-1-dev libkrb5-dev \
-            python3 python-is-python3
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '20.18.2'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Full compile (main push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm run compile
+        timeout-minutes: 30
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build React components
-        run: npm run buildreact
-
-      - name: Full TypeScript compile
-        run: npm run compile
-        timeout-minutes: 15

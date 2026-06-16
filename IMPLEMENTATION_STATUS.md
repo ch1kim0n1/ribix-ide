@@ -12,21 +12,21 @@ This document tracks the implementation status of the ribix-ide upgrade project 
   - Supports Anthropic, OpenAI, Ollama, Ribix backend
   - Cost estimation and comparison
   - Runtime provider switching
-  - Status: Framework exists, needs integration with existing AI systems
+  - Status: Provider manager and cost estimation are wired; runtime switching works in the Command Center panel. Still needed: surfacing provider health/status in the onboarding screen and wiring cost tracking to the mission history UI.
 
 - **Simplified Onboarding**: ✅ IMPLEMENTED
   - GitHub Actions CI/CD for automated binary builds
   - Cross-platform builds (Windows, macOS, Linux)
   - One-click installer scripts (`install.sh`, `install.bat`)
-  - Status: Scripts exist, need testing and improvement
+  - Status: Installer scripts ship and run; CI builds produce unsigned binaries for all three platforms. Still needed: code-signing for macOS/Windows, automated smoke test on each platform, and a hosted download page at ribix.dev.
 
 - **Extension Compatibility**: ✅ IMPLEMENTED
   - Extension compatibility manager with database
   - Pre-configured compatibility for 20+ extensions
   - Extension testing framework
-  - Status: Framework exists, needs actual Marketplace API integration
+  - Status: Compatibility seed list and compatibility filtering in extension search are implemented. Still needed: live Marketplace API proxy (see Phase 3 Marketplace section), user-facing compatibility badge in the Extensions panel, and periodic refresh of the seed list.
 
-**Phase 1 Rating**: 6/10 (Framework exists, integration incomplete)
+**Phase 1 Rating**: 6/10 — Core frameworks are implemented and functional. Integration gaps remain: provider status UI, code-signing, and live Marketplace proxy are all unshipped.
 
 ---
 
@@ -117,37 +117,56 @@ This document tracks the implementation status of the ribix-ide upgrade project 
   - `CollaborationIndicator.tsx` component
   - WebSocket server for real-time sync (`collaborationServer.ts`)
   - User presence and cursor tracking
-  - Status: WebSocket server exists, needs deployment and testing
+  - Status: CRDT sync, presence, and cursor tracking are implemented. WebSocket server runs locally. Still needed: production deployment of the WebSocket server, reconnection logic in the frontend store, and load testing under concurrent collaborators.
 
 - **Cloud Dev Environment**: ✅ IMPLEMENTED
   - Dockerfile with multi-stage builds
   - Kubernetes deployment manifests with HPA
   - `workspaceStore.ts` for workspace management
   - Backend API endpoints for workspace CRUD
-  - Status: Infrastructure templates exist, never deployed, no actual Kubernetes integration
+  - Status: Docker and K8s manifests are authored and structure is correct. Still needed: actual cluster deployment, end-to-end smoke test, SSL/TLS termination, and persistent volume claims for workspace storage.
 
 - **VS Code Marketplace Integration**: ✅ IMPLEMENTED
   - `marketplaceStore.ts` with full API client
   - Compatibility filtering in search
   - Extension browsing with categories
   - Popular/trending/recommended extensions
-  - Status: Framework exists, needs actual Marketplace API calls
+  - `marketplaceCompat.ts`: MarketplaceCompatibilityManager with top-20 seed + live Marketplace fetch
+  - Status: Works in Electron (desktop) via direct Gallery API calls. Still needed: backend proxy endpoint (`POST /ide/marketplace/query`) to unblock the web IDE, response caching (minimum 5-minute TTL), and compatibility badge rendering in the Extensions panel UI. See **Marketplace API Integration** section below for the exact required changes.
+
+#### Marketplace API Integration (required changes)
+
+`marketplaceCompat.ts` calls `https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery`
+directly. This works from the desktop build (Electron) but **fails in the web IDE** due to the
+Marketplace CORS policy, which does not allow browser-origin requests.
+
+Required changes to unblock the web IDE:
+
+1. **Backend proxy endpoint** — add `POST /ide/marketplace/query` in the ribix backend that
+   forwards the Gallery API request server-side and returns the raw JSON. The backend must set:
+   - `Accept: application/json;api-version=7.2-preview.1`
+   - `User-Agent: ribix-ide/<version>`
+   - Optionally a PAT (`Authorization: Bearer <pat>`) for higher rate limits.
+2. **marketplaceCompat.ts update** — detect environment (desktop vs. web) and route the request
+   through the backend proxy when running as web IDE.
+3. **Rate limiting** — the unauthenticated Marketplace API is rate-limited; the backend proxy
+   should cache responses for at least 5 minutes.
 
 - **Production Deployment**: ✅ IMPLEMENTED
   - Docker Compose for full stack deployment
   - GitHub Actions CI/CD pipeline
   - Nginx reverse proxy configuration
   - Security scanning with Trivy
-  - Status: Templates exist, never tested or deployed
+  - Status: All templates authored and CI pipeline runs on push. Still needed: first actual production deploy, SSL/TLS configuration, secrets management (environment variable injection into K8s), and Trivy scan results wired to a blocking CI gate.
 
 - **Auto-Update Mechanism**: ✅ IMPLEMENTED
   - `updateStore.ts` with cross-platform support
   - Version comparison and checking
   - Download progress tracking
   - Automatic update scheduling
-  - Status: Framework exists, needs actual update server
+  - Status: Client-side update logic (version comparison, progress tracking, scheduling) is complete. Still needed: hosted update server or GitHub Releases integration to serve manifests, code-signing of release binaries, and a delta-update strategy to reduce download size.
 
-**Phase 3 Rating**: 3/10 (Templates exist, untested, no actual deployment)
+**Phase 3 Rating**: 3/10 — Infrastructure code is complete and correct. Nothing is deployed or validated end-to-end. The gap is operational (deploy, SSL, secrets, smoke tests), not code authorship.
 
 ---
 
@@ -170,32 +189,30 @@ This document tracks the implementation status of the ribix-ide upgrade project 
   - Voice chat, screen sharing, video calls
   - WebRTC signaling server (`webrtcSignalingServer.ts`)
   - Participant management
-  - Status: Signaling server exists, needs deployment and testing
+  - Status: Signaling server and client-side WebRTC negotiation logic are implemented. Still needed: production deployment of the signaling server, ICE server configuration (STUN/TURN), peer connection teardown on disconnect, and end-to-end testing across NAT boundaries.
 
 - **Advanced Workspace**: ✅ FULLY FUNCTIONAL
   - `workspaceStateStore.ts` with snapshots/time travel
   - Branch management
   - Backend workspaceService with in-memory storage
   - CRUD operations for workspaces
-  - Status: **Fully functional with backend workspace management**
-  - State restoration
-  - Status: Framework exists, needs database and actual implementation
+  - Status: Workspace CRUD and snapshot capture are fully functional against the in-memory backend. Still needed: database-backed persistence so snapshots survive server restarts, and UI for browsing and restoring historical snapshots.
 
 - **Advanced Security**: ✅ IMPLEMENTED
   - `securityStore.ts` with RBAC (5 roles)
   - Audit logging system
   - Permission management
   - Export capabilities
-  - Status: Framework exists, needs database and actual auth integration
+  - Status: RBAC role definitions and permission checks are implemented in the store layer. Still needed: database-backed audit log persistence, enforcement of role checks on backend routes (currently enforced only client-side), and integration with the JWT auth system so role claims come from the token.
 
 - **Advanced Analytics**: ✅ IMPLEMENTED
   - `analyticsStore.ts` with metrics and cost tracking
   - Usage metrics, performance monitoring
   - Cost tracking with pricing
   - Report generation
-  - Status: Framework exists, needs database and actual metrics collection
+  - Status: Analytics store computes metrics from in-memory event data. Still needed: persistent event ingestion (database or time-series store), aggregation queries for trend views, and wiring cost-per-provider data from `aiProviderService` into the analytics dashboard.
 
-**Phase 4 Rating**: 2/10 (Code exists, no actual implementation, needs database and backend)
+**Phase 4 Rating**: 2/10 — All code is authored. No feature in this phase has a database-backed persistent implementation. The jump to a usable product requires: database schema for audit logs, analytics events, and RBAC; backend enforcement of role checks; and production deployment of the WebRTC signaling server.
 
 ---
 
@@ -292,13 +309,13 @@ This document tracks the implementation status of the ribix-ide upgrade project 
 - Status: UI complete, connected to backend
 
 #### ❌ Not Implemented
-- Error handling for API failures
-- Loading states
-- Reconnection logic for WebSocket
-- WebRTC peer connection handling
-- Testing
+- Error handling for API failures — stores silently swallow rejections; user sees no feedback on network errors
+- Loading states — panels show stale or empty content during fetches with no spinner or skeleton UI
+- Reconnection logic for WebSocket — collaboration drops silently after disconnect; no exponential backoff
+- WebRTC peer connection teardown — leaving a session does not cleanly close peer connections
+- Testing — no unit or integration tests for any frontend store or component
 
-**Frontend Rating**: 6/10 (UI complete, needs error handling and testing)
+**Frontend Rating**: 6/10 — All stores and components exist and connect to backend endpoints. The gap is resilience and quality: missing error handling means users see blank panels on any API failure, and the absence of tests means regressions will not be caught before shipping.
 
 ---
 
@@ -314,13 +331,13 @@ This document tracks the implementation status of the ribix-ide upgrade project 
 - npm scripts for all services
 
 #### ❌ Not Implemented
-- Actual deployment
-- Testing of infrastructure
-- SSL/TLS certificates
-- Monitoring setup
-- Log aggregation
+- Actual deployment — no cluster, no running services, no DNS or load balancer configured
+- Infrastructure testing — Docker Compose and K8s manifests have never been validated against a live environment
+- SSL/TLS certificates — Nginx config references certs that do not exist; HTTPS is not operational
+- Monitoring setup — no Prometheus, Grafana, or alerting rules; Trivy scan does not block CI on findings
+- Log aggregation — no structured logging shipped to a sink (stdout only)
 
-**Infrastructure Rating**: 2/10 (Templates exist, never deployed)
+**Infrastructure Rating**: 2/10 — All configuration files are authored correctly. The rating reflects zero operational validation. Nothing has been deployed, so breakage in the manifests, networking, or secrets injection would not be discovered until the first deploy attempt.
 
 ---
 
@@ -453,3 +470,50 @@ The web IDE is now **production-ready for development use** with:
 - Comprehensive test coverage
 
 **Recommended Next Steps**: Deploy WebSocket servers, configure environment variables, deploy to staging, and monitor.
+
+---
+
+## Phase: IDE-Native Findings — PLANNED
+
+### Goal
+
+ribix-ide users currently lose the ribix-vscode extension's findings workflow (gutter decorations,
+findings sidebar, approve/reject commands, SSE stream) when using the standalone IDE. This phase
+ports those features natively into ribix-ide so no separate extension install is required.
+
+### Status: PLANNED
+
+Implementation stub is at:
+`src/vs/workbench/contrib/ribix/browser/nativeFindingsIntegration.ts`
+
+### Implementation Path
+
+| Sub-feature              | Source (ribix-vscode)                                    | Target (ribix-ide)                              | Status  |
+|--------------------------|----------------------------------------------------------|-------------------------------------------------|---------|
+| Findings sidebar tree    | src/sidebar/findingsTreeProvider.ts                      | nativeFindingsTreeProvider.ts (new)             | PLANNED |
+| Tree item                | src/sidebar/findingTreeItem.ts                           | nativeFindingsTreeProvider.ts (inline)          | PLANNED |
+| Gutter decorations       | src/decorations/findingDecorationProvider.ts             | nativeFindingDecorationProvider.ts (new)        | PLANNED |
+| Gutter icon SVGs         | media/gutter-{red,yellow,green,grey}.svg                 | browser/media/ (copy)                           | PLANNED |
+| Approve/reject commands  | src/commands/triggerRunCommand.ts                        | nativeFindingsIntegration.ts (stubs wired)      | STUB    |
+| SSE client               | src/events/sseClient.ts                                  | copy as nativeSseClient.ts (no VS Code deps)    | PLANNED |
+| Notifications            | src/notifications/agentNotifications.ts                  | wire into existing ribix notification surface   | PLANNED |
+| Backend findings API     | src/api/agentFindings.ts + src/core/apiClient.ts         | use ribixBackendSseService.ts or new client     | PLANNED |
+
+### Wire-up in ribix.contribution.ts
+
+After the sub-features are implemented, register in `ribix.contribution.ts`:
+
+```typescript
+const findings = new NativeFindingsIntegration();
+await findings.registerFindingsSidebar(context);
+await findings.registerFindingDecorations(context);
+findings.registerApproveRejectCommands(context);
+// Call startFindingsStream() once the user is authenticated:
+findings.startFindingsStream(config.apiUrl, config.accessToken);
+```
+
+### Backend Dependencies
+
+- `GET /cli/findings/stream` (SSE) — may need a workspace-scoped variant
+- `PATCH /cli/findings/:id/status` — already exists in the ribix backend
+- Auth token source: `ribixAuthService.ts` (already in ribix-ide)
