@@ -3,6 +3,8 @@
  * Provides full marketplace access with compatibility filtering
  */
 
+import { webIdeApiUrl } from '../lib/api';
+
 export interface MarketplaceExtension {
   extensionId: string;
   extensionName: string;
@@ -42,12 +44,47 @@ export interface MarketplaceFile {
   source: string;
 }
 
+interface GalleryResponse<T> {
+  results: Array<{
+    extensions: T[];
+  }>;
+}
+
 export class VSCodeMarketplaceClient {
-  private apiBase: string = 'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery';
+  private apiBase: string;
+  private healthUrl: string;
   private compatibilityManager: any;
 
   constructor(compatibilityManager?: any) {
+    this.apiBase = webIdeApiUrl('/marketplace/query');
+    this.healthUrl = webIdeApiUrl('/marketplace/health');
     this.compatibilityManager = compatibilityManager;
+  }
+
+  async checkHealth(): Promise<boolean> {
+    try {
+      const response = await fetch(this.healthUrl);
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  private async queryMarketplace<T>(payload: unknown): Promise<GalleryResponse<T>> {
+    const response = await fetch(this.apiBase, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json;api-version=7.2-preview.1',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Marketplace request failed with status ${response.status}`);
+    }
+
+    return response.json();
   }
 
   /**
@@ -66,37 +103,24 @@ export class VSCodeMarketplaceClient {
       filterCompatible = false,
     } = options;
 
-    const response = await fetch(this.apiBase, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json;api-version=3.0-preview.1',
-      },
-      body: JSON.stringify({
-        filters: [{
-          criteria: [
-            { filterType: 7, value: query }, // Search text
-            { filterType: 8, value: 'Microsoft.VisualStudio.Code' }, // Target platform
-          ],
-        }],
-        flags: filterCompatible ? 914 : 0,
-        pageSize,
+    const data = await this.queryMarketplace<MarketplaceExtension>({
+      filters: [{
+        criteria: [
+          { filterType: 10, value: query }, // Search text
+          { filterType: 8, value: 'Microsoft.VisualStudio.Code' }, // Target platform
+        ],
         pageNumber,
-      }),
+        pageSize,
+      }],
+      flags: flags ?? (filterCompatible ? 914 : 0),
     });
-
-    if (!response.ok) {
-      throw new Error('Marketplace search failed');
-    }
-
-    const data = await response.json();
     let extensions = data.results[0].extensions;
 
     // Add compatibility information
     if (this.compatibilityManager) {
       extensions = await Promise.all(
-        extensions.map(async (ext: any) => {
-          const compatibility = this.compatibilityManager.getCompatibilityInfo(ext.extensionIdentifier);
+        extensions.map(async (ext: MarketplaceExtension & { extensionIdentifier?: string }) => {
+          const compatibility = this.compatibilityManager.getCompatibilityInfo(ext.extensionIdentifier || ext.extensionId);
           return {
             ...ext,
             compatibility: {
@@ -122,25 +146,14 @@ export class VSCodeMarketplaceClient {
    * Get extension by ID
    */
   async getExtension(extensionId: string): Promise<MarketplaceExtension> {
-    const response = await fetch(this.apiBase, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json;api-version=3.0-preview.1',
-      },
-      body: JSON.stringify({
-        filters: [{
-          criteria: [{ filterType: 4, value: extensionId }],
-        }],
-        flags: 914,
-      }),
+    const data = await this.queryMarketplace<MarketplaceExtension>({
+      filters: [{
+        criteria: [{ filterType: 7, value: extensionId }],
+        pageNumber: 1,
+        pageSize: 1,
+      }],
+      flags: 914,
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to get extension');
-    }
-
-    const data = await response.json();
     const extension = data.results[0].extensions[0];
 
     // Add compatibility information

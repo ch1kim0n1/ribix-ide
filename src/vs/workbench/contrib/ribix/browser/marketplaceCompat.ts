@@ -16,6 +16,7 @@
  *  1. The Marketplace CORS policy blocks browser-origin requests. Calls from the
  *     web IDE must be proxied through a ribix backend endpoint (e.g.
  *     POST /ide/marketplace/query) that forwards the request server-side.
+ *     ✓ FIXED: Now uses ribix backend proxy in web mode.
  *  2. The desktop IDE can call the Marketplace directly (no CORS restriction).
  *  3. The `Accept` header must use the versioned content-type accepted by the
  *     Gallery API: `application/json;api-version=7.2-preview.1`.
@@ -23,9 +24,16 @@
  *     a PAT via the `Authorization: Bearer <pat>` header.
  */
 
-/** VS Code Marketplace Gallery API endpoint */
+import { isWeb } from '../../../../base/common/platform.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
+import { IWorkbenchEnvironmentService } from '../../../../workbench/services/environment/common/environmentService.js';
+
+/** VS Code Marketplace Gallery API endpoint (for desktop only) */
 const MARKETPLACE_API_URL =
 	'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery';
+
+/** Ribix backend proxy endpoint (for web IDE) */
+const RIBIX_API_BASE = '/web-ide'; // Base path for web-ide API routes
 
 export interface MarketplaceExtension {
 	id: string;
@@ -68,11 +76,59 @@ const TOP_EXTENSIONS_SEED: MarketplaceExtension[] = [
 export class MarketplaceCompatibilityManager {
 	/** Known-compatible extensions from the built-in database and runtime overrides */
 	private compatDb: Map<string, MarketplaceExtension> = new Map();
+	/** Cache of pending requests to deduplicate concurrent identical calls */
+	private pendingRequests: Map<string, Promise<MarketplaceExtension | null>> = new Map();
+	/** Whether we're running in web mode (needs proxy) */
+	private useProxy: boolean;
+	/** Ribix backend API base URL */
+	private ribixApiUrl: string;
+	/** User-Agent value for desktop requests */
+	private userAgent: string;
 
-	constructor() {
+	constructor(
+		@IWorkbenchEnvironmentService environmentService?: IWorkbenchEnvironmentService,
+		@IProductService productService?: IProductService,
+	) {
 		for (const ext of TOP_EXTENSIONS_SEED) {
 			this.compatDb.set(ext.id, ext);
 		}
+
+		// Detect web mode and configure proxy
+		this.useProxy = isWeb;
+		// Use the API URL from environment or default to relative path
+		this.ribixApiUrl = ((environmentService as any)?.ribixApiUrl as string | undefined) || RIBIX_API_BASE;
+		const version = productService?.version || 'dev';
+		this.userAgent = `ribix-ide/${version}`;
+	}
+
+	/**
+	 * Returns the API endpoint to use based on environment.
+	 * Web IDE uses ribix backend proxy to avoid CORS issues.
+	 * Desktop IDE can call Marketplace directly.
+	 */
+	private getMarketplaceUrl(): string {
+		if (this.useProxy) {
+			return `${this.ribixApiUrl}/marketplace/query`;
+		}
+		return MARKETPLACE_API_URL;
+	}
+
+	/**
+	 * Returns the appropriate headers for the request.
+	 * Web mode doesn't need special headers as the proxy handles them.
+	 */
+	private getHeaders(): Record<string, string> {
+		if (this.useProxy) {
+			return {
+				'Content-Type': 'application/json',
+			};
+		}
+			return {
+				'Content-Type': 'application/json',
+				// Versioned accept header required by the Gallery API.
+				'Accept': 'application/json;api-version=7.2-preview.1',
+				'User-Agent': this.userAgent,
+			};
 	}
 
 	/**
@@ -85,31 +141,47 @@ export class MarketplaceCompatibilityManager {
 			return cached;
 		}
 
-		const fetched = await this.fetchFromMarketplace(extensionId);
-		if (fetched) {
-			this.compatDb.set(extensionId, fetched);
-			return fetched;
+		// Check for pending request to deduplicate
+		const pendingKey = `compat:${extensionId}`;
+		const pending = this.pendingRequests.get(pendingKey);
+		if (pending) {
+			return (await pending) ?? this.createUnknownRecord(extensionId);
+		}
+
+		const request = this.fetchFromMarketplace(extensionId);
+		this.pendingRequests.set(pendingKey, request);
+
+		try {
+			const fetched = await request;
+			if (fetched) {
+				this.compatDb.set(extensionId, fetched);
+				return fetched;
+			}
+		} finally {
+			this.pendingRequests.delete(pendingKey);
 		}
 
 		// Unknown extension: return a placeholder with unknown status.
-		const unknown: MarketplaceExtension = {
+		const unknown = this.createUnknownRecord(extensionId);
+		this.compatDb.set(extensionId, unknown);
+		return unknown;
+	}
+
+	private createUnknownRecord(extensionId: string): MarketplaceExtension {
+		return {
 			id: extensionId,
 			name: extensionId,
 			publisher: extensionId.split('.')[0] ?? extensionId,
 			version: 'unknown',
 			compatibilityStatus: 'unknown',
 		};
-		this.compatDb.set(extensionId, unknown);
-		return unknown;
 	}
 
 	/**
-	 * Fetches metadata from the official VS Code Marketplace Gallery API.
+	 * Fetches metadata from the VS Code Marketplace Gallery API.
 	 *
-	 * CORS note: this request will fail in a browser context due to Marketplace
-	 * CORS policy. In ribix-ide (web mode) this must be routed through a backend
-	 * proxy. In the desktop build it will succeed. See IMPLEMENTATION_STATUS.md
-	 * "Marketplace API Integration" for the required API changes.
+	 * In web mode, uses the ribix backend proxy to avoid CORS issues.
+	 * In desktop mode, calls the Marketplace API directly.
 	 */
 	async fetchFromMarketplace(extensionId: string): Promise<MarketplaceExtension | null> {
 		try {
@@ -118,16 +190,9 @@ export class MarketplaceCompatibilityManager {
 				return null;
 			}
 
-			const response = await fetch(MARKETPLACE_API_URL, {
+			const response = await fetch(this.getMarketplaceUrl(), {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					// Versioned accept header required by the Gallery API.
-					// The Accept header alone does not satisfy CORS preflight — see note above.
-					'Accept': 'application/json;api-version=7.2-preview.1',
-					// User-Agent is not settable from a browser. The backend proxy must set it.
-					// 'User-Agent': 'ribix-ide/1.0',
-				},
+				headers: this.getHeaders(),
 				body: JSON.stringify({
 					filters: [
 						{
@@ -188,18 +253,13 @@ export class MarketplaceCompatibilityManager {
 	 * The seed already covers the top 20; this method fetches the rest from
 	 * the Marketplace by popularity (flags=0x200 = SortByInstallCount).
 	 *
-	 * In a browser context the Marketplace fetch will fail silently due to CORS.
-	 * The seed data is still usable. See IMPLEMENTATION_STATUS.md for required
-	 * backend proxy work.
+	 * Uses backend proxy in web mode to avoid CORS issues.
 	 */
 	async preloadTopExtensions(): Promise<void> {
 		try {
-			const response = await fetch(MARKETPLACE_API_URL, {
+			const response = await fetch(this.getMarketplaceUrl(), {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Accept': 'application/json;api-version=7.2-preview.1',
-				},
+				headers: this.getHeaders(),
 				body: JSON.stringify({
 					filters: [
 						{
@@ -244,6 +304,45 @@ export class MarketplaceCompatibilityManager {
 			}
 		} catch {
 			// Silently ignore — seed data is still available.
+		}
+	}
+
+	/**
+	 * Health check for the marketplace API/proxy.
+	 * Returns true if the marketplace is accessible.
+	 */
+	async checkHealth(): Promise<{ healthy: boolean; message: string }> {
+		try {
+			const healthUrl = this.useProxy
+				? `${this.ribixApiUrl}/marketplace/health`
+				: this.getMarketplaceUrl();
+
+			const response = await fetch(healthUrl, {
+				method: this.useProxy ? 'GET' : 'POST',
+				headers: this.useProxy ? {} : this.getHeaders(),
+				...(!this.useProxy && {
+					body: JSON.stringify({
+						filters: [{ criteria: [{ filterType: 8, value: "python" }], pageSize: 1 }],
+						flags: 0,
+					}),
+				}),
+			});
+
+			if (response.ok) {
+				return {
+					healthy: true,
+					message: this.useProxy ? 'Backend proxy is healthy' : 'Marketplace API is accessible',
+				};
+			}
+			return {
+				healthy: false,
+				message: `API returned ${response.status}`,
+			};
+		} catch (error) {
+			return {
+				healthy: false,
+				message: error instanceof Error ? error.message : 'Unknown error',
+			};
 		}
 	}
 

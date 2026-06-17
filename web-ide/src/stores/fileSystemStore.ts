@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { webIdeApiUrl } from '../lib/api';
 
 interface FileSystemItem {
   name: string;
@@ -73,7 +74,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch('http://localhost:3000/web-ide/filesystem/write', {
+      const response = await fetch(webIdeApiUrl('/filesystem/write'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, content, language }),
@@ -121,7 +122,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch('http://localhost:3000/web-ide/filesystem/directory', {
+      const response = await fetch(webIdeApiUrl('/filesystem/directory'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path }),
@@ -167,7 +168,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch('http://localhost:3000/web-ide/filesystem/read', {
+      const response = await fetch(webIdeApiUrl('/filesystem/read'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path }),
@@ -193,7 +194,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch('http://localhost:3000/web-ide/filesystem/write', {
+      const response = await fetch(webIdeApiUrl('/filesystem/write'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, content }),
@@ -237,7 +238,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch('http://localhost:3000/web-ide/filesystem/delete', {
+      const response = await fetch(webIdeApiUrl('/filesystem/delete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, isDirectory: false }),
@@ -279,7 +280,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch('http://localhost:3000/web-ide/filesystem/delete', {
+      const response = await fetch(webIdeApiUrl('/filesystem/delete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, isDirectory: true }),
@@ -321,7 +322,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch(`http://localhost:3000/web-ide/filesystem/list?path=${encodeURIComponent(path)}`);
+      const response = await fetch(`${webIdeApiUrl('/filesystem/list')}?path=${encodeURIComponent(path)}`);
 
       if (!response.ok) {
         throw new Error('Failed to list files');

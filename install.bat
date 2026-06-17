@@ -1,72 +1,63 @@
 @echo off
-REM Ribix IDE One-Click Installer for Windows
+setlocal
 
-echo 🚀 Ribix IDE One-Click Installer
-echo ==================================
+set "REPO=ch1kim0n1/ribix-ide"
+set "ASSET_NAME=RibixIDE-win32-x64.zip"
+set "INSTALL_ROOT=%LOCALAPPDATA%\RibixIDE"
+set "APP_ROOT=%INSTALL_ROOT%\app"
+set "ARCHIVE_PATH=%TEMP%\%ASSET_NAME%"
+set "RELEASE_JSON=%TEMP%\ribix-ide-release.json"
+set "SHORTCUT_PATH=%USERPROFILE%\Desktop\Ribix IDE.lnk"
 
-REM Check Node.js
-echo 📋 Checking Node.js version...
-where node >nul 2>nul
+where powershell >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
-    echo ❌ Node.js is not installed
-    echo Please install Node.js 20.18.2 from https://nodejs.org/
-    pause
-    exit /b 1
+  echo PowerShell is required to install Ribix IDE.
+  exit /b 1
 )
 
-for /f "tokens=*" %%i in ('node -v') do set NODE_VERSION=%%i
-echo Found Node.js version: %NODE_VERSION%
+echo Fetching latest release metadata for %REPO%...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$headers = @{ Accept = 'application/vnd.github+json' };" ^
+  "Invoke-WebRequest -UseBasicParsing -Headers $headers -Uri 'https://api.github.com/repos/%REPO%/releases/latest' -OutFile '%RELEASE_JSON%'"
+if %ERRORLEVEL% NEQ 0 exit /b 1
 
-REM Check if Node.js version matches
-if not "%NODE_VERSION%"=="v20.18.2" (
-    echo ⚠️  Warning: Node.js version v20.18.2 is recommended
-    echo Current version: %NODE_VERSION%
-    set /p CONTINUE="Continue anyway? (y/n): "
-    if /i not "%CONTINUE%"=="y" exit /b 1
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$assetName = '%ASSET_NAME%';" ^
+  "$release = Get-Content '%RELEASE_JSON%' | ConvertFrom-Json;" ^
+  "$asset = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1;" ^
+  "if (-not $asset) { throw 'Asset not found in latest release.' };" ^
+  "$asset.browser_download_url"`) do (
+  set "DOWNLOAD_URL=%%i"
 )
 
-REM Clone or update repository
-echo 📥 Getting Ribix IDE...
-if exist "ribix-ide" (
-    echo Updating existing installation...
-    cd ribix-ide
-    git pull
-) else (
-    echo Cloning repository...
-    git clone https://github.com/ch1kim0n1/ribix-ide.git
-    cd ribix-ide
+if not defined DOWNLOAD_URL (
+  echo Failed to resolve the download URL for %ASSET_NAME%.
+  exit /b 1
 )
 
-REM Install dependencies
-echo 📦 Installing dependencies...
-call npm ci
+echo Downloading %ASSET_NAME%...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Invoke-WebRequest -UseBasicParsing -Uri '%DOWNLOAD_URL%' -OutFile '%ARCHIVE_PATH%'"
+if %ERRORLEVEL% NEQ 0 exit /b 1
 
-REM Build React components
-echo 🔨 Building React components...
-call npm run buildreact
+if exist "%APP_ROOT%" rmdir /s /q "%APP_ROOT%"
+mkdir "%APP_ROOT%"
 
-REM Compile TypeScript
-echo 🔨 Compiling TypeScript (this may take 8-10 minutes)...
-call npm run compile
+echo Extracting build...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Expand-Archive -Force -Path '%ARCHIVE_PATH%' -DestinationPath '%APP_ROOT%'"
+if %ERRORLEVEL% NEQ 0 exit /b 1
 
-REM Download Electron
-echo ⬇️  Downloading Electron...
-node build/lib/preLaunch.js
-
-REM Create desktop shortcut
-echo 🖥️  Creating desktop shortcut...
-set SCRIPT_DIR=%CD%
-set SHORTCUT_PATH=%USERPROFILE%\Desktop\Ribix IDE.lnk
-set TARGET=%SCRIPT_DIR%\scripts\code.bat
-
-powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%SHORTCUT_PATH%'); $s.TargetPath = '%TARGET%'; $s.Arguments = '--user-data-dir %USERPROFILE%\.ribix-ide\user-data --extensions-dir %USERPROFILE%\.ribix-ide\extensions'; $s.WorkingDirectory = '%SCRIPT_DIR%'; $s.Save()"
+echo Creating desktop shortcut...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ws = New-Object -ComObject WScript.Shell;" ^
+  "$shortcut = $ws.CreateShortcut('%SHORTCUT_PATH%');" ^
+  "$shortcut.TargetPath = '%APP_ROOT%\VSCode-win32-x64\Code.exe';" ^
+  "$shortcut.WorkingDirectory = '%APP_ROOT%\VSCode-win32-x64';" ^
+  "$shortcut.Save()"
+if %ERRORLEVEL% NEQ 0 exit /b 1
 
 echo.
-echo ✅ Installation complete!
-echo.
-echo 🚀 To launch Ribix IDE:
-echo    Double-click the desktop shortcut
-echo    Or run: %SCRIPT_DIR%\scripts\code.bat --user-data-dir %USERPROFILE%\.ribix-ide\user-data --extensions-dir %USERPROFILE%\.ribix-ide\extensions
-echo.
-echo 📚 For more information, visit https://github.com/ch1kim0n1/ribix-ide
-pause
+echo Installed to %APP_ROOT%\VSCode-win32-x64
+echo Desktop shortcut created at %SHORTCUT_PATH%
+echo Installation complete.

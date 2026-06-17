@@ -30,6 +30,7 @@
     "preinstall": "node build/npm/preinstall.js",
     "postinstall": "node build/npm/postinstall.js",
     "compile": "node ./node_modules/gulp/bin/gulp.js compile",
+    "compile-incremental": "node --max-old-space-size=8192 ./node_modules/gulp/bin/gulp.js compile-incremental",
     "watch": "npm-run-all -lp watch-client watch-extensions",
     "watchd": "deemon npm run watch",
     "watch-webd": "deemon npm run watch-web",

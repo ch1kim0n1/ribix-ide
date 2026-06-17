@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiUrl } from '../lib/api';
 
 interface AIProvider {
   provider: 'anthropic' | 'openai' | 'ollama' | 'ribix';
@@ -91,7 +92,7 @@ export const useAIChatStore = create<AIChatState>((set, get) => ({
     });
 
     try {
-      const response = await fetch('http://localhost:3000/api/ai/chat', {
+      const response = await fetch(apiUrl('/ai/chat'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

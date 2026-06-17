@@ -3,6 +3,9 @@
  * Manages cloud development environments (Kubernetes pods/containers)
  */
 
+import { create } from 'zustand';
+import { apiUrl } from '../lib/api';
+
 export interface WorkspaceConfig {
   id: string;
   name: string;
@@ -35,7 +38,7 @@ export interface WorkspaceTemplate {
 export class WorkspaceManager {
   private apiBase: string;
 
-  constructor(apiBase: string = 'http://localhost:3000/api') {
+  constructor(apiBase: string = apiUrl()) {
     this.apiBase = apiBase;
   }
 
@@ -170,7 +173,6 @@ export class WorkspaceManager {
 /**
  * Workspace Store for React
  */
-import { create } from 'zustand';
 
 interface WorkspaceState {
   workspaces: WorkspaceConfig[];

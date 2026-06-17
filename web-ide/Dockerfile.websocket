@@ -1,0 +1,16 @@
+FROM node:20.18.2-alpine
+
+RUN apk add --no-cache python3 make g++ git
+
+WORKDIR /app
+
+COPY web-ide/package*.json ./
+RUN npm ci
+
+COPY web-ide/server ./server
+
+EXPOSE 1234
+ENV NODE_ENV=production
+ENV WS_PORT=1234
+
+CMD ["npm", "run", "dev:websocket"]

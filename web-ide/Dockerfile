@@ -35,13 +35,11 @@ FROM node:20.18.2-alpine AS production
 
 WORKDIR /app
 
-# Copy built files
+# Copy the built app and the toolchain needed for `vite preview`.
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
-
-# Install production dependencies only
-RUN npm ci --only=production
+COPY --from=builder /app/vite.config.ts ./vite.config.ts
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -54,4 +52,4 @@ USER ribix
 EXPOSE 3000
 ENV NODE_ENV=production
 
-CMD ["node", "dist/index.js"]
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "3000"]

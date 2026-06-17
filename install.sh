@@ -1,110 +1,151 @@
 #!/bin/bash
 
-# Ribix IDE One-Click Installer for Linux/macOS
+# Ribix IDE binary installer for Linux/macOS.
 
-set -e
+set -euo pipefail
 
-echo "🚀 Ribix IDE One-Click Installer"
-echo "=================================="
+REPO="ch1kim0n1/ribix-ide"
+INSTALL_ROOT="${HOME}/.ribix-ide"
+APP_ROOT="${INSTALL_ROOT}/app"
+BIN_DIR="${HOME}/.local/bin"
+TMP_DIR="$(mktemp -d)"
 
-# Check Node.js version
-echo "📋 Checking Node.js version..."
-if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is not installed"
-    echo "Please install Node.js 20.18.2 from https://nodejs.org/"
+cleanup() {
+  rm -rf "${TMP_DIR}"
+}
+trap cleanup EXIT
+
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required command: $1" >&2
     exit 1
-fi
+  fi
+}
 
-NODE_VERSION=$(node -v)
-REQUIRED_VERSION="v20.18.2"
+require_cmd curl
+require_cmd python3
 
-echo "Found Node.js version: $NODE_VERSION"
-if [ "$NODE_VERSION" != "$REQUIRED_VERSION" ]; then
-    echo "⚠️  Warning: Node.js version $REQUIRED_VERSION is recommended"
-    echo "Current version: $NODE_VERSION"
-    read -p "Continue anyway? (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+case "${OS}" in
+  Linux)
+    case "${ARCH}" in
+      x86_64|amd64) ASSET_NAME="RibixIDE-linux-x64.tar.gz" ;;
+      *)
+        echo "Unsupported Linux architecture: ${ARCH}" >&2
         exit 1
-    fi
-fi
+        ;;
+    esac
+    ;;
+  Darwin)
+    case "${ARCH}" in
+      arm64) ASSET_NAME="RibixIDE-arm64.dmg" ;;
+      x86_64) ASSET_NAME="RibixIDE-x64.dmg" ;;
+      *)
+        echo "Unsupported macOS architecture: ${ARCH}" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  *)
+    echo "Unsupported operating system: ${OS}" >&2
+    exit 1
+    ;;
+esac
 
-# Install build dependencies (Linux only)
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    echo "📦 Installing build dependencies..."
-    if command -v apt-get &> /dev/null; then
-        sudo apt-get update
-        sudo apt-get install -y build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3
-    elif command -v yum &> /dev/null; then
-        sudo yum groupinstall -y "Development Tools"
-        sudo yum install -y libX11-devel libxkbfile-devel libsecret-devel krb5-devel python3
-    else
-        echo "⚠️  Unsupported package manager. Please install build dependencies manually."
-    fi
-fi
+echo "Fetching latest release metadata for ${REPO}..."
+RELEASE_JSON="${TMP_DIR}/release.json"
+curl -fsSL \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/${REPO}/releases/latest" \
+  -o "${RELEASE_JSON}"
 
-# Clone or update repository
-echo "📥 Getting Ribix IDE..."
-if [ -d "ribix-ide" ]; then
-    echo "Updating existing installation..."
-    cd ribix-ide
-    git pull
-else
-    echo "Cloning repository..."
-    git clone https://github.com/ch1kim0n1/ribix-ide.git
-    cd ribix-ide
-fi
+DOWNLOAD_URL="$(python3 - "${RELEASE_JSON}" "${ASSET_NAME}" <<'PY'
+import json
+import sys
 
-# Install dependencies
-echo "📦 Installing dependencies..."
-nvm use 20.18.2 || echo "Using system Node.js"
-npm ci
+release_path, asset_name = sys.argv[1], sys.argv[2]
+with open(release_path, "r", encoding="utf-8") as fh:
+    payload = json.load(fh)
 
-# Build React components
-echo "🔨 Building React components..."
-npm run buildreact
+for asset in payload.get("assets", []):
+    if asset.get("name") == asset_name:
+        print(asset["browser_download_url"])
+        break
+else:
+    raise SystemExit(f"Could not find asset {asset_name!r} in latest release.")
+PY
+)"
 
-# Compile TypeScript
-echo "🔨 Compiling TypeScript (this may take 8-10 minutes)..."
-npm run compile
+mkdir -p "${INSTALL_ROOT}"
+ARCHIVE_PATH="${TMP_DIR}/${ASSET_NAME}"
 
-# Download Electron
-echo "⬇️  Downloading Electron..."
-node build/lib/preLaunch.js
+echo "Downloading ${ASSET_NAME}..."
+curl -fL "${DOWNLOAD_URL}" -o "${ARCHIVE_PATH}"
 
-# Create desktop shortcut (Linux)
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    echo "🖥️  Creating desktop shortcut..."
-    cat > ~/.local/share/applications/ribix-ide.desktop <<EOF
+rm -rf "${APP_ROOT}"
+mkdir -p "${APP_ROOT}"
+
+if [[ "${OS}" == "Linux" ]]; then
+  echo "Extracting Linux build..."
+  tar -xzf "${ARCHIVE_PATH}" -C "${APP_ROOT}"
+  mkdir -p "${BIN_DIR}"
+  cat > "${BIN_DIR}/ribix-ide" <<EOF
+#!/bin/sh
+exec "${APP_ROOT}/VSCode-linux-x64/code" "\$@"
+EOF
+  chmod +x "${BIN_DIR}/ribix-ide"
+
+  mkdir -p "${HOME}/.local/share/applications"
+  cat > "${HOME}/.local/share/applications/ribix-ide.desktop" <<EOF
 [Desktop Entry]
 Name=Ribix IDE
 Comment=Agent-first software engineering OS
-Exec=$(pwd)/scripts/code.sh --user-data-dir ~/.ribix-ide/user-data --extensions-dir ~/.ribix-ide/extensions
-Icon=$(pwd)/resources/linux/ribix.png
+Exec=${BIN_DIR}/ribix-ide
 Terminal=false
 Type=Application
 Categories=Development;IDE;
 EOF
-    chmod +x ~/.local/share/applications/ribix-ide.desktop
-    echo "✅ Desktop shortcut created"
-fi
 
-# Create desktop shortcut (macOS)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "🖥️  Creating application shortcut..."
-    osascript -e "tell application \"Finder\" to make alias file POSIX file \"$(pwd)\" to POSIX file \"/Applications\""
-    echo "✅ Application alias created in /Applications"
-fi
-
-echo ""
-echo "✅ Installation complete!"
-echo ""
-echo "🚀 To launch Ribix IDE:"
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "   Open Ribix IDE from /Applications"
+  echo "Installed to ${APP_ROOT}/VSCode-linux-x64"
+  echo "Launcher created at ${BIN_DIR}/ribix-ide"
 else
-    echo "   Run: $PWD/scripts/code.sh --user-data-dir ~/.ribix-ide/user-data --extensions-dir ~/.ribix-ide/extensions"
-    echo "   Or use the desktop shortcut"
+  require_cmd hdiutil
+
+  echo "Mounting macOS disk image..."
+  MOUNT_POINT="${TMP_DIR}/mount"
+  mkdir -p "${MOUNT_POINT}"
+  hdiutil attach "${ARCHIVE_PATH}" -mountpoint "${MOUNT_POINT}" -nobrowse >/dev/null
+  trap 'hdiutil detach "${MOUNT_POINT}" >/dev/null 2>&1 || true; cleanup' EXIT
+
+  APP_SOURCE="$(find "${MOUNT_POINT}" -maxdepth 1 -name '*.app' -print -quit)"
+  if [[ -z "${APP_SOURCE}" ]]; then
+    echo "Could not locate Ribix IDE.app inside ${ASSET_NAME}" >&2
+    exit 1
+  fi
+
+  DEST_DIR="/Applications"
+  if [[ ! -w "${DEST_DIR}" ]]; then
+    DEST_DIR="${HOME}/Applications"
+    mkdir -p "${DEST_DIR}"
+  fi
+
+  rm -rf "${DEST_DIR}/Ribix IDE.app"
+  cp -R "${APP_SOURCE}" "${DEST_DIR}/Ribix IDE.app"
+  hdiutil detach "${MOUNT_POINT}" >/dev/null
+  trap cleanup EXIT
+
+  mkdir -p "${BIN_DIR}"
+  cat > "${BIN_DIR}/ribix-ide" <<EOF
+#!/bin/sh
+open -a "${DEST_DIR}/Ribix IDE.app" --args "\$@"
+EOF
+  chmod +x "${BIN_DIR}/ribix-ide"
+
+  echo "Installed to ${DEST_DIR}/Ribix IDE.app"
+  echo "Launcher created at ${BIN_DIR}/ribix-ide"
 fi
-echo ""
-echo "📚 For more information, visit https://github.com/ch1kim0n1/ribix-ide"
+
+echo
+echo "Installation complete."

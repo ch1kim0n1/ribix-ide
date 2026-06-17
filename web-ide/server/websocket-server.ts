@@ -6,6 +6,7 @@
 import { WebSocketServer } from 'ws';
 import * as Y from 'yjs';
 import { setupWSConnection } from 'y-websocket/bin/utils';
+import { pathToFileURL } from 'node:url';
 
 export interface WebSocketServerConfig {
   port: number;
@@ -85,13 +86,21 @@ export class CollaborationWebSocketServer {
 /**
  * Standalone WebSocket server entry point
  */
-if (require.main === module) {
+const isMainModule = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isMainModule) {
   const port = parseInt(process.env.WS_PORT || '1234', 10);
   const server = new CollaborationWebSocketServer({ port });
   
   console.log(`Collaboration WebSocket server running on port ${port}`);
   
   process.on('SIGTERM', () => {
+    console.log('Shutting down WebSocket server...');
+    server.close();
+    process.exit(0);
+  });
+
+  process.on('SIGINT', () => {
     console.log('Shutting down WebSocket server...');
     server.close();
     process.exit(0);

@@ -3,6 +3,8 @@
  * Includes code generation, refactoring, debugging, and code review
  */
 
+import { apiUrl } from '../lib/api';
+
 export interface AICodeGenerationRequest {
   prompt: string;
   context: {
@@ -83,7 +85,7 @@ export class AdvancedAIService {
   private apiBase: string;
   private apiKey: string;
 
-  constructor(apiBase: string = 'http://localhost:3000/api/ai', apiKey?: string) {
+  constructor(apiBase: string = apiUrl('/ai'), apiKey?: string) {
     this.apiBase = apiBase;
     this.apiKey = apiKey || '';
   }

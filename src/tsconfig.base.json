@@ -20,6 +20,8 @@
 			"DOM.Iterable",
 			"WebWorker.ImportScripts"
 		],
-		"allowSyntheticDefaultImports": true
+		"allowSyntheticDefaultImports": true,
+		"incremental": true,
+		"tsBuildInfoFile": "${configDir}/../.tsbuildinfo"
 	}
 }

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { webIdeApiUrl } from '../lib/api';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -61,7 +62,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch('http://localhost:3000/web-ide/auth/login', {
+      const response = await fetch(webIdeApiUrl('/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -98,7 +99,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch('http://localhost:3000/web-ide/auth/register', {
+      const response = await fetch(webIdeApiUrl('/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name }),
@@ -136,7 +137,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
     try {
       // Redirect to GitHub OAuth
-      window.location.href = 'http://localhost:3000/web-ide/auth/github';
+      window.location.assign(webIdeApiUrl('/auth/github'));
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'GitHub login failed',
@@ -152,7 +153,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     try {
       const token = get().token;
       if (token) {
-        await fetch('http://localhost:3000/web-ide/auth/logout', {
+        await fetch(webIdeApiUrl('/auth/logout'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

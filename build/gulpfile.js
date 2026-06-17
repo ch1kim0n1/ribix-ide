@@ -31,12 +31,20 @@ gulp.task(transpileClientTask);
 const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), compileApiProposalNamesTask, compileTask('src', 'out', false)));
 gulp.task(compileClientTask);
 
+// Incremental compile - does NOT clean out/ directory, enabling incremental builds
+const compileClientIncrementalTask = task.define('compile-client-incremental', task.series(compileApiProposalNamesTask, compileTask('src', 'out', false)));
+gulp.task(compileClientIncrementalTask);
+
 const watchClientTask = task.define('watch-client', task.series(util.rimraf('out'), task.parallel(watchTask('out', false), watchApiProposalNamesTask)));
 gulp.task(watchClientTask);
 
 // All
 const _compileTask = task.define('compile', task.parallel(monacoTypecheckTask, compileClientTask, compileExtensionsTask, compileExtensionMediaTask));
 gulp.task(_compileTask);
+
+// Incremental build - faster, preserves .tsbuildinfo
+const _compileIncrementalTask = task.define('compile-incremental', task.parallel(monacoTypecheckTask, compileClientIncrementalTask, compileExtensionsTask, compileExtensionMediaTask));
+gulp.task(_compileIncrementalTask);
 
 gulp.task(task.define('watch', task.parallel(/* monacoTypecheckWatchTask, */ watchClientTask, watchExtensionsTask)));
 

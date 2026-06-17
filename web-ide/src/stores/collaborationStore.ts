@@ -6,6 +6,8 @@
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { Awareness } from 'y-protocols/awareness';
+import { create } from 'zustand';
+import { collaborationWebSocketUrl } from '../lib/api';
 
 export interface UserPresence {
   user: {
@@ -33,9 +35,9 @@ export interface CollaborationSession {
 
 export class CollaborationManager {
   private sessions: Map<string, CollaborationSession> = new Map();
-  private userId: string;
-  private userName: string;
-  private userColor: string;
+  readonly userId: string;
+  private readonly userName: string;
+  private readonly userColor: string;
 
   constructor(userId: string, userName: string, userColor?: string) {
     this.userId = userId;
@@ -54,7 +56,11 @@ export class CollaborationManager {
   /**
    * Join a collaboration session for a file
    */
-  joinSession(fileId: string, websocketUrl: string): CollaborationSession {
+  joinSession(
+    fileId: string,
+    websocketUrl: string,
+    onStatusChange?: (connected: boolean) => void,
+  ): CollaborationSession {
     if (this.sessions.has(fileId)) {
       return this.sessions.get(fileId)!;
     }
@@ -112,6 +118,7 @@ export class CollaborationManager {
 
     provider.on('status', (event: { status: string }) => {
       session.isConnected = event.status === 'connected';
+      onStatusChange?.(session.isConnected);
     });
 
     this.sessions.set(fileId, session);
@@ -179,7 +186,6 @@ export class CollaborationManager {
 /**
  * Collaboration Store for React
  */
-import { create } from 'zustand';
 
 interface CollaborationState {
   isConnected: boolean;
@@ -210,8 +216,11 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
       collaborationManager = new CollaborationManager(userId, userName);
     }
 
-    const websocketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:1234/collaboration';
-    const session = collaborationManager.joinSession(fileId, websocketUrl);
+    const session = collaborationManager.joinSession(
+      fileId,
+      collaborationWebSocketUrl(),
+      (connected) => set({ isConnected: connected }),
+    );
 
     set({
       currentSession: fileId,
