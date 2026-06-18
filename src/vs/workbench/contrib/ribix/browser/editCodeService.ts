@@ -46,6 +46,8 @@ import { deepClone } from '../../../../base/common/objects.js';
 import { acceptBg, acceptBorder, buttonFontSize, buttonTextColor, rejectBg, rejectBorder } from '../common/helpers/colors.js';
 import { DiffArea, Diff, CtrlKZone, VoidFileSnapshot, DiffAreaSnapshotEntry, diffAreaSnapshotKeys, DiffZone, TrackingZone, ComputedDiff } from '../common/editCodeServiceTypes.js';
 import { IConvertToLLMMessageService } from './convertToLLMMessageService.js';
+import { acceptDiff as _acceptDiff, rejectDiff as _rejectDiff, acceptOrRejectAllDiffAreas as _acceptOrRejectAllDiffAreas, DiffManagerContext } from './editCodeDiffManager.js';
+import { addCtrlKZone as _addCtrlKZone, removeCtrlKZone as _removeCtrlKZone, ZoneManagerContext } from './editCodeZoneManager.js';
 // import { isMacintosh } from '../../../../base/common/platform.js';
 // import { VOID_OPEN_SETTINGS_ACTION_ID } from './voidSettingsPane.js';
 
@@ -1048,60 +1050,26 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 
 	// called first, then call startApplying
-	public addCtrlKZone({ startLine, endLine, editor }: AddCtrlKOpts) {
-
+	public addCtrlKZone(opts: AddCtrlKOpts) {
 		// don't need to await this, because in order to add a ctrl+K zone must already have the model open on your screen
-		// await this._ensureModelExists(uri)
-
-		const uri = editor.getModel()?.uri
-		if (!uri) return
-
-
-		// check if there's overlap with any other ctrlKZone and if so, focus it
-		const overlappingCtrlKZone = this._findOverlappingDiffArea({ startLine, endLine, uri, filter: (diffArea) => diffArea.type === 'CtrlKZone' })
-		if (overlappingCtrlKZone) {
-			editor.revealLine(overlappingCtrlKZone.startLine) // important
-			setTimeout(() => (overlappingCtrlKZone as CtrlKZone)._mountInfo?.textAreaRef.current?.focus(), 100)
-			return
-		}
-
-		const overlappingDiffZone = this._findOverlappingDiffArea({ startLine, endLine, uri, filter: (diffArea) => diffArea.type === 'DiffZone' })
-		if (overlappingDiffZone)
-			return
-
-		editor.revealLine(startLine)
-		editor.setSelection({ startLineNumber: startLine, endLineNumber: startLine, startColumn: 1, endColumn: 1 })
-
-		const { onFinishEdit } = this._addToHistory(uri)
-
-		const adding: Omit<CtrlKZone, 'diffareaid'> = {
-			type: 'CtrlKZone',
-			startLine: startLine,
-			endLine: endLine,
-			editorId: editor.getId(),
-			_URI: uri,
-			_removeStylesFns: new Set(),
-			_mountInfo: null,
-			_linkedStreamingDiffZone: null,
-		}
-		const ctrlKZone = this._addDiffArea(adding)
-		this._refreshStylesAndDiffsInURI(uri)
-
-		onFinishEdit()
-		return ctrlKZone.diffareaid
+		return _addCtrlKZone(opts, this._buildZoneManagerContext())
 	}
 
 	// _remove means delete and also add to history
-	public removeCtrlKZone({ diffareaid }: { diffareaid: number }) {
-		const ctrlKZone = this.diffAreaOfId[diffareaid]
-		if (!ctrlKZone) return
-		if (ctrlKZone.type !== 'CtrlKZone') return
+	public removeCtrlKZone(opts: { diffareaid: number }) {
+		return _removeCtrlKZone(opts, this._buildZoneManagerContext())
+	}
 
-		const uri = ctrlKZone._URI
-		const { onFinishEdit } = this._addToHistory(uri)
-		this._deleteCtrlKZone(ctrlKZone)
-		this._refreshStylesAndDiffsInURI(uri)
-		onFinishEdit()
+	private _buildZoneManagerContext(): ZoneManagerContext {
+		return {
+			diffAreaOfId: this.diffAreaOfId,
+			diffAreasOfURI: this.diffAreasOfURI,
+			findOverlappingDiffArea: (opts) => this._findOverlappingDiffArea(opts),
+			addToHistory: (uri, o) => this._addToHistory(uri, o),
+			addDiffArea: <T extends DiffArea>(da: Omit<T, 'diffareaid'>) => this._addDiffArea(da),
+			deleteCtrlKZone: (z) => this._deleteCtrlKZone(z),
+			refreshStylesAndDiffsInURI: (uri) => this._refreshStylesAndDiffsInURI(uri),
+		}
 	}
 
 
@@ -2085,191 +2053,33 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 
 	// remove a batch of diffareas all at once (and handle accept/reject of their diffs)
-	public acceptOrRejectAllDiffAreas: IEditCodeService['acceptOrRejectAllDiffAreas'] = async ({ uri, behavior, removeCtrlKs, _addToHistory }) => {
-
-		const diffareaids = this.diffAreasOfURI[uri.fsPath]
-		if ((diffareaids?.size ?? 0) === 0) return // do nothing
-
-		const { onFinishEdit } = _addToHistory === false ? { onFinishEdit: () => { } } : this._addToHistory(uri)
-
-		for (const diffareaid of diffareaids ?? []) {
-			const diffArea = this.diffAreaOfId[diffareaid]
-			if (!diffArea) continue
-
-			if (diffArea.type === 'DiffZone') {
-				if (behavior === 'reject') {
-					this._revertDiffZone(diffArea)
-					this._deleteDiffZone(diffArea)
-				}
-				else if (behavior === 'accept') this._deleteDiffZone(diffArea)
-			}
-			else if (diffArea.type === 'CtrlKZone' && removeCtrlKs) {
-				this._deleteCtrlKZone(diffArea)
-			}
-		}
-
-		this._refreshStylesAndDiffsInURI(uri)
-		onFinishEdit()
+	public acceptOrRejectAllDiffAreas: IEditCodeService['acceptOrRejectAllDiffAreas'] = async (opts) => {
+		return _acceptOrRejectAllDiffAreas(opts, this._buildDiffManagerContext())
 	}
-
-
 
 	// called on void.acceptDiff
-	public async acceptDiff({ diffid }: { diffid: number }) {
-
-		// TODO could use an ITextModelto do this instead, would be much simpler
-
-		const diff = this.diffOfId[diffid]
-		if (!diff) return
-
-		const { diffareaid } = diff
-		const diffArea = this.diffAreaOfId[diffareaid]
-		if (!diffArea) return
-
-		if (diffArea.type !== 'DiffZone') return
-
-		const uri = diffArea._URI
-
-		// add to history
-		const { onFinishEdit } = this._addToHistory(uri)
-
-		const originalLines = diffArea.originalCode.split('\n')
-		let newOriginalCode: string
-
-		if (diff.type === 'deletion') {
-			newOriginalCode = [
-				...originalLines.slice(0, (diff.originalStartLine - 1)), // everything before startLine
-				// <-- deletion has nothing here
-				...originalLines.slice((diff.originalEndLine - 1) + 1, Infinity) // everything after endLine
-			].join('\n')
-		}
-		else if (diff.type === 'insertion') {
-			newOriginalCode = [
-				...originalLines.slice(0, (diff.originalStartLine - 1)), // everything before startLine
-				diff.code, // code
-				...originalLines.slice((diff.originalStartLine - 1), Infinity) // startLine (inclusive) and on (no +1)
-			].join('\n')
-		}
-		else if (diff.type === 'edit') {
-			newOriginalCode = [
-				...originalLines.slice(0, (diff.originalStartLine - 1)), // everything before startLine
-				diff.code, // code
-				...originalLines.slice((diff.originalEndLine - 1) + 1, Infinity) // everything after endLine
-			].join('\n')
-		}
-		else {
-			throw new Error(`Void error: ${diff}.type not recognized`)
-		}
-
-		// console.log('DIFF', diff)
-		// console.log('DIFFAREA', diffArea)
-		// console.log('ORIGINAL', diffArea.originalCode)
-		// console.log('new original Code', newOriginalCode)
-
-		// update code now accepted as original
-		diffArea.originalCode = newOriginalCode
-
-		// delete the diff
-		this._deleteDiff(diff)
-
-		// diffArea should be removed if it has no more diffs in it
-		if (Object.keys(diffArea._diffOfId).length === 0) {
-			this._deleteDiffZone(diffArea)
-		}
-
-		this._refreshStylesAndDiffsInURI(uri)
-
-		onFinishEdit()
-
+	public async acceptDiff(opts: { diffid: number }) {
+		return _acceptDiff(opts, this._buildDiffManagerContext())
 	}
 
-
-
 	// called on void.rejectDiff
-	public async rejectDiff({ diffid }: { diffid: number }) {
+	public async rejectDiff(opts: { diffid: number }) {
+		return _rejectDiff(opts, this._buildDiffManagerContext())
+	}
 
-		const diff = this.diffOfId[diffid]
-		if (!diff) return
-
-		const { diffareaid } = diff
-		const diffArea = this.diffAreaOfId[diffareaid]
-		if (!diffArea) return
-
-		if (diffArea.type !== 'DiffZone') return
-
-		const uri = diffArea._URI
-
-		// add to history
-		const { onFinishEdit } = this._addToHistory(uri)
-
-		let writeText: string
-		let toRange: IRange
-
-		// if it was a deletion, need to re-insert
-		// (this image applies to writeText and toRange, not newOriginalCode)
-		//  A
-		// |B   <-- deleted here, diff.startLine == diff.endLine
-		//  C
-		if (diff.type === 'deletion') {
-			// if startLine is out of bounds (deleted lines past the diffarea), applyEdit will do a weird rounding thing, to account for that we apply the edit the line before
-			if (diff.startLine - 1 === diffArea.endLine) {
-				writeText = '\n' + diff.originalCode
-				toRange = { startLineNumber: diff.startLine - 1, startColumn: Number.MAX_SAFE_INTEGER, endLineNumber: diff.startLine - 1, endColumn: Number.MAX_SAFE_INTEGER }
-			}
-			else {
-				writeText = diff.originalCode + '\n'
-				toRange = { startLineNumber: diff.startLine, startColumn: 1, endLineNumber: diff.startLine, endColumn: 1 }
-			}
+	private _buildDiffManagerContext(): DiffManagerContext {
+		return {
+			diffOfId: this.diffOfId,
+			diffAreaOfId: this.diffAreaOfId,
+			diffAreasOfURI: this.diffAreasOfURI,
+			addToHistory: (uri, o) => this._addToHistory(uri, o),
+			deleteDiff: (diff) => this._deleteDiff(diff),
+			deleteDiffZone: (dz) => this._deleteDiffZone(dz),
+			deleteCtrlKZone: (z) => this._deleteCtrlKZone(z),
+			revertDiffZone: (dz) => this._revertDiffZone(dz),
+			refreshStylesAndDiffsInURI: (uri) => this._refreshStylesAndDiffsInURI(uri),
+			writeURIText: (uri, text, range, opts) => this._writeURIText(uri, text, range, opts),
 		}
-		// if it was an insertion, need to delete all the lines
-		// (this image applies to writeText and toRange, not newOriginalCode)
-		// |A   <-- startLine
-		//  B|  <-- endLine (we want to delete this whole line)
-		//  C
-		else if (diff.type === 'insertion') {
-			// console.log('REJECTING:', diff)
-			// handle the case where the insertion was a newline at end of diffarea (applying to the next line doesnt work because it doesnt exist, vscode just doesnt delete the correct # of newlines)
-			if (diff.endLine === diffArea.endLine) {
-				// delete the line before instead of after
-				writeText = ''
-				toRange = { startLineNumber: diff.startLine - 1, startColumn: Number.MAX_SAFE_INTEGER, endLineNumber: diff.endLine, endColumn: 1 } // 1-indexed
-			}
-			else {
-				writeText = ''
-				toRange = { startLineNumber: diff.startLine, startColumn: 1, endLineNumber: diff.endLine + 1, endColumn: 1 } // 1-indexed
-			}
-
-		}
-		// if it was an edit, just edit the range
-		// (this image applies to writeText and toRange, not newOriginalCode)
-		// |A    <-- startLine
-		//  B|   <-- endLine (just swap out these lines for the originalCode)
-		//  C
-		else if (diff.type === 'edit') {
-			writeText = diff.originalCode
-			toRange = { startLineNumber: diff.startLine, startColumn: 1, endLineNumber: diff.endLine, endColumn: Number.MAX_SAFE_INTEGER } // 1-indexed
-		}
-		else {
-			throw new Error(`Void error: ${diff}.type not recognized`)
-		}
-
-		// update the file
-		this._writeURIText(uri, writeText, toRange, { shouldRealignDiffAreas: true })
-
-		// originalCode does not change!
-
-		// delete the diff
-		this._deleteDiff(diff)
-
-		// diffArea should be removed if it has no more diffs in it
-		if (Object.keys(diffArea._diffOfId).length === 0) {
-			this._deleteDiffZone(diffArea)
-		}
-
-		this._refreshStylesAndDiffsInURI(uri)
-
-		onFinishEdit()
-
 	}
 
 }

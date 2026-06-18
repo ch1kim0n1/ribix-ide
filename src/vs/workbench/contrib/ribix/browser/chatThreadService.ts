@@ -11,7 +11,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { URI } from '../../../../base/common/uri.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
-import { chat_userMessageContent, isABuiltinToolName } from '../common/prompt/prompts.js';
+import { isABuiltinToolName } from '../common/prompt/prompts.js';
 import { AnthropicReasoning, getErrorMessage, RawToolCallObj, RawToolParamsObj } from '../common/sendLLMMessageTypes.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { FeatureName, ModelSelection, ModelSelectionOptions } from '../common/voidSettingsTypes.js';
@@ -39,6 +39,11 @@ import { IDirectoryStrService } from '../common/directoryStrService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IMCPService } from '../common/mcpService.js';
 import { RawMCPToolCall } from '../common/mcpServiceTypes.js';
+import {
+	addUserMessageAndStreamResponse as _addUserMessageAndStreamResponse,
+	editUserMessageAndStreamResponse as _editUserMessageAndStreamResponse,
+	StreamHandlerContext,
+} from './chatThreadStreamHandler.js';
 
 
 // related to retrying when LLM message has error
@@ -1231,96 +1236,30 @@ We only need to do it for files that were edited since `from`, ie files between 
 	}
 
 
-	private async _addUserMessageAndStreamResponse({ userMessage, _chatSelections, threadId }: { userMessage: string, _chatSelections?: StagingSelectionItem[], threadId: string }) {
-		const thread = this.state.allThreads[threadId]
-		if (!thread) return // should never happen
-
-		// interrupt existing stream
-		if (this.streamState[threadId]?.isRunning) {
-			await this.abortRunning(threadId)
-		}
-
-		// add dummy before this message to keep checkpoint before user message idea consistent
-		if (thread.messages.length === 0) {
-			this._addUserCheckpoint({ threadId })
-		}
-
-
-		// add user's message to chat history
-		const instructions = userMessage
-		const currSelns: StagingSelectionItem[] = _chatSelections ?? thread.state.stagingSelections
-
-		const userMessageContent = await chat_userMessageContent(instructions, currSelns, { directoryStrService: this._directoryStringService, fileService: this._fileService }) // user message + names of files (NOT content)
-		const userHistoryElt: ChatMessage = { role: 'user', content: userMessageContent, displayContent: instructions, selections: currSelns, state: defaultMessageState }
-		this._addMessageToThread(threadId, userHistoryElt)
-
-		this._setThreadState(threadId, { currCheckpointIdx: null }) // no longer at a checkpoint because started streaming
-
-		this._wrapRunAgentToNotify(
-			this._runChatAgent({ threadId, ...this._currentModelSelectionProps(), }),
-			threadId,
-		)
-
-		// scroll to bottom
-		this.state.allThreads[threadId]?.state.mountedInfo?.whenMounted.then(m => {
-			m.scrollToBottom()
-		})
-	}
-
-
 	async addUserMessageAndStreamResponse({ userMessage, _chatSelections, threadId }: { userMessage: string, _chatSelections?: StagingSelectionItem[], threadId: string }) {
-		const thread = this.state.allThreads[threadId];
-		if (!thread) return
-
-		// if there's a current checkpoint, delete all messages after it
-		if (thread.state.currCheckpointIdx !== null) {
-			const checkpointIdx = thread.state.currCheckpointIdx;
-			const newMessages = thread.messages.slice(0, checkpointIdx + 1);
-
-			// Update the thread with truncated messages
-			const newThreads = {
-				...this.state.allThreads,
-				[threadId]: {
-					...thread,
-					lastModified: new Date().toISOString(),
-					messages: newMessages,
-				}
-			};
-			this._storeAllThreads(newThreads);
-			this._setState({ allThreads: newThreads });
-		}
-
-		// Now call the original method to add the user message and stream the response
-		await this._addUserMessageAndStreamResponse({ userMessage, _chatSelections, threadId });
-
+		return _addUserMessageAndStreamResponse({ userMessage, _chatSelections, threadId }, this._buildStreamHandlerContext())
 	}
 
 	editUserMessageAndStreamResponse: IChatThreadService['editUserMessageAndStreamResponse'] = async ({ userMessage, messageIdx, threadId }) => {
+		return _editUserMessageAndStreamResponse({ userMessage, messageIdx, threadId }, this._buildStreamHandlerContext())
+	}
 
-		const thread = this.state.allThreads[threadId]
-		if (!thread) return // should never happen
-
-		if (thread.messages?.[messageIdx]?.role !== 'user') {
-			throw new Error(`Error: editing a message with role !=='user'`)
+	private _buildStreamHandlerContext(): StreamHandlerContext {
+		return {
+			state: this.state,
+			streamState: this.streamState,
+			abortRunning: (threadId) => this.abortRunning(threadId),
+			addUserCheckpoint: (opts) => this._addUserCheckpoint(opts),
+			addMessageToThread: (threadId, msg) => this._addMessageToThread(threadId, msg),
+			setState: (s, doNotRefreshMountInfo) => this._setState(s, doNotRefreshMountInfo),
+			storeAllThreads: (threads) => this._storeAllThreads(threads),
+			setThreadState: (threadId, s, doNotRefreshMountInfo) => this._setThreadState(threadId, s, doNotRefreshMountInfo),
+			wrapRunAgentToNotify: (p, threadId) => this._wrapRunAgentToNotify(p, threadId),
+			runChatAgent: (opts) => this._runChatAgent(opts),
+			currentModelSelectionProps: () => this._currentModelSelectionProps(),
+			directoryStrService: this._directoryStringService,
+			fileService: this._fileService,
 		}
-
-		// get prev and curr selections before clearing the message
-		const currSelns = thread.messages[messageIdx].state.stagingSelections || [] // staging selections for the edited message
-
-		// clear messages up to the index
-		const slicedMessages = thread.messages.slice(0, messageIdx)
-		this._setState({
-			allThreads: {
-				...this.state.allThreads,
-				[thread.id]: {
-					...thread,
-					messages: slicedMessages
-				}
-			}
-		})
-
-		// re-add the message and stream it
-		this._addUserMessageAndStreamResponse({ userMessage, _chatSelections: currSelns, threadId })
 	}
 
 	// ---------- the rest ----------

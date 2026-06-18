@@ -11,7 +11,6 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { IToolsService } from './toolsService.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
-import { LLMChatMessage } from '../common/sendLLMMessageTypes.js';
 import { IRibixFileLockService } from '../common/ribixFileLockService.js';
 import { IMCPService } from '../common/mcpService.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
@@ -31,8 +30,8 @@ import { IStorageService, StorageScope } from '../../../../platform/storage/comm
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { PlaywrightRunner, PlaywrightFinding } from './playwrightRunner.js';
 import { agentProgressFeed } from './agentProgressFeed.js';
-import { aiProviderManager } from './aiProviderManager.js';
 import { IFixMemoryService } from './fixMemory.js';
+import { callLlm, parseToolCalls } from './ribixAgentLlmClient.js';
 
 /** Storage key under which the workspace staging URL is persisted. */
 const RIBIX_STAGING_URL_KEY = 'ribix.stagingUrl';
@@ -383,30 +382,10 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 	}
 
 	/**
-	 * Parses tool calls from an assistant turn. Agent prompts instruct the model to emit
-	 * tool calls as JSON fenced blocks containing a "tool" key:
-	 * ```json
-	 * {"tool": "read_file", "params": {"uri": "/abs/path/to/file"}}
-	 * ```
+	 * Parses tool calls from an assistant turn. Delegates to ribixAgentLlmClient.
 	 */
 	private parseToolCalls(llmResponse: string): ParsedToolCall[] {
-		const toolCallPattern = /```json\s*(\{[\s\S]*?"tool"\s*:[\s\S]*?\})\s*```/g;
-		const matches = [...llmResponse.matchAll(toolCallPattern)];
-		const calls: ParsedToolCall[] = [];
-		for (const match of matches) {
-			try {
-				const parsed = JSON.parse(match[1]) as { tool?: unknown; params?: unknown };
-				if (typeof parsed.tool === 'string') {
-					calls.push({
-						tool: parsed.tool,
-						params: (parsed.params ?? {}) as Record<string, string | undefined>,
-					});
-				}
-			} catch {
-				// ignore malformed tool-call block
-			}
-		}
-		return calls;
+		return parseToolCalls(llmResponse);
 	}
 
 	/**
@@ -576,87 +555,10 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 
 	/**
 	 * Sends the running message array to the model and resolves with the assistant text.
-	 *
-	 * Routing logic:
-	 *   - When the active provider is 'anthropic' (the default), the call goes through
-	 *     `ILLMMessageService`, the VS Code-native provider pipeline (streaming, model
-	 *     selection from settings, metering).
-	 *   - When the active provider is 'openai', 'ollama', or 'ribix', the call routes
-	 *     through `aiProviderManager.callLLM()`, which talks directly to those providers.
-	 *     The Anthropic client is not initialized in that path — VS Code model settings
-	 *     are bypassed intentionally; the provider's own config drives the call.
-	 *
-	 * The leading `system` message is extracted from the turn array and passed as a
-	 * `separateSystemMessage` to the native path, or prepended as a system-role message
-	 * on the aiProviderManager path.
+	 * Delegates to ribixAgentLlmClient for provider routing and request management.
 	 */
 	private async callLLM(messages: AgentTurnMessage[], token: CancellationToken): Promise<string> {
-		const systemMessage = messages.find(m => m.role === 'system');
-		const chatMessages: LLMChatMessage[] = [];
-		for (const m of messages) {
-			if (m.role === 'system') {
-				continue;
-			} else if (m.role === 'assistant') {
-				chatMessages.push({ role: 'assistant', content: m.content });
-			} else if (m.role === 'tool') {
-				// Feed tool output back as a user turn so the model can react to it. Kept
-				// provider-agnostic (text) rather than using native tool_call_id plumbing.
-				chatMessages.push({ role: 'user', content: `[tool result: ${m.toolName}]\n${m.content}` });
-			} else {
-				chatMessages.push({ role: 'user', content: m.content });
-			}
-		}
-
-		if (token.isCancellationRequested) {
-			throw new Error('LLM call cancelled');
-		}
-
-		// Route non-Anthropic providers through aiProviderManager.
-		// The Anthropic provider uses the VS Code-native ILLMMessageService pipeline
-		// (streaming, settings-driven model selection, token metering).
-		const activeProvider = aiProviderManager.getProvider();
-		if (activeProvider !== 'anthropic') {
-			const providerMessages = [
-				...(systemMessage ? [{ role: 'system' as const, content: systemMessage.content }] : []),
-				...chatMessages,
-			];
-			return aiProviderManager.callLLM(providerMessages, { maxTokens: 4096 });
-		}
-
-		// Anthropic path: use the VS Code-native ILLMMessageService.
-		return new Promise((resolve, reject) => {
-			if (token.isCancellationRequested) {
-				reject(new Error('LLM call cancelled'));
-				return;
-			}
-
-			const modelSelection = this.settingsService.state.modelSelectionOfFeature['Chat'];
-
-			const requestId = this.llmMessageService.sendLLMMessage({
-				messagesType: 'chatMessages',
-				messages: chatMessages,
-				separateSystemMessage: systemMessage?.content,
-				chatMode: null,
-				modelSelection,
-				modelSelectionOptions: undefined,
-				overridesOfModel: undefined,
-				logging: { loggingName: 'ribix-agent' },
-				onText: (_params) => { /* streaming — not used; wait for onFinalMessage */ },
-				onFinalMessage: (params) => { resolve(params.fullText); },
-				onError: (params) => { reject(new Error(params.message)); },
-				onAbort: () => { reject(new Error('LLM call aborted')); },
-			});
-
-			if (!requestId) {
-				reject(new Error('Failed to send LLM message'));
-				return;
-			}
-
-			// Cancel the in-flight request if the cancellation token fires
-			token.onCancellationRequested(() => {
-				this.llmMessageService.abort(requestId);
-			});
-		});
+		return callLlm(messages, token, this.llmMessageService, this.settingsService);
 	}
 
 	/**
