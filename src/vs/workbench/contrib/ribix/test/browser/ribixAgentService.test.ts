@@ -7,6 +7,7 @@ import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { Event } from '../../../../../base/common/event.js';
 import { RibixAgentService } from '../../browser/ribixAgentService.js';
+import { DEFAULT_AGENT_BUDGETS } from '../../common/ribixAgentLoopTypes.js';
 
 // --- Stub helpers ------------------------------------------------------------
 
@@ -267,5 +268,186 @@ suite('RibixAgentService — agentic loop', () => {
 		assert.strictEqual(findings[0].severity, 'high');
 		assert.strictEqual(findings[0].line, 12);
 		service.dispose();
+	});
+});
+
+// --- Budget enforcement tests ------------------------------------------------
+
+suite('RibixAgentService — loop budget enforcement', () => {
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('agent stops when maxTurns reached (planner caps at 6)', async () => {
+		// Planner budget: maxTurns=6. Always emit a tool call so only the turn cap stops it.
+		const everyTurnToolCall = 'go\n```json\n{"tool":"ls_dir","params":{"uri":"/repo"}}\n```';
+		const llm = makeLLMStub(new Array(50).fill(everyTurnToolCall));
+		const tools = makeToolsStub({});
+		const service = makeAgentService(llm.service, tools.service);
+
+		const completion = waitForCompletion(service);
+		const agentId = await service.spawnAgent('m1', 't1', 'planner', 'loop forever');
+		const result = await completion;
+
+		// Loop must terminate cleanly (not hang) and be marked as complete.
+		assert.strictEqual(result.status, 'complete', 'budget exhaustion completes, does not hang');
+		assert.strictEqual(llm.callCount(), DEFAULT_AGENT_BUDGETS.planner.maxTurns,
+			`planner should perform exactly ${DEFAULT_AGENT_BUDGETS.planner.maxTurns} LLM turns`);
+
+		const agent = service.getAgent(agentId)!;
+		assert.strictEqual(agent.status, 'complete');
+		assert.ok(agent.output!.blocked, 'budget-exhausted run must be marked blocked');
+		assert.ok(agent.output!.blocked!.reason.includes('maxTurns'), 'blocked reason must reference maxTurns');
+
+		service.dispose();
+	});
+
+	test('agent stops when maxTokens exceeded', async () => {
+		// Craft a taskDescription large enough that the initial message array
+		// (system prompt + user message) exceeds the planner's maxTokens budget of 80,000.
+		// estimateTokens = ceil(totalChars / 4), so we need totalChars > 320,000.
+		// Passing 321,000 'x' chars guarantees we exceed the limit on turn 0.
+		const hugeTask = 'x'.repeat(321_000);
+		const llm = makeLLMStub(['this should never be called']);
+		const tools = makeToolsStub({});
+		const service = makeAgentService(llm.service, tools.service);
+
+		const completion = waitForCompletion(service);
+		const agentId = await service.spawnAgent('m1', 't1', 'planner', hugeTask);
+		const result = await completion;
+
+		// The token check fires before the first LLM call, so callCount must be 0.
+		assert.strictEqual(result.status, 'complete', 'token budget exhaustion completes cleanly');
+		assert.strictEqual(llm.callCount(), 0, 'LLM must not be called when token budget is exceeded before turn 0');
+
+		const agent = service.getAgent(agentId)!;
+		assert.ok(agent.output!.blocked, 'token-over-budget run must be marked blocked');
+		assert.ok(agent.output!.blocked!.reason.includes('tokens'), 'blocked reason must reference tokens');
+
+		service.dispose();
+	});
+
+	test('abortAgent cancels a running agent and fires completion with failed status', async () => {
+		// Use a slow-resolving LLM stub so the agent stays in-flight when we abort.
+		// We replace the stub's sendLLMMessage to never resolve, then abort immediately.
+		const neverResolving = {
+			sendLLMMessage(_params: any) {
+				// Intentionally never calls onFinalMessage — simulates an in-progress request.
+				return 'req-stuck';
+			},
+			abort(_id: string) { /* no-op */ },
+		} as any;
+		const tools = makeToolsStub({});
+		const service = makeAgentService(neverResolving, tools.service);
+
+		// Listen for completion BEFORE spawning to avoid a race.
+		const completionPromise = Event.toPromise(service.onDidCompleteAgent);
+
+		const agentId = await service.spawnAgent('m1', 't1', 'coder', 'long running task');
+
+		// Abort immediately (the LLM call will never resolve on its own).
+		await service.abortAgent(agentId);
+
+		// onDidCompleteAgent must fire as a result of abort.
+		const result = await completionPromise;
+
+		assert.strictEqual(result.agentId, agentId);
+		assert.strictEqual(result.status, 'failed', 'aborted agent fires failed completion event');
+
+		const agent = service.getAgent(agentId)!;
+		assert.strictEqual(agent.status, 'failed', 'aborted agent must have status "failed"');
+		assert.ok(agent.output!.blocked, 'aborted agent must have a blocked reason');
+		assert.ok(agent.output!.blocked!.reason.includes('aborted'), 'blocked reason must reference abort');
+
+		service.dispose();
+	});
+
+	test('getAgentsForMission returns only agents belonging to the given missionId', async () => {
+		const llm = makeLLMStub([
+			'Summary: mission-A done.',
+			'Summary: mission-B done.',
+		]);
+		const tools = makeToolsStub({});
+		const service = makeAgentService(llm.service, tools.service);
+
+		// Collect both completions before asserting.
+		// Event.toPromise captures the first event; we collect both manually.
+		const completed = new Set<string>();
+		const allDone = new Promise<void>(resolve => {
+			const disposable = service.onDidCompleteAgent(e => {
+				completed.add(e.agentId);
+				if (completed.size >= 2) {
+					disposable.dispose();
+					resolve();
+				}
+			});
+		});
+
+		const agentA = await service.spawnAgent('mission-A', 't1', 'coder', 'task for A');
+		const agentB = await service.spawnAgent('mission-B', 't2', 'coder', 'task for B');
+
+		await allDone;
+
+		const forA = service.getAgentsForMission('mission-A');
+		const forB = service.getAgentsForMission('mission-B');
+		const forC = service.getAgentsForMission('mission-C');
+
+		assert.strictEqual(forA.length, 1, 'mission-A should have exactly 1 agent');
+		assert.strictEqual(forA[0].id, agentA, 'mission-A agent id must match spawned agent');
+		assert.strictEqual(forB.length, 1, 'mission-B should have exactly 1 agent');
+		assert.strictEqual(forB[0].id, agentB, 'mission-B agent id must match spawned agent');
+		assert.strictEqual(forC.length, 0, 'unknown missionId must return empty array');
+
+		service.dispose();
+	});
+});
+
+// --- DEFAULT_AGENT_BUDGETS validation ----------------------------------------
+
+suite('AgentLoopBudget — DEFAULT_AGENT_BUDGETS', () => {
+
+	test('coder budget has maxTurns >= 10 (generous room for multi-step tasks)', () => {
+		assert.ok(
+			DEFAULT_AGENT_BUDGETS.coder.maxTurns >= 10,
+			`coder.maxTurns should be >= 10, got ${DEFAULT_AGENT_BUDGETS.coder.maxTurns}`,
+		);
+	});
+
+	test('coder budget has maxTokens > 0', () => {
+		assert.ok(
+			DEFAULT_AGENT_BUDGETS.coder.maxTokens > 0,
+			`coder.maxTokens should be > 0, got ${DEFAULT_AGENT_BUDGETS.coder.maxTokens}`,
+		);
+	});
+
+	test('planner budget has maxTurns > 0', () => {
+		assert.ok(
+			DEFAULT_AGENT_BUDGETS.planner.maxTurns > 0,
+			`planner.maxTurns should be > 0, got ${DEFAULT_AGENT_BUDGETS.planner.maxTurns}`,
+		);
+	});
+
+	test('all agent types have a defined budget entry', () => {
+		const expectedTypes = ['planner', 'coder', 'tester', 'debugger', 'reviewer', 'docs', 'release', 'browser'];
+		for (const type of expectedTypes) {
+			const budget = DEFAULT_AGENT_BUDGETS[type as keyof typeof DEFAULT_AGENT_BUDGETS];
+			assert.ok(budget, `missing budget entry for agent type "${type}"`);
+			assert.ok(budget.maxTurns > 0, `${type}.maxTurns must be > 0`);
+			assert.ok(budget.maxTokens > 0, `${type}.maxTokens must be > 0`);
+			assert.ok(budget.deadlineMs > 0, `${type}.deadlineMs must be > 0`);
+		}
+	});
+
+	test('write-heavy agents (coder, debugger, tester) get more turns than read-only agents', () => {
+		const coderTurns = DEFAULT_AGENT_BUDGETS.coder.maxTurns;
+		const plannerTurns = DEFAULT_AGENT_BUDGETS.planner.maxTurns;
+		const reviewerTurns = DEFAULT_AGENT_BUDGETS.reviewer.maxTurns;
+		assert.ok(
+			coderTurns > plannerTurns,
+			`coder (${coderTurns}) should have more turns than planner (${plannerTurns})`,
+		);
+		assert.ok(
+			coderTurns > reviewerTurns,
+			`coder (${coderTurns}) should have more turns than reviewer (${reviewerTurns})`,
+		);
 	});
 });
