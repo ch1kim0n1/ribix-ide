@@ -1,6 +1,12 @@
 /**
  * Advanced Collaboration Features
  * Voice chat, screen sharing, and video conferencing using WebRTC
+ *
+ * Peer teardown: every RTCPeerConnection created by this module attaches an
+ * `oniceconnectionstatechange` handler that closes and nulls the connection
+ * when the ICE state reaches "disconnected", "failed", or "closed".  This
+ * prevents leaked connections after a participant leaves or a network drop
+ * occurs.
  */
 
 export interface VoiceChatConfig {
@@ -47,7 +53,38 @@ export class CollaborationEnhancements {
   };
 
   /**
+   * Create (or recreate) an RTCPeerConnection with a teardown handler so that
+   * the connection is always closed and nulled when ICE reaches a terminal
+   * state.  Call this instead of `new RTCPeerConnection(...)` directly.
+   */
+  private createPeerConnection(configuration?: RTCConfiguration): RTCPeerConnection {
+    // Close any existing connection first
+    if (this.peerConnection) {
+      this.peerConnection.close();
+      this.peerConnection = null;
+    }
+
+    const pc = new RTCPeerConnection(configuration);
+
+    pc.oniceconnectionstatechange = () => {
+      const state = pc.iceConnectionState;
+      if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+        pc.close();
+        // Only null the field if this is still the active connection
+        if (this.peerConnection === pc) {
+          this.peerConnection = null;
+        }
+      }
+    };
+
+    this.peerConnection = pc;
+    return pc;
+  }
+
+  /**
    * Initialize voice chat
+   * Creates an RTCPeerConnection with ICE teardown wired up, then acquires
+   * the local microphone stream and adds it to the connection.
    */
   async initializeVoiceChat(): Promise<void> {
     try {
@@ -55,8 +92,15 @@ export class CollaborationEnhancements {
         audio: true,
         video: false,
       });
-      
+
       this.localStream = stream;
+
+      // Create the peer connection with teardown handler
+      const pc = this.createPeerConnection();
+
+      // Add local audio track to the peer connection
+      stream.getAudioTracks().forEach(track => pc.addTrack(track, stream));
+
       this.voiceConfig.enabled = true;
     } catch (error) {
       console.error('Failed to initialize voice chat:', error);
@@ -130,6 +174,8 @@ export class CollaborationEnhancements {
 
   /**
    * Start video call
+   * Creates an RTCPeerConnection with ICE teardown wired up, then acquires
+   * the local camera/microphone stream and adds it to the connection.
    */
   async startVideoCall(): Promise<void> {
     try {
@@ -142,6 +188,13 @@ export class CollaborationEnhancements {
       });
 
       this.localStream = stream;
+
+      // Create the peer connection with teardown handler
+      const pc = this.createPeerConnection();
+
+      // Add all local tracks to the peer connection
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
       this.videoConfig.enabled = true;
     } catch (error) {
       console.error('Failed to start video call:', error);
