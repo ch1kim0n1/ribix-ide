@@ -48,6 +48,7 @@ import { DiffArea, Diff, CtrlKZone, VoidFileSnapshot, DiffAreaSnapshotEntry, dif
 import { IConvertToLLMMessageService } from './convertToLLMMessageService.js';
 import { acceptDiff as _acceptDiff, rejectDiff as _rejectDiff, acceptOrRejectAllDiffAreas as _acceptOrRejectAllDiffAreas, DiffManagerContext } from './editCodeDiffManager.js';
 import { addCtrlKZone as _addCtrlKZone, removeCtrlKZone as _removeCtrlKZone, ZoneManagerContext } from './editCodeZoneManager.js';
+import { startApplying as _startApplying, ApplierContext } from './editCodeApplier.js';
 // import { isMacintosh } from '../../../../base/common/platform.js';
 // import { VOID_OPEN_SETTINGS_ACTION_ID } from './voidSettingsPane.js';
 
@@ -1100,32 +1101,26 @@ class EditCodeService extends Disposable implements IEditCodeService {
 	}
 
 
+	private _buildApplierContext(): ApplierContext {
+		return {
+			settingsService: this._settingsService,
+			fileLengthOfGivenURI: (givenURI) => this._fileLengthOfGivenURI(givenURI),
+			getURIBeforeStartApplying: (opts) => this._getURIBeforeStartApplying(opts),
+			initializeWriteoverStream: (opts) => this._initializeWriteoverStream(opts),
+			initializeSearchAndReplaceStream: (opts) => this._initializeSearchAndReplaceStream(opts),
+			startStreamingDiffZone: (opts) => this._startStreamingDiffZone(opts),
+			onDidChangeStreamingInDiffZone: this._onDidChangeStreamingInDiffZone,
+			refreshStylesAndDiffsInURI: (uri) => this._refreshStylesAndDiffsInURI(uri),
+			undoHistory: (uri) => this._undoHistory(uri),
+			acceptOrRejectAllDiffAreas: (opts) => this.acceptOrRejectAllDiffAreas(opts),
+			writeURIText: (uri, text, range, opts) => this._writeURIText(uri, text, range, opts),
+			instantlyApplySRBlocks: (uri, blocksStr) => this._instantlyApplySRBlocks(uri, blocksStr),
+		}
+	}
+
 	// the applyDonePromise this returns can reject, and should be caught with .catch
 	public startApplying(opts: StartApplyingOpts): [URI, Promise<void>] | null {
-		let res: [DiffZone, Promise<void>] | undefined = undefined
-
-		if (opts.from === 'QuickEdit') {
-			res = this._initializeWriteoverStream(opts) // rewrite
-		}
-		else if (opts.from === 'ClickApply') {
-			if (this._settingsService.state.globalSettings.enableFastApply) {
-				const numCharsInFile = this._fileLengthOfGivenURI(opts.uri)
-				if (numCharsInFile === null) return null
-				if (numCharsInFile < 1000) { // slow apply for short files (especially important for empty files)
-					res = this._initializeWriteoverStream(opts)
-				}
-				else {
-					res = this._initializeSearchAndReplaceStream(opts) // fast apply
-				}
-			}
-			else {
-				res = this._initializeWriteoverStream(opts) // rewrite
-			}
-		}
-
-		if (!res) return null
-		const [diffZone, applyDonePromise] = res
-		return [diffZone._URI, applyDonePromise]
+		return _startApplying(opts, this._buildApplierContext())
 	}
 
 
