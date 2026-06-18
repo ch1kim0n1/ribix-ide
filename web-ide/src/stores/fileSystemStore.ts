@@ -16,7 +16,8 @@ interface FileSystemState {
   currentPath: string[];
   isLoading: boolean;
   error: string | null;
-  
+  persistenceEnabled: boolean;
+
   // Actions
   createFile: (path: string, content: string, language?: string) => Promise<void>;
   createDirectory: (path: string) => Promise<void>;
@@ -28,6 +29,12 @@ interface FileSystemState {
   navigateTo: (path: string) => void;
   setError: (error: string | null) => void;
   downloadWorkspace: () => Promise<void>;
+  /** Load filesystem state from localStorage (issue #53 persistence). */
+  loadFromStorage: () => void;
+  /** Save filesystem state to localStorage. */
+  saveToStorage: () => void;
+  /** Clear persisted state. */
+  clearStorage: () => void;
 }
 
 /**
@@ -42,6 +49,20 @@ const authHeaders = (): Record<string, string> => {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
 };
+
+/**
+ * localStorage key for persisting filesystem state (issue #53).
+ * Allows the web IDE to restore files after page refresh or reconnect.
+ */
+const STORAGE_KEY = 'ribix_filesystem_state';
+const STORAGE_VERSION = 1;
+
+interface PersistedState {
+  version: number;
+  root: FileSystemItem;
+  currentPath: string[];
+  savedAt: number;
+}
 
 const createInitialFileSystem = (): FileSystemItem => ({
   name: 'workspace',
@@ -71,17 +92,97 @@ const createInitialFileSystem = (): FileSystemItem => ({
   ],
 });
 
+/**
+ * Load filesystem state from localStorage.
+ * Returns null if no state exists or if version is incompatible.
+ */
+function loadFromLocalStorage(): PersistedState | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedState;
+    if (parsed.version !== STORAGE_VERSION) {
+      // Version mismatch — discard old state
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    // Corrupted JSON — remove and return null
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+}
+
+/**
+ * Save filesystem state to localStorage.
+ * Called after every mutation to ensure persistence.
+ */
+function saveToLocalStorage(root: FileSystemItem, currentPath: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const state: PersistedState = {
+      version: STORAGE_VERSION,
+      root,
+      currentPath,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    // localStorage might be full (quota exceeded) — log but don't throw
+    console.warn('[fileSystemStore] Failed to persist filesystem state:', error);
+  }
+}
+
+/**
+ * Clear persisted filesystem state from localStorage.
+ */
+function clearLocalStorage(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(STORAGE_KEY);
+}
+
 export const useFileSystemStore = create<FileSystemState>((set, get) => ({
-  root: createInitialFileSystem(),
-  currentPath: [],
+  // Try to load from localStorage on init; fall back to initial filesystem
+  root: (() => {
+    const persisted = loadFromLocalStorage();
+    return persisted?.root ?? createInitialFileSystem();
+  })(),
+  currentPath: (() => {
+    const persisted = loadFromLocalStorage();
+    return persisted?.currentPath ?? [];
+  })(),
   isLoading: false,
   error: null,
+  persistenceEnabled: true,
 
   setError: (error) => set({ error }),
+
+  loadFromStorage: () => {
+    const persisted = loadFromLocalStorage();
+    if (persisted) {
+      set({ root: persisted.root, currentPath: persisted.currentPath });
+    }
+  },
+
+  saveToStorage: () => {
+    const { root, currentPath } = get();
+    saveToLocalStorage(root, currentPath);
+  },
+
+  clearStorage: () => {
+    clearLocalStorage();
+    set({ root: createInitialFileSystem(), currentPath: [] });
+  },
 
   navigateTo: (path: string) => {
     const pathParts = path.split('/').filter(Boolean);
     set({ currentPath: pathParts });
+    // Persist navigation state
+    if (get().persistenceEnabled) {
+      saveToLocalStorage(get().root, pathParts);
+    }
   },
 
   createFile: async (path: string, content: string, language?: string) => {
@@ -123,8 +224,9 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       });
 
       set({ root: newRoot, isLoading: false });
+      if (get().persistenceEnabled) saveToLocalStorage(newRoot, get().currentPath);
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to create file',
         isLoading: false,
       });
@@ -169,6 +271,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       });
 
       set({ root: newRoot, isLoading: false });
+      if (get().persistenceEnabled) saveToLocalStorage(newRoot, get().currentPath);
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to create directory',
@@ -239,6 +342,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       }
 
       set({ root: newRoot, isLoading: false });
+      if (get().persistenceEnabled) saveToLocalStorage(newRoot, get().currentPath);
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to write file',
@@ -281,6 +385,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       }
 
       set({ root: newRoot, isLoading: false });
+      if (get().persistenceEnabled) saveToLocalStorage(newRoot, get().currentPath);
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to delete file',
@@ -323,6 +428,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       }
 
       set({ root: newRoot, isLoading: false });
+      if (get().persistenceEnabled) saveToLocalStorage(newRoot, get().currentPath);
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to delete directory',

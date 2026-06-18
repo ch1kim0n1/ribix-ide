@@ -60,6 +60,52 @@ jobs:
             -ov -format UDZO \
             "dist/RibixIDE-${ARCH}.dmg"
 
+      # ── Code signing & notarization (issue #60) ──────────────────────────────
+      # Signs the macOS app with a Developer ID certificate and submits for notarization.
+      # Requires secrets: MACOS_CERTIFICATE_P12 (base64-encoded), MACOS_CERTIFICATE_PASSWORD,
+      # APPLE_ID, APPLE_ID_PASSWORD (app-specific password for notarization), APPLE_TEAM_ID
+      # If secrets are not configured, signing is skipped (unsigned build).
+      - name: Import signing certificate
+        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+        run: |
+          CERT_FILE=$(mktemp /tmp/certificate.XXXXXX.p12)
+          KEYCHAIN_FILE=$(mktemp /tmp/keychain.XXXXXX.keychain)
+          echo "${{ secrets.MACOS_CERTIFICATE_P12 }}" | base64 -d > "$CERT_FILE"
+          security create-keychain -p "${{ secrets.MACOS_CERTIFICATE_PASSWORD }}" "$KEYCHAIN_FILE"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_FILE"
+          security unlock-keychain -p "${{ secrets.MACOS_CERTIFICATE_PASSWORD }}" "$KEYCHAIN_FILE"
+          security import "$CERT_FILE" -P "${{ secrets.MACOS_CERTIFICATE_PASSWORD }}" -A -t cert -f pkcs12 -k "$KEYCHAIN_FILE"
+          security list-keychain -d user -s "$KEYCHAIN_FILE"
+          rm -f "$CERT_FILE"
+          echo "KEYCHAIN_FILE=$KEYCHAIN_FILE" >> $GITHUB_ENV
+
+      - name: Sign macOS app
+        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+        run: |
+          APP_PATH="../VSCode-darwin-${{ matrix.arch }}/Ribix IDE.app"
+          /usr/bin/codesign --force --deep --options runtime \
+            --sign "Developer ID Application: ${{ secrets.APPLE_TEAM_ID }}" \
+            "$APP_PATH"
+        continue-on-error: true
+
+      - name: Notarize macOS app
+        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+        run: |
+          DMG_PATH="dist/RibixIDE-${{ matrix.arch }}.dmg"
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --password "${{ secrets.APPLE_ID_PASSWORD }}" \
+            --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+            --wait
+          xcrun stapler staple "$DMG_PATH"
+        continue-on-error: true
+
+      - name: Clean up keychain
+        if: ${{ always() && env.KEYCHAIN_FILE != '' }}
+        run: |
+          security delete-keychain "$KEYCHAIN_FILE" 2>/dev/null || true
+          rm -f "$KEYCHAIN_FILE"
+
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
@@ -172,8 +218,29 @@ jobs:
           Compress-Archive -Path ..\VSCode-win32-x64 -DestinationPath dist\RibixIDE-win32-x64.zip
         shell: pwsh
 
-      # TODO: Code signing for Windows requires a certificate secret (e.g. WINDOWS_CERTIFICATE_PFX).
-      # Add signing step here once secrets are configured.
+      # ── Code signing (issue #60) ────────────────────────────────────────────
+      # Signs the Windows binary with an Authenticode certificate.
+      # Requires secrets: WINDOWS_CERTIFICATE_PFX (base64-encoded), WINDOWS_CERTIFICATE_PASSWORD
+      # If secrets are not configured, signing is skipped (unsigned build).
+      - name: Decode signing certificate
+        if: ${{ secrets.WINDOWS_CERTIFICATE_PFX != '' }}
+        run: |
+          echo "${{ secrets.WINDOWS_CERTIFICATE_PFX }}" | base64 -d > cert.pfx
+        shell: bash
+
+      - name: Sign Windows binary
+        if: ${{ secrets.WINDOWS_CERTIFICATE_PFX != '' }}
+        run: |
+          signtool sign /f cert.pfx /p "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" \
+            /tr http://timestamp.digicert.com /td sha256 /fd sha256 \
+            "..\VSCode-win32-x64\Ribix IDE.exe"
+        shell: cmd
+        continue-on-error: true
+
+      - name: Clean up certificate
+        if: ${{ always() }}
+        run: rm -f cert.pfx
+        shell: bash
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2

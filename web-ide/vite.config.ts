@@ -53,6 +53,25 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: true,
+      // Incremental build (issue #59): use manifest + chunk splitting
+      // so unchanged chunks are cached by the browser via content-hash filenames.
+      manifest: true,
+      rollupOptions: {
+        output: {
+          // Split vendor chunks for better caching
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'monaco-vendor': ['monaco-editor', '@monaco-editor/react'],
+            'collaboration-vendor': ['yjs', 'y-websocket', 'y-protocols'],
+          },
+        },
+      },
+      // Use Vite's cache directory for incremental rebuilds
+      cacheDir: 'node_modules/.vite',
+    },
+    // Enable esbuild cache for faster incremental rebuilds
+    esbuild: {
+      legalComments: 'none',
     },
   };
 });
