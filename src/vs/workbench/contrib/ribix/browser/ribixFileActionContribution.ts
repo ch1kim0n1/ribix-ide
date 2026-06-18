@@ -21,61 +21,14 @@ import { localize2 } from '../../../../nls.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { EditorResourceAccessor } from '../../../common/editor.js';
-import { IMarkerService, IMarkerData, MarkerSeverity } from '../../../../platform/markers/common/markers.js';
+import { IMarkerService } from '../../../../platform/markers/common/markers.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IRibixAgentService } from './ribixAgentService.js';
 import { IRibixMissionService } from './ribixMissionService.js';
-import { AgentFinding, RiskLevel } from '../common/ribixTypes.js';
-import { loadSuppressionRules, filterSuppressed, EMPTY_SUPPRESSION_RULES, SuppressionRules } from '../common/ribixSuppression.js';
+import { renderFindingsAsMarkers } from './ribixMarkerRendering.js';
 
 export const RUN_ON_FILE_COMMAND_ID = 'ribix.runOnFile';
-
-/** Marker owner so we can clear/replace prior Ribix markers on the same file. */
-const RIBIX_MARKER_OWNER = 'ribix';
-
-/** Map a Ribix RiskLevel to a Problems-panel marker severity. */
-function markerSeverityForRisk(severity: RiskLevel): MarkerSeverity {
-	switch (severity) {
-		case 'high': return MarkerSeverity.Error;
-		case 'medium': return MarkerSeverity.Warning;
-		case 'low': return MarkerSeverity.Info;
-		default: return MarkerSeverity.Info;
-	}
-}
-
-/** Convert an AgentFinding into an editor marker. Findings without a line anchor to line 1. */
-function findingToMarker(finding: AgentFinding): IMarkerData {
-	const line = finding.line && finding.line > 0 ? finding.line : 1;
-	return {
-		severity: markerSeverityForRisk(finding.severity),
-		message: finding.findingType ? `[${finding.findingType}] ${finding.message}` : finding.message,
-		source: 'Ribix',
-		startLineNumber: line,
-		startColumn: 1,
-		endLineNumber: line,
-		endColumn: 1,
-	};
-}
-
-/**
- * Loads `.ribixignore` for the workspace folder containing `fileUri`. Best-effort: returns
- * an empty rule set when there is no workspace or no ignore file.
- */
-async function loadRulesForFile(
-	fileService: IFileService,
-	workspaceContextService: IWorkspaceContextService,
-	fileUri: URI,
-): Promise<SuppressionRules> {
-	try {
-		const folder = workspaceContextService.getWorkspaceFolder(fileUri);
-		const root = folder?.uri ?? workspaceContextService.getWorkspace().folders[0]?.uri;
-		if (!root) { return EMPTY_SUPPRESSION_RULES; }
-		return await loadSuppressionRules(fileService, root);
-	} catch {
-		return EMPTY_SUPPRESSION_RULES;
-	}
-}
 
 registerAction2(class extends Action2 {
 	constructor() {
@@ -157,27 +110,18 @@ registerAction2(class extends Action2 {
 		const agent = agentService.getAgent(agentId);
 		const rawFindings = agent?.output?.findings ?? [];
 
-		// Anchor findings without a file to the analyzed file so markers land on it.
-		const scopedFindings: AgentFinding[] = rawFindings.map(f => ({ ...f, file: f.file || fsPath }));
+		// Render inline as Problems-panel markers, filtered through .ribixignore.
+		const { visible, suppressed } = await renderFindingsAsMarkers(
+			markerService, fileService, workspaceContextService, rawFindings, fsPath,
+		);
 
-		// Respect .ribixignore for the immediate IDE display.
-		const rules = await loadRulesForFile(fileService, workspaceContextService, fileUri);
-		const visibleFindings = filterSuppressed(scopedFindings, rules);
-
-		// Render inline as Problems-panel markers (replaces any prior Ribix markers on this file).
-		markerService.remove(RIBIX_MARKER_OWNER, [fileUri]);
-		if (visibleFindings.length > 0) {
-			markerService.changeOne(RIBIX_MARKER_OWNER, fileUri, visibleFindings.map(findingToMarker));
-		}
-
-		const suppressedCount = scopedFindings.length - visibleFindings.length;
-		const suffix = suppressedCount > 0 ? ` (${suppressedCount} suppressed by .ribixignore)` : '';
-		if (visibleFindings.length === 0) {
+		const suffix = suppressed > 0 ? ` (${suppressed} suppressed by .ribixignore)` : '';
+		if (visible === 0) {
 			notificationService.notify({ severity: Severity.Info, message: `Ribix: no findings in ${fileLabel}${suffix}.` });
 		} else {
 			notificationService.notify({
 				severity: Severity.Info,
-				message: `Ribix: ${visibleFindings.length} finding(s) in ${fileLabel}${suffix}. See the Problems panel.`,
+				message: `Ribix: ${visible} finding(s) in ${fileLabel}${suffix}. See the Problems panel.`,
 			});
 		}
 	}

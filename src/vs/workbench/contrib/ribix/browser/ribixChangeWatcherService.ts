@@ -16,10 +16,14 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { ITextFileService } from '../../../../workbench/services/textfile/common/textfiles.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
+import { IMarkerService } from '../../../../platform/markers/common/markers.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IVoidSCMService } from '../common/voidSCMTypes.js';
 import { IRibixFileLockService } from '../common/ribixFileLockService.js';
 import { IRibixMissionService } from './ribixMissionService.js';
+import { IRibixAgentService } from './ribixAgentService.js';
+import { renderFindingsAsMarkers } from './ribixMarkerRendering.js';
 import { ChangedChunk, ChangedFile, isIgnoredPath, parseSampledDiffsToChunk } from '../common/ribixChangedChunk.js';
 
 /** Auto-trigger policy. `off` = silent; `ask` = create + surface for approval; `auto` = run unattended. */
@@ -58,8 +62,14 @@ export interface IRibixChangeWatcherService {
 
 export const IRibixChangeWatcherService = createDecorator<IRibixChangeWatcherService>('ribixChangeWatcherService');
 
-/** Test seam: lets unit tests inject a tiny debounce and a stub SCM service. */
-type WatcherOptions = { debounceMs?: number; scmOverride?: IVoidSCMService };
+/** Test seam: lets unit tests inject a tiny debounce and stub SCM/agent/marker/file services. */
+type WatcherOptions = {
+	debounceMs?: number;
+	scmOverride?: IVoidSCMService;
+	agentOverride?: IRibixAgentService;
+	markerOverride?: IMarkerService;
+	fileOverride?: IFileService;
+};
 
 export class RibixChangeWatcherService extends Disposable implements IRibixChangeWatcherService {
 	readonly _serviceBrand: undefined;
@@ -82,6 +92,9 @@ export class RibixChangeWatcherService extends Disposable implements IRibixChang
 	private readonly recentlyWritten = new Map<string, number>();
 
 	private readonly voidSCM: IVoidSCMService;
+	private readonly agentService: IRibixAgentService | undefined;
+	private readonly markerService: IMarkerService | undefined;
+	private readonly fileService: IFileService | undefined;
 
 	constructor(
 		@ITextFileService private readonly textFileService: ITextFileService,
@@ -91,6 +104,9 @@ export class RibixChangeWatcherService extends Disposable implements IRibixChang
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IMainProcessService mainProcessService: IMainProcessService,
+		@IRibixAgentService agentService: IRibixAgentService,
+		@IMarkerService markerService: IMarkerService,
+		@IFileService fileService: IFileService,
 		options?: WatcherOptions,
 	) {
 		super();
@@ -98,6 +114,12 @@ export class RibixChangeWatcherService extends Disposable implements IRibixChang
 		// Tests inject a stub through options.scmOverride.
 		this.voidSCM = options?.scmOverride ?? ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
 		this.debounceMs = options?.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+		// The agent/marker/file services are only needed for the unattended `auto` run.
+		// Tests inject stubs through options so they can assert marker rendering without
+		// pulling in the full DI graph; production gets them from the container.
+		this.agentService = options?.agentOverride ?? agentService;
+		this.markerService = options?.markerOverride ?? markerService;
+		this.fileService = options?.fileOverride ?? fileService;
 
 		const stored = this.storageService.get(RIBIX_AUTO_TRIGGER_MODE_KEY, StorageScope.PROFILE);
 		this._mode = (stored === 'ask' || stored === 'auto' || stored === 'off') ? stored : DEFAULT_MODE;
@@ -268,6 +290,13 @@ export class RibixChangeWatcherService extends Disposable implements IRibixChang
 					? `Ribix is auto-running QA on ${fileCount} changed file(s).`
 					: `Ribix prepared a QA mission for ${fileCount} changed file(s) — review it in the Command Center.`,
 			});
+
+			// `auto` mode runs unattended: spawn a lightweight Reviewer agent scoped to the
+			// changed files and surface findings inline as Problems-panel markers. `ask` mode
+			// leaves the prepared mission for in-panel approval (G-AUTOTRIGGER, issue #58).
+			if (this._mode === 'auto') {
+				void this.runUnattendedDetection(mission.id, chunk);
+			}
 		} catch (e) {
 			// Auto path must never crash the IDE — surface as a quiet toast.
 			this.notificationService.notify({
@@ -275,6 +304,76 @@ export class RibixChangeWatcherService extends Disposable implements IRibixChang
 				message: 'Ribix: failed to start auto-QA (see logs).',
 			});
 			console.error('RibixChangeWatcherService.launch failed:', e);
+		}
+	}
+
+	/**
+	 * Spawn a single Reviewer agent over the changed files, await completion, and render the
+	 * findings as markers. Fire-and-forget from `launch` so the debounce loop never blocks on
+	 * the (potentially slow) agent run. Every step is best-effort: a failure surfaces a quiet
+	 * toast and never throws into the watcher.
+	 */
+	private async runUnattendedDetection(missionId: string, chunk: ChangedChunk): Promise<void> {
+		if (!this.agentService || !this.markerService || !this.fileService) {
+			return; // No agent/marker/file services available (e.g. stripped test build).
+		}
+		const fileList = chunk.files.map(f => f.uri);
+		if (fileList.length === 0) { return; }
+
+		const taskDescription =
+			`Review ONLY the following changed file(s), scoped to the saved ranges where available: ${fileList.join(', ')}. ` +
+			`Report concrete findings (bugs, ai-smell, day-2 failures, observability gaps, and the other detection ` +
+			`categories) as a fenced JSON array of {severity, file, line, message, findingType}. Do not modify any file.`;
+
+		let agentId: string;
+		try {
+			agentId = await this.agentService.spawnAgent(
+				missionId,
+				`auto-${Date.now()}`,
+				'reviewer',
+				taskDescription,
+				{ attachedContext: `Auto QA on changed chunk (trigger: ${chunk.trigger}).` },
+			);
+		} catch (e) {
+			this.notificationService.notify({
+				severity: Severity.Info,
+				message: `Ribix: auto-QA could not start: ${e instanceof Error ? e.message : String(e)}`,
+			});
+			return;
+		}
+
+		// Wait for THIS agent to finish. The watcher is not blocked — this promise is awaited
+		// only by the fire-and-forget caller in `launch`. The listener is registered with the
+		// service so a dispose() during a long run cleans it up (no leaked disposables).
+		const result = await new Promise<{ status: 'complete' | 'failed' }>(resolve => {
+			const listener = this._register(this.agentService!.onDidCompleteAgent(e => {
+				if (e.agentId !== agentId) { return; }
+				listener.dispose();
+				resolve({ status: e.status });
+			}));
+		});
+		if (result.status === 'failed') {
+			this.notificationService.notify({ severity: Severity.Info, message: 'Ribix: auto-QA run failed.' });
+			return;
+		}
+
+		const agent = this.agentService.getAgent(agentId);
+		const rawFindings = agent?.output?.findings ?? [];
+		try {
+			const { visible, suppressed } = await renderFindingsAsMarkers(
+				this.markerService, this.fileService, this.workspaceContextService, rawFindings,
+			);
+			const suffix = suppressed > 0 ? ` (${suppressed} suppressed by .ribixignore)` : '';
+			if (visible === 0) {
+				this.notificationService.notify({ severity: Severity.Info, message: `Ribix: auto-QA found no issues${suffix}.` });
+			} else {
+				this.notificationService.notify({
+					severity: Severity.Info,
+					message: `Ribix: auto-QA reported ${visible} finding(s)${suffix}. See the Problems panel.`,
+				});
+			}
+		} catch (e) {
+			console.error('RibixChangeWatcherService.runUnattendedDetection render failed:', e);
 		}
 	}
 }

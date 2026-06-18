@@ -109,7 +109,13 @@ This document tracks the implementation status of the ribix-ide upgrade project 
   - Diff analysis for version bumping
 
 **Remaining Gaps**:
-- **G-AUTOTRIGGER**: ❌ Not implemented (file watcher for auto-trigger on changes)
+- *(none — G-AUTOTRIGGER is now implemented; see below)*
+
+### Auto-on-save trigger (G-AUTOTRIGGER): ✅ Implemented
+- `ribixChangeWatcherService.ts` listens to `ITextFileService.files.onDidSave`, debounces (2.5s default), filters ignored/locked/agent-written paths, and scopes a QA mission to the changed chunk via `createScopedQAMission`.
+- Three modes (off / ask / auto), persisted to PROFILE storage, cycled via the `ribix.autoTrigger.cycleMode` command (`ribixAutoTriggerActions.ts`).
+- `auto` mode runs unattended: spawns a lightweight Reviewer agent over the changed files and renders findings inline as Problems-panel markers (`.ribixignore`-filtered) through the shared `ribixMarkerRendering.ts` helper.
+- `ask` mode prepares the mission and surfaces it in the Command Center for in-panel approval.
 
 ### Collaboration & Infrastructure
 - **Real-Time Collaboration**: ✅ IMPLEMENTED
@@ -358,7 +364,7 @@ Required changes to unblock the web IDE:
 - **✅ Fixed structured agent handoff to pass data instead of text blobs** (2026-06-15)
 
 ### Current Production Readiness
-- **Agent Architecture**: 9/10 (Core autonomous loop production-ready, only auto-trigger missing)
+- **Agent Architecture**: 10/10 (Core autonomous loop production-ready, auto-on-save trigger implemented)
 - **Backend**: 9/10 (All features functional with security and tests, needs deployment)
 - **Frontend**: 7/10 (UI complete, connected to backend, needs error handling - improved from 6/10)
 - **Infrastructure**: 3/10 (Templates exist, never deployed)
