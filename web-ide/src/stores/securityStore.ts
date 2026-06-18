@@ -50,6 +50,16 @@ async function persistAuditEntry(entry: AuditLogEntry): Promise<void> {
   }
 }
 
+async function clearPersistedAuditLog(): Promise<void> {
+  const db = await openAuditDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(AUDIT_STORE_NAME, 'readwrite');
+    tx.objectStore(AUDIT_STORE_NAME).clear();
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
 async function loadPersistedAuditLog(): Promise<AuditLogEntry[]> {
   try {
     const db = await openAuditDb();
@@ -153,16 +163,17 @@ export class SecurityManager {
       permissions: ROLE_PERMISSIONS.owner,
     });
 
-    // Restore persisted audit log from IndexedDB on construction
+    // Restore persisted audit log from IndexedDB on construction.
+    // Replace the in-memory array entirely so there are no duplicate entries
+    // even if logAudit() fires synchronously before the Promise resolves.
     loadPersistedAuditLog().then(entries => {
-      // Merge: keep any entries already added synchronously during startup
-      const existingIds = new Set(this.auditLog.map(e => e.id));
-      for (const e of entries) {
-        if (!existingIds.has(e.id)) {
-          this.auditLog.push(e);
-        }
-      }
+      this.auditLog = entries;
     }).catch(() => { /* silent – in-memory fallback */ });
+  }
+
+  /** Read-only accessor so the store can retrieve the current user id without bracket access. */
+  get userId(): string | null {
+    return this.currentUserId;
   }
 
   /**
@@ -360,24 +371,23 @@ export class SecurityManager {
       this.auditLog = [];
     }
     // Best-effort clear in IndexedDB
-    openAuditDb().then(db => {
-      const tx = db.transaction(AUDIT_STORE_NAME, 'readwrite');
-      const store = tx.objectStore(AUDIT_STORE_NAME);
-      if (olderThan) {
-        // Delete entries older than the cutoff using the timestamp index
-        const range = IDBKeyRange.upperBound(olderThan);
-        store.index('by_timestamp').openKeyCursor(range).onsuccess = function (this: IDBRequest) {
-          const cursor = this.result as IDBCursor | null;
-          if (cursor) {
-            store.delete(cursor.primaryKey);
-            cursor.continue();
-          }
-        };
-      } else {
+    if (!olderThan) {
+      // Full clear: use the atomic store.clear() helper (no cursor race)
+      clearPersistedAuditLog().catch(() => { /* silent */ });
+    } else {
+      // Partial clear: rebuild the DB from the surviving in-memory entries
+      // (avoids cursor-iteration race with tx.oncomplete)
+      openAuditDb().then(db => {
+        const tx = db.transaction(AUDIT_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(AUDIT_STORE_NAME);
         store.clear();
-      }
-      tx.oncomplete = () => db.close();
-    }).catch(() => { /* silent */ });
+        for (const entry of this.auditLog) {
+          store.put(entry);
+        }
+        tx.oncomplete = () => db.close();
+        tx.onerror = () => db.close();
+      }).catch(() => { /* silent */ });
+    }
   }
 
   /**
@@ -440,7 +450,7 @@ export const useSecurityStore = create<SecurityState>((set) => ({
 
   setSessionToken: (token: string) => {
     // Persist token in manager without changing the current user id
-    securityManager.setCurrentUser(securityManager['currentUserId'] || '', token);
+    securityManager.setCurrentUser(securityManager.userId || '', token);
   },
 
   loadUsers: async () => {
