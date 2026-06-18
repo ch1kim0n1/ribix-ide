@@ -1,0 +1,117 @@
+name: Smoke Test Binaries
+
+# Runs after build-binaries.yml completes. Downloads each platform artifact,
+# launches the IDE with --smoke-test, and fails the release if any platform's
+# binary is broken (issue #63). A broken binary never ships undetected.
+
+on:
+  workflow_run:
+    workflows: ["Build Pre-built Binaries"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.18.2
+
+      - name: Download artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/download-artifact@v4
+        with:
+          name: ribix-ide-windows-latest
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+          path: ./artifacts
+
+      - name: Download artifact (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/download-artifact@v4
+        with:
+          name: ribix-ide-macos-latest
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+          path: ./artifacts
+
+      - name: Download artifact (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/download-artifact@v4
+        with:
+          name: ribix-ide-ubuntu-latest
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+          path: ./artifacts
+
+      - name: Install build dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev
+
+      - name: Find the built binary
+        id: find-binary
+        shell: bash
+        run: |
+          set -e
+          # Locate the packaged executable/app inside the downloaded artifacts.
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            BIN=$(find ./artifacts -name "*.exe" -type f | head -1)
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            # .app bundles: run the inner executable.
+            APP=$(find ./artifacts -name "*.app" -type d | head -1)
+            BIN="$APP/Contents/MacOS/$(basename "$APP" .app)"
+          else
+            BIN=$(find ./artifacts -type f -perm -u+x | head -1)
+          fi
+          if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
+            echo "No runnable binary found in artifacts" >&2
+            ls -la ./artifacts >&2
+            exit 1
+          fi
+          echo "binary=$BIN" >> "$GITHUB_OUTPUT"
+          echo "Found binary: $BIN"
+
+      - name: Run smoke test (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $bin = "${{ steps.find-binary.outputs.binary }}"
+          Write-Host "Launching: $bin --smoke-test"
+          & $bin --smoke-test
+          $exitCode = $LASTEXITCODE
+          Write-Host "Smoke test exit code: $exitCode"
+          if ($exitCode -ne 0) { exit $exitCode }
+
+      - name: Run smoke test (macOS/Linux)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          set -e
+          BIN="${{ steps.find-binary.outputs.binary }}"
+          echo "Launching: $BIN --smoke-test"
+          # xvfb-run provides a virtual display on Linux headless runners.
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get install -y xvfb
+            xvfb-run -a "$BIN" --smoke-test
+          else
+            "$BIN" --smoke-test
+          fi
+          echo "Smoke test exit code: $?"
+
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "::error::Smoke test failed on ${{ matrix.os }} — binary is broken, release must not ship."
+          exit 1

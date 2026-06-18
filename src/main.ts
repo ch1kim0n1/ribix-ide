@@ -188,6 +188,15 @@ app.once('ready', function () {
 async function onReady() {
 	perf.mark('code/mainAppReady');
 
+	// Smoke test mode (issue #63): start, verify the app is alive, exit 0.
+	// Used by the release CI matrix to catch broken binaries before they ship.
+	if (process.argv.includes('--smoke-test')) {
+		console.log('ribix-smoke-test: app ready — OK');
+		// Give stdout a tick to flush before exiting.
+		setImmediate(() => process.exit(0));
+		return;
+	}
+
 	try {
 		const [, nlsConfig] = await Promise.all([
 			mkdirpIgnoreError(codeCachePath),
