@@ -27,7 +27,21 @@ interface FileSystemState {
   listFiles: (path: string) => Promise<FileSystemItem[]>;
   navigateTo: (path: string) => void;
   setError: (error: string | null) => void;
+  downloadWorkspace: () => Promise<void>;
 }
+
+/**
+ * Build headers for filesystem API calls. The backend scopes the file system to
+ * the authenticated user's personal workspace via the Bearer token, so every
+ * request must carry it — otherwise all callers fall back to the shared
+ * "workspace-123" workspace and clobber each other's files (issue #53).
+ */
+const authHeaders = (): Record<string, string> => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('ribix_token') : null;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
 
 const createInitialFileSystem = (): FileSystemItem => ({
   name: 'workspace',
@@ -76,7 +90,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     try {
       const response = await fetch(webIdeApiUrl('/filesystem/write'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ path, content, language }),
       });
 
@@ -124,7 +138,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     try {
       const response = await fetch(webIdeApiUrl('/filesystem/directory'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ path }),
       });
 
@@ -170,7 +184,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     try {
       const response = await fetch(webIdeApiUrl('/filesystem/read'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ path }),
       });
 
@@ -196,7 +210,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     try {
       const response = await fetch(webIdeApiUrl('/filesystem/write'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ path, content }),
       });
 
@@ -240,7 +254,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     try {
       const response = await fetch(webIdeApiUrl('/filesystem/delete'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ path, isDirectory: false }),
       });
 
@@ -282,7 +296,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     try {
       const response = await fetch(webIdeApiUrl('/filesystem/delete'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ path, isDirectory: true }),
       });
 
@@ -322,7 +336,9 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch(`${webIdeApiUrl('/filesystem/list')}?path=${encodeURIComponent(path)}`);
+      const response = await fetch(`${webIdeApiUrl('/filesystem/list')}?path=${encodeURIComponent(path)}`, {
+        headers: authHeaders(),
+      });
 
       if (!response.ok) {
         throw new Error('Failed to list files');
@@ -334,6 +350,35 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to list files',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  downloadWorkspace: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(webIdeApiUrl('/filesystem/export.zip'), {
+        headers: authHeaders(),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to export workspace');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ribix-workspace.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      set({ isLoading: false });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to download workspace',
         isLoading: false,
       });
       throw error;

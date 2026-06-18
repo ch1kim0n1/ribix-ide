@@ -7,7 +7,7 @@ interface FileExplorerProps {
 }
 
 export function FileExplorer({ onFileSelect, currentFile }: FileExplorerProps) {
-  const { root, createFile, createDirectory, deleteFile, deleteDirectory } = useFileSystemStore();
+  const { root, createFile, createDirectory, deleteFile, deleteDirectory, downloadWorkspace } = useFileSystemStore();
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['/']));
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [newItemName, setNewItemName] = useState('');
@@ -129,20 +129,36 @@ export function FileExplorer({ onFileSelect, currentFile }: FileExplorerProps) {
         <span style={{ fontSize: '11px', fontWeight: 600, color: '#bbbbbb' }}>
           EXPLORER
         </span>
-        <button
-          onClick={() => setShowCreateMenu(!showCreateMenu)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#888',
-            cursor: 'pointer',
-            fontSize: '16px',
-            padding: '2px 6px',
-          }}
-          title="New file or directory"
-        >
-          +
-        </button>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            onClick={() => downloadWorkspace().catch((e) => { console.error(e); alert('Failed to download workspace'); })}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#888',
+              cursor: 'pointer',
+              fontSize: '14px',
+              padding: '2px 6px',
+            }}
+            title="Download workspace as ZIP (escape hatch)"
+          >
+            ⬇
+          </button>
+          <button
+            onClick={() => setShowCreateMenu(!showCreateMenu)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#888',
+              cursor: 'pointer',
+              fontSize: '16px',
+              padding: '2px 6px',
+            }}
+            title="New file or directory"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {showCreateMenu && (
