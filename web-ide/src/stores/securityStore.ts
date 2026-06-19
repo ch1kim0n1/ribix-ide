@@ -200,19 +200,21 @@ export class SecurityManager {
       throw Object.assign(new Error('Server-side role check failed — token may be invalid'), { code: 403 });
     }
     const serverPermissions = ROLE_PERMISSIONS[serverRole] ?? [];
-    if (!serverPermissions.includes(requiredPermission)) {
-      throw Object.assign(
-        new Error(`Forbidden: server role '${serverRole}' lacks permission '${requiredPermission}'`),
-        { code: 403 },
-      );
-    }
     // Keep client-side user record in sync with authoritative server role
+    // before the permission check so the client always reflects the server
+    // even when the check subsequently fails.
     if (this.currentUserId) {
       const user = this.users.get(this.currentUserId);
       if (user && user.role !== serverRole) {
         user.role = serverRole;
         user.permissions = serverPermissions;
       }
+    }
+    if (!serverPermissions.includes(requiredPermission)) {
+      throw Object.assign(
+        new Error(`Forbidden: server role '${serverRole}' lacks permission '${requiredPermission}'`),
+        { code: 403 },
+      );
     }
   }
 
