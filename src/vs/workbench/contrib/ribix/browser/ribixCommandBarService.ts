@@ -27,7 +27,7 @@ import { IMetricsService } from '../common/metricsService.js';
 import { KeyMod } from '../../../../editor/common/services/editorBaseApi.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { ScrollType } from '../../../../editor/common/editorCommon.js';
-import { IVoidModelService } from '../common/voidModelService.js';
+import { IVoidModelService } from '../common/ribixModelService.js';
 
 
 

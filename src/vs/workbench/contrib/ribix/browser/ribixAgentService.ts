@@ -25,7 +25,7 @@ import { generateReviewerPrompt } from '../common/prompt/ribixReviewerPrompt.js'
 import { generateDocsPrompt } from '../common/prompt/ribixDocsPrompt.js';
 import { generateReleasePrompt } from '../common/prompt/ribixReleasePrompt.js';
 import { BROWSER_AGENT_PROMPT } from './ribixBrowserAgent.js';
-import { IVoidSettingsService } from '../common/voidSettingsService.js';
+import { IVoidSettingsService } from '../common/ribixSettingsService.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { PlaywrightRunner, PlaywrightFinding } from './playwrightRunner.js';

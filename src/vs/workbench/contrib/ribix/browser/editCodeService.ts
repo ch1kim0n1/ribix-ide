@@ -24,7 +24,7 @@ import { Widget } from '../../../../base/browser/ui/widget.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConsistentEditorItemService, IConsistentItemService } from './helperServices/consistentItemService.js';
 import { voidPrefixAndSuffix, ctrlKStream_userMessage, ctrlKStream_systemMessage, defaultQuickEditFimTags, rewriteCode_systemMessage, rewriteCode_userMessage, searchReplaceGivenDescription_systemMessage, searchReplaceGivenDescription_userMessage, tripleTick, } from '../common/prompt/prompts.js';
-import { IVoidCommandBarService } from './voidCommandBarService.js';
+import { IVoidCommandBarService } from './ribixCommandBarService.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { VOID_ACCEPT_DIFF_ACTION_ID, VOID_REJECT_DIFF_ACTION_ID } from './actionIDs.js';
 
@@ -39,9 +39,9 @@ import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { LLMChatMessage } from '../common/sendLLMMessageTypes.js';
 import { IMetricsService } from '../common/metricsService.js';
 import { IEditCodeService, AddCtrlKOpts, StartApplyingOpts, CallBeforeStartApplyingOpts, } from './editCodeServiceInterface.js';
-import { IVoidSettingsService } from '../common/voidSettingsService.js';
-import { FeatureName } from '../common/voidSettingsTypes.js';
-import { IVoidModelService } from '../common/voidModelService.js';
+import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { FeatureName } from '../common/ribixSettingsTypes.js';
+import { IVoidModelService } from '../common/ribixModelService.js';
 import { deepClone } from '../../../../base/common/objects.js';
 import { acceptBg, acceptBorder, buttonFontSize, buttonTextColor, rejectBg, rejectBorder } from '../common/helpers/colors.js';
 import { DiffArea, Diff, CtrlKZone, VoidFileSnapshot, DiffAreaSnapshotEntry, diffAreaSnapshotKeys, DiffZone, TrackingZone, ComputedDiff } from '../common/editCodeServiceTypes.js';
@@ -50,7 +50,7 @@ import { acceptDiff as _acceptDiff, rejectDiff as _rejectDiff, acceptOrRejectAll
 import { addCtrlKZone as _addCtrlKZone, removeCtrlKZone as _removeCtrlKZone, ZoneManagerContext } from './editCodeZoneManager.js';
 import { startApplying as _startApplying, ApplierContext } from './editCodeApplier.js';
 // import { isMacintosh } from '../../../../base/common/platform.js';
-// import { VOID_OPEN_SETTINGS_ACTION_ID } from './voidSettingsPane.js';
+// import { VOID_OPEN_SETTINGS_ACTION_ID } from './ribixSettingsPane.js';
 
 const numLinesOfStr = (str: string) => str.split('\n').length
 

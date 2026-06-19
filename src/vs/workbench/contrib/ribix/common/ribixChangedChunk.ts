@@ -71,7 +71,7 @@ export function parseUnifiedDiffRanges(diff: string): LineRange[] {
 }
 
 /**
- * Parse the output of IVoidSCMService.gitSampledDiffs — blocks delimited by
+ * Parse the output of IRibixSCMService.gitSampledDiffs — blocks delimited by
  * `==== <file> ====` headers — into per-file changed ranges. Files that yield no
  * ranges (deletion/whitespace-only) are dropped so they never spawn a mission.
  */

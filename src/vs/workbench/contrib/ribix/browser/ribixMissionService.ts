@@ -12,7 +12,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
 import { Mission, MissionContext, PlanTask, MISSION_SCHEMA_VERSION, isMission, AgentFinding } from '../common/ribixTypes.js';
-import { IVoidSCMService } from '../common/voidSCMTypes.js';
+import { IRibixSCMService } from '../common/ribixSCMTypes.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IRibixAuthService } from './ribixAuthService.js';
@@ -100,7 +100,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 	private missions: Mission[] = [];
 	private maxConcurrentMissions: number = 3;
-	private voidSCM: IVoidSCMService;
+	private voidSCM: IRibixSCMService;
 	private _loadPromise: Promise<void>;
 
 	constructor(
@@ -116,7 +116,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 	) {
 		super();
 		this._register(this._onDidChangeMissions);
-		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
+		this.voidSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('void-channel-scm'));
 		this._loadPromise = this.loadMissions();
 
 		// Flush queued findings when the user signs in (auth state transitions to signed_in)

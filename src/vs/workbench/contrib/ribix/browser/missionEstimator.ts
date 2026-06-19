@@ -11,7 +11,7 @@
 //      estimate.label in the mission creation form.
 //
 //   2. In ribixCommandCenter.tsx (or the mission creation dialog), resolve
-//      repoFileCount via IVoidSCMService.gitFileCount() (add that method if needed) or
+//      repoFileCount via IRibixSCMService.gitFileCount() (add that method if needed) or
 //      approximate via the workspace directory listing. agentCount can be derived
 //      from the PlanTask[] once the plan is ready, or estimated from the description
 //      length before planning.

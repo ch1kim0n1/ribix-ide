@@ -19,7 +19,7 @@ import { ThreadsState, ThreadStreamState, ThreadType } from './chatThreadService
 import { chat_userMessageContent } from '../common/prompt/prompts.js';
 import { IDirectoryStrService } from '../common/directoryStrService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { ModelSelection, ModelSelectionOptions } from '../common/voidSettingsTypes.js';
+import { ModelSelection, ModelSelectionOptions } from '../common/ribixSettingsTypes.js';
 import { ToolName } from '../common/toolsServiceTypes.js';
 import { ToolMessage } from '../common/chatThreadServiceTypes.js';
 

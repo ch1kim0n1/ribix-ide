@@ -16,7 +16,7 @@
 import { URI } from '../../../../base/common/uri.js';
 import { DiffZone } from '../common/editCodeServiceTypes.js';
 import { IEditCodeService, StartApplyingOpts } from './editCodeServiceInterface.js';
-import { IVoidSettingsService } from '../common/voidSettingsService.js';
+import { IVoidSettingsService } from '../common/ribixSettingsService.js';
 
 /** Minimal context the applier functions need from EditCodeService. */
 export interface ApplierContext {

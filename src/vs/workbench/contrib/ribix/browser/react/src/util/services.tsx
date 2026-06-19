@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------*/
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { MCPUserState, RefreshableProviderName, SettingsOfProvider } from '../../../../../../../workbench/contrib/ribix/common/voidSettingsTypes.js'
+import { MCPUserState, RefreshableProviderName, SettingsOfProvider } from '../../../../../../../workbench/contrib/ribix/common/ribixSettingsTypes.js'
 import { DisposableStore, IDisposable } from '../../../../../../../base/common/lifecycle.js'
-import { VoidSettingsState } from '../../../../../../../workbench/contrib/ribix/common/voidSettingsService.js'
+import { VoidSettingsState } from '../../../../../../../workbench/contrib/ribix/common/ribixSettingsService.js'
 import { ColorScheme } from '../../../../../../../platform/theme/common/theme.js'
 import { RefreshModelStateOfProvider } from '../../../../../../../workbench/contrib/ribix/common/refreshModelService.js'
 
@@ -20,7 +20,7 @@ import { IHoverService } from '../../../../../../../platform/hover/browser/hover
 import { IThemeService } from '../../../../../../../platform/theme/common/themeService.js';
 import { ILLMMessageService } from '../../../../common/sendLLMMessageService.js';
 import { IRefreshModelService } from '../../../../../../../workbench/contrib/ribix/common/refreshModelService.js';
-import { IVoidSettingsService } from '../../../../../../../workbench/contrib/ribix/common/voidSettingsService.js';
+import { IVoidSettingsService } from '../../../../../../../workbench/contrib/ribix/common/ribixSettingsService.js';
 import { IExtensionTransferService } from '../../../../../../../workbench/contrib/ribix/browser/extensionTransferService.js'
 
 import { IInstantiationService } from '../../../../../../../platform/instantiation/common/instantiation.js'

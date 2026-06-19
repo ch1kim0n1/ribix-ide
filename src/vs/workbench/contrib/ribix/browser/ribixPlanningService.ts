@@ -10,7 +10,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
 import { IDirectoryStrService } from '../common/directoryStrService.js';
-import { IVoidSettingsService } from '../common/voidSettingsService.js';
+import { IVoidSettingsService } from '../common/ribixSettingsService.js';
 import { PlanTask, MissionContext } from '../common/ribixTypes.js';
 import { generatePlanningPrompt, PlanningPromptContext } from '../common/prompt/ribixPlanningPrompt.js';
 

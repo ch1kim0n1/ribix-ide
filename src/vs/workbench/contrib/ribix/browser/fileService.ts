@@ -7,7 +7,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IDirectoryStrService } from '../common/directoryStrService.js';
 import { messageOfSelection } from '../common/prompt/prompts.js';
-import { IVoidModelService } from '../common/voidModelService.js';
+import { IVoidModelService } from '../common/ribixModelService.js';
 
 
 

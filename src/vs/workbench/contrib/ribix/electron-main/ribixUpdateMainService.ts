@@ -7,12 +7,12 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IEnvironmentMainService } from '../../../../platform/environment/electron-main/environmentMainService.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IUpdateService, StateType } from '../../../../platform/update/common/update.js';
-import { IVoidUpdateService } from '../common/voidUpdateService.js';
-import { VoidCheckUpdateRespose } from '../common/voidUpdateServiceTypes.js';
+import { IRibixUpdateService } from '../common/ribixUpdateService.js';
+import { RibixCheckUpdateResponse } from '../common/ribixUpdateServiceTypes.js';
 
 
 
-export class VoidMainUpdateService extends Disposable implements IVoidUpdateService {
+export class VoidMainUpdateService extends Disposable implements IRibixUpdateService {
 	_serviceBrand: undefined;
 
 	constructor(
@@ -24,7 +24,7 @@ export class VoidMainUpdateService extends Disposable implements IVoidUpdateServ
 	}
 
 
-	async check(explicit: boolean): Promise<VoidCheckUpdateRespose> {
+	async check(explicit: boolean): Promise<RibixCheckUpdateResponse> {
 
 		const isDevMode = !this._envMainService.isBuilt // found in abstractUpdateService.ts
 
@@ -93,7 +93,7 @@ export class VoidMainUpdateService extends Disposable implements IVoidUpdateServ
 
 
 
-	private async _manualCheckGHTagIfDisabled(explicit: boolean): Promise<VoidCheckUpdateRespose> {
+	private async _manualCheckGHTagIfDisabled(explicit: boolean): Promise<RibixCheckUpdateResponse> {
 		try {
 			const response = await fetch('https://api.github.com/repos/ch1kim0n1/ribix-ide/releases/latest');
 

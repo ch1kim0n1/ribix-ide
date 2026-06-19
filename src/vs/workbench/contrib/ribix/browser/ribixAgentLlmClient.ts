@@ -15,7 +15,7 @@ import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { LLMChatMessage } from '../common/sendLLMMessageTypes.js';
 import { ParsedToolCall } from '../common/ribixAgentLoopTypes.js';
 import { AgentTurnMessage } from '../common/ribixAgentLoopTypes.js';
-import { IVoidSettingsService } from '../common/voidSettingsService.js';
+import { IVoidSettingsService } from '../common/ribixSettingsService.js';
 import { aiProviderManager } from './aiProviderManager.js';
 
 /**

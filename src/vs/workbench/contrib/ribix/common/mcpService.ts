@@ -17,8 +17,8 @@ import { IMainProcessService } from '../../../../platform/ipc/common/mainProcess
 import { MCPServerOfName, MCPConfigFileJSON, MCPServer, MCPToolCallParams, RawMCPToolCall, MCPServerEventResponse } from './mcpServiceTypes.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { InternalToolInfo } from './prompt/prompts.js';
-import { IVoidSettingsService } from './voidSettingsService.js';
-import { MCPUserStateOfName } from './voidSettingsTypes.js';
+import { IVoidSettingsService } from './ribixSettingsService.js';
+import { MCPUserStateOfName } from './ribixSettingsTypes.js';
 
 
 type MCPServiceState = {

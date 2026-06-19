@@ -18,8 +18,8 @@ import { extractCodeFromRegular } from '../common/helpers/extractCodeFromResult.
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { isWindows } from '../../../../base/common/platform.js';
-import { IVoidSettingsService } from '../common/voidSettingsService.js';
-import { FeatureName } from '../common/voidSettingsTypes.js';
+import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { FeatureName } from '../common/ribixSettingsTypes.js';
 import { IConvertToLLMMessageService } from './convertToLLMMessageService.js';
 // import { IContextGatheringService } from './contextGatheringService.js';
 

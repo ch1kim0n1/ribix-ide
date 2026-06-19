@@ -10,17 +10,17 @@ import { localize2 } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { INotificationActions, INotificationHandle, INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IMetricsService } from '../common/metricsService.js';
-import { IVoidUpdateService } from '../common/voidUpdateService.js';
+import { IRibixUpdateService } from '../common/ribixUpdateService.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import * as dom from '../../../../base/browser/dom.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
-import { VoidCheckUpdateRespose } from '../common/voidUpdateServiceTypes.js';
+import { RibixCheckUpdateResponse } from '../common/ribixUpdateServiceTypes.js';
 import { IAction } from '../../../../base/common/actions.js';
 
 
 
 
-const notifyUpdate = (res: VoidCheckUpdateRespose & { message: string }, notifService: INotificationService, updateService: IUpdateService): INotificationHandle => {
+const notifyUpdate = (res: RibixCheckUpdateResponse & { message: string }, notifService: INotificationService, updateService: IUpdateService): INotificationHandle => {
 	const message = res?.message || 'This is a very old version of Ribix IDE, please download the latest version! [Ribix IDE](https://ribix.dev/download)!'
 
 	let actions: INotificationActions | undefined
@@ -140,7 +140,7 @@ const notifyErrChecking = (notifService: INotificationService): INotificationHan
 const performVoidCheck = async (
 	explicit: boolean,
 	notifService: INotificationService,
-	voidUpdateService: IVoidUpdateService,
+	voidUpdateService: IRibixUpdateService,
 	metricsService: IMetricsService,
 	updateService: IUpdateService,
 ): Promise<INotificationHandle | null> => {
@@ -181,7 +181,7 @@ registerAction2(class extends Action2 {
 		});
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const voidUpdateService = accessor.get(IVoidUpdateService)
+		const voidUpdateService = accessor.get(IRibixUpdateService)
 		const notifService = accessor.get(INotificationService)
 		const metricsService = accessor.get(IMetricsService)
 		const updateService = accessor.get(IUpdateService)
@@ -201,7 +201,7 @@ registerAction2(class extends Action2 {
 class VoidUpdateWorkbenchContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.void.voidUpdate'
 	constructor(
-		@IVoidUpdateService voidUpdateService: IVoidUpdateService,
+		@IRibixUpdateService voidUpdateService: IRibixUpdateService,
 		@IMetricsService metricsService: IMetricsService,
 		@INotificationService notifService: INotificationService,
 		@IUpdateService updateService: IUpdateService,

@@ -11,7 +11,7 @@ import { IMainProcessService } from '../../../../platform/ipc/common/mainProcess
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IRibixAuthService } from './ribixAuthService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { IVoidSCMService } from '../common/voidSCMTypes.js';
+import { IRibixSCMService } from '../common/ribixSCMTypes.js';
 import { RibixApiClient } from '../common/ribixApiClient.js';
 import { CloudFinding } from '../common/ribixAuthTypes.js';
 import { AgentFinding, AgentFindingType } from '../common/ribixTypes.js';
@@ -60,7 +60,7 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 	private readonly _onDidReceiveCloudFinding = new Emitter<TaggedFinding>();
 	readonly onDidReceiveCloudFinding = this._onDidReceiveCloudFinding.event;
 
-	private voidSCM: IVoidSCMService;
+	private voidSCM: IRibixSCMService;
 	private currentRepoFullName: string | null = null;
 	private cancelStream: (() => void) | null = null;
 
@@ -72,7 +72,7 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 	) {
 		super();
 		this._register(this._onDidReceiveCloudFinding);
-		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
+		this.voidSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('void-channel-scm'));
 
 		// Attempt to subscribe on construction; failures are suppressed.
 		this.ensureSubscribed().catch(e => {

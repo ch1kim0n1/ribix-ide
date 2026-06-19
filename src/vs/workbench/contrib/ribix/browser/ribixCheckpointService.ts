@@ -10,7 +10,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { URI } from '../../../../base/common/uri.js';
 import { VoidFileSnapshot } from '../common/editCodeServiceTypes.js';
-import { IVoidModelService } from '../common/voidModelService.js';
+import { IVoidModelService } from '../common/ribixModelService.js';
 import { IEditCodeService } from './editCodeServiceInterface.js';
 import { EndOfLinePreference } from '../../../../editor/common/model.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';

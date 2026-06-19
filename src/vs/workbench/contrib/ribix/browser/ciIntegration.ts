@@ -13,7 +13,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
-import { IVoidSCMService } from '../common/voidSCMTypes.js';
+import { IRibixSCMService } from '../common/ribixSCMTypes.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IRibixMissionService } from './ribixMissionService.js';
 import { MissionContext } from '../common/ribixTypes.js';
@@ -329,7 +329,7 @@ const MISSION_LOG_TRIM = 500;
 export class RibixCIContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.ribixCI';
 
-	private readonly voidSCM: IVoidSCMService;
+	private readonly voidSCM: IRibixSCMService;
 
 	constructor(
 		@IRibixCIService private readonly ciService: IRibixCIService,
@@ -339,7 +339,7 @@ export class RibixCIContribution extends Disposable implements IWorkbenchContrib
 		@IMainProcessService mainProcessService: IMainProcessService,
 	) {
 		super();
-		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
+		this.voidSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('void-channel-scm'));
 
 		this._register(ciService.onDidDetectFailure(failure => {
 			this.onFailure(failure);
@@ -480,7 +480,7 @@ registerAction2(class ConfigureCIIntegrationAction extends Action2 {
 			const workspacePath =
 				workspaceContextService.getWorkspace().folders[0]?.uri.fsPath ?? null;
 			if (workspacePath) {
-				const voidSCM = ProxyChannel.toService<IVoidSCMService>(
+				const voidSCM = ProxyChannel.toService<IRibixSCMService>(
 					mainProcessService.getChannel('void-channel-scm'),
 				);
 				const remote = await voidSCM.gitRemoteUrl(workspacePath);

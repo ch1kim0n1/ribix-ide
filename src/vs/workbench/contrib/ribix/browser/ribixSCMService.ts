@@ -9,12 +9,12 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { ContextKeyExpr, IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js'
 import { ISCMService } from '../../scm/common/scm.js'
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js'
-import { IVoidSCMService } from '../common/voidSCMTypes.js'
+import { IRibixSCMService } from '../common/ribixSCMTypes.js'
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js'
-import { IVoidSettingsService } from '../common/voidSettingsService.js'
+import { IVoidSettingsService } from '../common/ribixSettingsService.js'
 import { IConvertToLLMMessageService } from './convertToLLMMessageService.js'
 import { ILLMMessageService } from '../common/sendLLMMessageService.js'
-import { ModelSelection, OverridesOfModel, ModelSelectionOptions } from '../common/voidSettingsTypes.js'
+import { ModelSelection, OverridesOfModel, ModelSelectionOptions } from '../common/ribixSettingsTypes.js'
 import { gitCommitMessage_systemMessage, gitCommitMessage_userMessage } from '../common/prompt/prompts.js'
 import { LLMChatMessage } from '../common/sendLLMMessageTypes.js'
 import { generateUuid } from '../../../../base/common/uuid.js'
@@ -46,7 +46,7 @@ class GenerateCommitMessageService extends Disposable implements IGenerateCommit
 	private readonly execute = new ThrottledDelayer(300)
 	private llmRequestId: string | null = null
 	private currentRequestId: string | null = null
-	private voidSCM: IVoidSCMService
+	private voidSCM: IRibixSCMService
 	private loadingContextKey: IContextKey<boolean>
 
 	constructor(
@@ -60,7 +60,7 @@ class GenerateCommitMessageService extends Disposable implements IGenerateCommit
 	) {
 		super()
 		this.loadingContextKey = this.contextKeyService.createKey(loadingContextKey, false)
-		this.voidSCM = ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'))
+		this.voidSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('void-channel-scm'))
 	}
 
 	override dispose() {

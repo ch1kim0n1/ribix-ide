@@ -19,7 +19,7 @@ import { IMainProcessService } from '../../../../platform/ipc/common/mainProcess
 import { IMarkerService } from '../../../../platform/markers/common/markers.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
-import { IVoidSCMService } from '../common/voidSCMTypes.js';
+import { IRibixSCMService } from '../common/ribixSCMTypes.js';
 import { IRibixFileLockService } from '../common/ribixFileLockService.js';
 import { IRibixMissionService } from './ribixMissionService.js';
 import { IRibixAgentService } from './ribixAgentService.js';
@@ -65,7 +65,7 @@ export const IRibixChangeWatcherService = createDecorator<IRibixChangeWatcherSer
 /** Test seam: lets unit tests inject a tiny debounce and stub SCM/agent/marker/file services. */
 type WatcherOptions = {
 	debounceMs?: number;
-	scmOverride?: IVoidSCMService;
+	scmOverride?: IRibixSCMService;
 	agentOverride?: IRibixAgentService;
 	markerOverride?: IMarkerService;
 	fileOverride?: IFileService;
@@ -91,7 +91,7 @@ export class RibixChangeWatcherService extends Disposable implements IRibixChang
 	/** fsPath -> timestamp until which a save of this path is treated as a self-write. */
 	private readonly recentlyWritten = new Map<string, number>();
 
-	private readonly voidSCM: IVoidSCMService;
+	private readonly voidSCM: IRibixSCMService;
 	private readonly agentService: IRibixAgentService | undefined;
 	private readonly markerService: IMarkerService | undefined;
 	private readonly fileService: IFileService | undefined;
@@ -110,9 +110,9 @@ export class RibixChangeWatcherService extends Disposable implements IRibixChang
 		options?: WatcherOptions,
 	) {
 		super();
-		// IVoidSCMService lives in electron-main; resolve it via its IPC channel.
+		// IRibixSCMService lives in electron-main; resolve it via its IPC channel.
 		// Tests inject a stub through options.scmOverride.
-		this.voidSCM = options?.scmOverride ?? ProxyChannel.toService<IVoidSCMService>(mainProcessService.getChannel('void-channel-scm'));
+		this.voidSCM = options?.scmOverride ?? ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('void-channel-scm'));
 		this.debounceMs = options?.debounceMs ?? DEFAULT_DEBOUNCE_MS;
 		// The agent/marker/file services are only needed for the unattended `auto` run.
 		// Tests inject stubs through options so they can assert marker rendering without
