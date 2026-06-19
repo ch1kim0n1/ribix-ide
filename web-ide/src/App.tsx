@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import { useStore } from 'zustand';
+import { create } from 'zustand';
 import { useAuthStore } from './stores/authStore';
 import { AIChatPanel } from './components/AIChatPanel';
 import { FileExplorer } from './components/FileExplorer';
@@ -215,7 +214,7 @@ function LoginModal({ onClose, onLogin, onRegister, onGitHubLogin }: {
                 color: '#fff',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: pointer,
+                cursor: 'pointer',
                 fontSize: '14px',
               }}
             >
@@ -364,7 +363,7 @@ This is the web-based version of Ribix IDE.
               setFile(path, content, language);
               setActiveFile(path);
             }}
-            currentFile={activeFile}
+            currentFile={activeFile || undefined}
           />
         </div>
         <div className="editor-container">
@@ -388,7 +387,7 @@ This is the web-based version of Ribix IDE.
                 height="100%"
                 language={activeFileData.language}
                 value={activeFileData.content}
-                onChange={(value) => setFile(activeFile, value || '', activeFileData.language)}
+                onChange={(value) => setFile(activeFile || '', value || '', activeFileData.language)}
                 theme="vs-dark"
                 options={{
                   minimap: { enabled: true },

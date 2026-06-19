@@ -194,12 +194,12 @@ export class WorkspaceStateManager {
   /**
    * Private helper methods
    */
-  private async captureWorkspaceFiles(workspaceId: string): Promise<Record<string, { content: string; hash: string }>> {
+  private async captureWorkspaceFiles(_workspaceId: string): Promise<Record<string, { content: string; hash: string }>> {
     // This would integrate with the file system store
     return {};
   }
 
-  private async restoreFile(filePath: string, content: string): Promise<void> {
+  private async restoreFile(_filePath: string, _content: string): Promise<void> {
     // This would integrate with the file system store
   }
 }

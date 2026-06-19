@@ -121,11 +121,13 @@ export class AnalyticsManager {
     if (filters?.workspaceId) {
       metrics = metrics.filter(m => m.workspaceId === filters.workspaceId);
     }
-    if (filters?.startDate) {
-      metrics = metrics.filter(m => m.timestamp >= filters.startDate);
+    const startDate = filters?.startDate;
+    if (startDate !== undefined) {
+      metrics = metrics.filter(m => m.timestamp >= startDate);
     }
-    if (filters?.endDate) {
-      metrics = metrics.filter(m => m.timestamp <= filters.endDate);
+    const endDate = filters?.endDate;
+    if (endDate !== undefined) {
+      metrics = metrics.filter(m => m.timestamp <= endDate);
     }
 
     return metrics.sort((a, b) => b.timestamp - a.timestamp);
@@ -144,11 +146,13 @@ export class AnalyticsManager {
     if (filters?.workspaceId) {
       metrics = metrics.filter(m => m.workspaceId === filters.workspaceId);
     }
-    if (filters?.startDate) {
-      metrics = metrics.filter(m => m.timestamp >= filters.startDate);
+    const perfStartDate = filters?.startDate;
+    if (perfStartDate !== undefined) {
+      metrics = metrics.filter(m => m.timestamp >= perfStartDate);
     }
-    if (filters?.endDate) {
-      metrics = metrics.filter(m => m.timestamp <= filters.endDate);
+    const perfEndDate = filters?.endDate;
+    if (perfEndDate !== undefined) {
+      metrics = metrics.filter(m => m.timestamp <= perfEndDate);
     }
 
     return metrics.sort((a, b) => b.timestamp - a.timestamp);
@@ -171,11 +175,13 @@ export class AnalyticsManager {
     if (filters?.period) {
       costs = costs.filter(c => c.period === filters.period);
     }
-    if (filters?.startDate) {
-      costs = costs.filter(c => c.timestamp >= filters.startDate);
+    const costStartDate = filters?.startDate;
+    if (costStartDate !== undefined) {
+      costs = costs.filter(c => c.timestamp >= costStartDate);
     }
-    if (filters?.endDate) {
-      costs = costs.filter(c => c.timestamp <= filters.endDate);
+    const costEndDate = filters?.endDate;
+    if (costEndDate !== undefined) {
+      costs = costs.filter(c => c.timestamp <= costEndDate);
     }
 
     return costs.sort((a, b) => b.timestamp - a.timestamp);
@@ -186,7 +192,6 @@ export class AnalyticsManager {
    */
   calculateCosts(metrics: UsageMetrics[]): CostTracking {
     const totalComputeHours = metrics.reduce((sum, m) => sum + (m.metrics.sessionDuration / 3600), 0);
-    const totalAIRequests = metrics.reduce((sum, m) => sum + m.metrics.aiRequests, 0);
     const totalAITokens = metrics.reduce((sum, m) => sum + m.metrics.aiTokensUsed, 0);
 
     const computeCost = totalComputeHours * this.pricing.computePerHour;
@@ -276,7 +281,7 @@ export class AnalyticsManager {
   /**
    * Calculate growth rate
    */
-  private calculateGrowth(current: number, period: string): number {
+  private calculateGrowth(_current: number, _period: string): number {
     // Simplified growth calculation
     // In production, this would compare with previous period
     return 0;

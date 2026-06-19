@@ -114,7 +114,7 @@ export class AutoUpdateManager {
         }
       }
 
-      const blob = new Blob(chunks);
+      const blob = new Blob(chunks as BlobPart[]);
       // Save and install update
       await this.installUpdate(blob, updateInfo);
       
@@ -140,18 +140,18 @@ export class AutoUpdateManager {
     }
   }
 
-  private async installWindowsUpdate(blob: Blob, updateInfo: UpdateInfo): Promise<void> {
+  private async installWindowsUpdate(_blob: Blob, updateInfo: UpdateInfo): Promise<void> {
     // For Electron on Windows, use the auto-updater
     // This would be handled by Electron's built-in auto-updater
     console.log('Installing Windows update:', updateInfo.version);
   }
 
-  private async installMacUpdate(blob: Blob, updateInfo: UpdateInfo): Promise<void> {
+  private async installMacUpdate(_blob: Blob, updateInfo: UpdateInfo): Promise<void> {
     // For Electron on macOS, use the auto-updater
     console.log('Installing macOS update:', updateInfo.version);
   }
 
-  private async installLinuxUpdate(blob: Blob, updateInfo: UpdateInfo): Promise<void> {
+  private async installLinuxUpdate(_blob: Blob, updateInfo: UpdateInfo): Promise<void> {
     // For Electron on Linux, use the auto-updater
     console.log('Installing Linux update:', updateInfo.version);
   }
@@ -291,7 +291,7 @@ export const useUpdateStore = create<UpdateState>((set) => ({
         onDownloadProgress: (progress) => {
           set({ downloadProgress: progress });
         },
-        onUpdateDownloaded: (update) => {
+        onUpdateDownloaded: (_update) => {
           set({ isDownloading: false });
         },
       });
@@ -323,7 +323,7 @@ export const useUpdateStore = create<UpdateState>((set) => ({
     set({ isDownloading: true, downloadProgress: 0, error: null });
 
     try {
-      await updateManager.downloadUpdate(updateInfo);
+      await updateManager?.downloadUpdate(updateInfo);
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Download failed',

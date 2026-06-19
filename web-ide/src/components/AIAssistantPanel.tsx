@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAdvancedAIStore } from '../stores/advancedAIStore';
 
 interface AIAssistantPanelProps {
@@ -11,14 +11,14 @@ export function AIAssistantPanel({ onClose, currentCode = '', currentLanguage = 
   const { isProcessing, currentTask, results, error, generateCode, refactorCode, debugCode, reviewCode, generateDocumentation, explainCode, generateTests, optimizeCode } = useAdvancedAIStore();
   const [activeTab, setActiveTab] = useState<'generate' | 'refactor' | 'debug' | 'review' | 'docs'>('generate');
   const [prompt, setPrompt] = useState('');
-  const [refactorType, setRefactorType] = useState<'extract-function' | 'rename-variable' | 'optimize' | 'simplify' | 'add-types'>('optimize');
+  const [refactoringType, setRefactoringType] = useState<'extract-function' | 'rename-variable' | 'optimize' | 'simplify' | 'add-types'>('optimize');
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     await generateCode({
       prompt: prompt,
       context: {
-        code: currentCode,
+        surroundingCode: currentCode,
         language: currentLanguage,
       },
     });
@@ -182,8 +182,8 @@ export function AIAssistantPanel({ onClose, currentCode = '', currentLanguage = 
                 Refactoring Type:
               </label>
               <select
-                value={refactorType}
-                onChange={(e) => setRefactorType(e.target.value as any)}
+                value={refactoringType}
+                onChange={(e) => setRefactoringType(e.target.value as any)}
                 style={{
                   width: '100%',
                   padding: '8px 12px',

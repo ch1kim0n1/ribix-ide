@@ -24,9 +24,9 @@ jobs:
       # only and a dependency .d.ts (google-auth-library) can crash it with OVERLAPPING edit.
       RIBIX_DISABLE_MANGLE: '1'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v4
         with:
           node-version: '20.18.2'
           cache: 'npm'
@@ -66,7 +66,9 @@ jobs:
       # APPLE_ID, APPLE_ID_PASSWORD (app-specific password for notarization), APPLE_TEAM_ID
       # If secrets are not configured, signing is skipped (unsigned build).
       - name: Import signing certificate
-        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+        if: env.MACOS_CERTIFICATE_P12 != ''
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
         run: |
           CERT_FILE=$(mktemp /tmp/certificate.XXXXXX.p12)
           KEYCHAIN_FILE=$(mktemp /tmp/keychain.XXXXXX.keychain)
@@ -80,7 +82,9 @@ jobs:
           echo "KEYCHAIN_FILE=$KEYCHAIN_FILE" >> $GITHUB_ENV
 
       - name: Sign macOS app
-        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+        if: env.MACOS_CERTIFICATE_P12 != ''
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
         run: |
           APP_PATH="../VSCode-darwin-${{ matrix.arch }}/Ribix IDE.app"
           /usr/bin/codesign --force --deep --options runtime \
@@ -89,7 +93,9 @@ jobs:
         continue-on-error: true
 
       - name: Notarize macOS app
-        if: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+        if: env.MACOS_CERTIFICATE_P12 != ''
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
         run: |
           DMG_PATH="dist/RibixIDE-${{ matrix.arch }}.dmg"
           xcrun notarytool submit "$DMG_PATH" \
@@ -122,7 +128,7 @@ jobs:
       # only and a dependency .d.ts (google-auth-library) can crash it with OVERLAPPING edit.
       RIBIX_DISABLE_MANGLE: '1'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
@@ -134,7 +140,7 @@ jobs:
             python3 python-is-python3 \
             fakeroot rpm
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v4
         with:
           node-version: '20.18.2'
           cache: 'npm'
@@ -179,9 +185,9 @@ jobs:
       # only and a dependency .d.ts (google-auth-library) can crash it with OVERLAPPING edit.
       RIBIX_DISABLE_MANGLE: '1'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v4
         with:
           node-version: '20.18.2'
           cache: 'npm'
@@ -223,13 +229,17 @@ jobs:
       # Requires secrets: WINDOWS_CERTIFICATE_PFX (base64-encoded), WINDOWS_CERTIFICATE_PASSWORD
       # If secrets are not configured, signing is skipped (unsigned build).
       - name: Decode signing certificate
-        if: ${{ secrets.WINDOWS_CERTIFICATE_PFX != '' }}
+        if: env.WINDOWS_CERTIFICATE_PFX != ''
+        env:
+          WINDOWS_CERTIFICATE_PFX: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
         run: |
           echo "${{ secrets.WINDOWS_CERTIFICATE_PFX }}" | base64 -d > cert.pfx
         shell: bash
 
       - name: Sign Windows binary
-        if: ${{ secrets.WINDOWS_CERTIFICATE_PFX != '' }}
+        if: env.WINDOWS_CERTIFICATE_PFX != ''
+        env:
+          WINDOWS_CERTIFICATE_PFX: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
         run: |
           signtool sign /f cert.pfx /p "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" \
             /tr http://timestamp.digicert.com /td sha256 /fd sha256 \

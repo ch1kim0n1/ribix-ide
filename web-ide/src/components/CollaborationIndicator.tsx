@@ -6,7 +6,7 @@ interface CollaborationIndicatorProps {
 }
 
 export function CollaborationIndicator({ fileId }: CollaborationIndicatorProps) {
-  const { isConnected, users, joinSession, leaveSession, cursors } = useCollaborationStore();
+  const { isConnected, users, joinSession, leaveSession } = useCollaborationStore();
 
   React.useEffect(() => {
     joinSession(fileId);
@@ -100,7 +100,7 @@ interface RemoteCursorProps {
   selection?: { from: number; to: number };
 }
 
-export function RemoteCursor({ position, color, name, selection }: RemoteCursorProps) {
+export function RemoteCursor({ position, color, name }: RemoteCursorProps) {
   return (
     <div
       style={{

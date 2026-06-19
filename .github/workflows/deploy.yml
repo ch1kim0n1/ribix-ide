@@ -109,10 +109,67 @@ jobs:
           kubectl set image deployment/ribix-ide-web \
             ribix-ide-web=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web-ide:${{ github.sha }} \
             -n ribix-staging
-          kubectl rollout status deployment/ribix-ide-web -n ribix-staging
+          kubectl rollout status deployment/ribix-ide-web -n ribix-staging --timeout=300s
+
+      - name: Verify staging health
+        run: |
+          # Wait for rollout to settle, then check health endpoint
+          sleep 10
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://staging.ribix.dev/health || echo "000")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Staging health check failed (HTTP $HTTP_CODE). Rolling back."
+            kubectl rollout undo deployment/ribix-ide-web -n ribix-staging
+            exit 1
+          fi
+          echo "Staging health check passed."
+
+  deploy-production-canary:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production-canary
+      url: https://ide.ribix.dev
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Deploy canary (10%)
+        run: |
+          # Create or update a canary deployment with the new image
+          kubectl set image deployment/ribix-ide-web-canary \
+            ribix-ide-web=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web-ide:${{ github.ref_name }} \
+            -n ribix-production 2>/dev/null || \
+          kubectl create deployment ribix-ide-web-canary \
+            --image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web-ide:${{ github.ref_name }} \
+            -n ribix-production --replicas=1
+
+          # Wait for canary pod to be ready
+          kubectl rollout status deployment/ribix-ide-web-canary -n ribix-production --timeout=300s
+
+      - name: Canary health check (60s observation)
+        run: |
+          sleep 60
+          CANARY_POD=$(kubectl get pods -n ribix-production -l app=ribix-ide-web-canary \
+            -o jsonpath='{.items[0].metadata.name}')
+          RESTARTS=$(kubectl get pod "$CANARY_POD" -n ribix-production \
+            -o jsonpath='{.status.containerStatuses[0].restartCount}')
+          if [ "$RESTARTS" -gt 2 ]; then
+            echo "Canary pod restarted $RESTARTS times. Aborting promotion."
+            kubectl delete deployment ribix-ide-web-canary -n ribix-production
+            exit 1
+          fi
+          echo "Canary healthy (restarts=$RESTARTS). Ready for promotion."
 
   deploy-production:
-    needs: build
+    needs: deploy-production-canary
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     environment:
@@ -129,12 +186,28 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
 
-      - name: Deploy to Kubernetes
+      - name: Promote to full production rollout
         run: |
           kubectl set image deployment/ribix-ide-web \
             ribix-ide-web=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web-ide:${{ github.ref_name }} \
             -n ribix-production
-          kubectl rollout status deployment/ribix-ide-web -n ribix-production
+          kubectl rollout status deployment/ribix-ide-web -n ribix-production --timeout=600s
+
+      - name: Verify production health
+        run: |
+          sleep 15
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://ide.ribix.dev/health || echo "000")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Production health check failed (HTTP $HTTP_CODE). Rolling back."
+            kubectl rollout undo deployment/ribix-ide-web -n ribix-production
+            exit 1
+          fi
+          echo "Production health check passed."
+
+      - name: Clean up canary
+        if: always()
+        run: |
+          kubectl delete deployment ribix-ide-web-canary -n ribix-production 2>/dev/null || true
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
@@ -145,6 +218,44 @@ jobs:
           release_name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
+
+  rollback-production:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: failure() && startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production-rollback
+    
+    steps:
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Rollback production deployment
+        run: |
+          kubectl rollout undo deployment/ribix-ide-web -n ribix-production
+          kubectl rollout status deployment/ribix-ide-web -n ribix-production --timeout=300s
+          echo "Production rolled back to previous revision."
+
+      - name: Clean up canary
+        if: always()
+        run: |
+          kubectl delete deployment ribix-ide-web-canary -n ribix-production 2>/dev/null || true
+
+      - name: Notify rollback
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_sha: context.sha,
+              state: 'failure',
+              description: 'Production deployment failed and was rolled back',
+              auto_inactive: true
+            })
 
   security-scan:
     needs: build
@@ -157,8 +268,19 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web-ide:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-results.sarif'
+          exit-code: '1'
+          severity: 'HIGH,CRITICAL'
+          ignore-unfixed: true
 
       - name: Upload Trivy results to GitHub Security tab
+        if: always()
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: 'trivy-results.sarif'
+
+      - name: Block deploy on HIGH/CRITICAL findings
+        if: failure()
+        run: |
+          echo "Trivy found HIGH or CRITICAL vulnerabilities. Deployment blocked."
+          echo "Fix the vulnerabilities or add them to .trivyignore to proceed."
+          exit 1

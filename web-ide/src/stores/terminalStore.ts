@@ -49,7 +49,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   clearHistory: () => set({ lines: [] }),
 
   executeCommand: async (command: string) => {
-    const { addLine, setRunning, currentDirectory, commandHistory } = get();
+    const { addLine, setRunning, currentDirectory } = get();
     
     setRunning(true);
     

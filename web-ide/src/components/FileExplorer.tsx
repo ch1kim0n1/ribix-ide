@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useFileSystemStore } from '../stores/fileSystemStore';
 
 interface FileExplorerProps {
