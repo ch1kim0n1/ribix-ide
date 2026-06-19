@@ -45,7 +45,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        component: [web-ide, websocket-server]
+        include:
+          - component: web-ide
+            dockerfile: web-ide/Dockerfile
+          - component: websocket-server
+            dockerfile: web-ide/Dockerfile.websocket
     
     steps:
       - name: Checkout code
@@ -78,7 +82,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: web-ide/Dockerfile
+          file: ${{ matrix.dockerfile }}
           target: production
           push: true
           tags: ${{ steps.meta.outputs.tags }}
