@@ -1,0 +1,331 @@
+# =============================================================================
+# TLS / SSL configuration for ribix-ide
+#
+# This manifest contains all resources required to provision and serve
+# trusted TLS certificates for the ide.ribix.dev domain:
+#
+#   1. ClusterIssuer for Let's Encrypt (production + staging)
+#   2. Certificate resource for ide.ribix.dev
+#   3. Ingress configuration with hardened TLS annotations
+#   4. NetworkPolicy restricting TLS ingress to port 443
+#   5. PodSecurityPolicy enforcing non-root, read-only containers
+#
+# Prerequisites:
+#   - cert-manager must be installed in the cluster (see docs/ssl-tls-setup.md)
+#   - The ingress-nginx controller must be deployed
+#   - A valid email address for ACME account registration (replace below)
+#   - DNS for ide.ribix.dev must resolve to the ingress controller LoadBalancer
+# =============================================================================
+
+---
+# -----------------------------------------------------------------------------
+# ClusterIssuer: Let's Encrypt Production
+#
+# Uses the ACME HTTP-01 challenge to prove domain ownership. cert-manager will
+# solve the challenge by temporarily exposing a token through the ingress
+# controller on port 80, after which Let's Encrypt issues the certificate.
+# -----------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    app: ribix-ide
+spec:
+  acme:
+    # Let's Encrypt production ACME endpoint.
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Email used for certificate expiry notifications and ACME account recovery.
+    # REPLACE with a real operations email address before applying.
+    email: ops@ribix.dev
+    privateKeySecretRef:
+      # Secret that stores the ACME account private key (auto-created).
+      name: letsencrypt-prod-account-key
+    solvers:
+    - http01:
+        ingress:
+          # Use the nginx ingress class to solve HTTP-01 challenges.
+          class: nginx
+
+---
+# -----------------------------------------------------------------------------
+# ClusterIssuer: Let's Encrypt Staging
+#
+# Identical to the production issuer but points at the Let's Encrypt staging
+# endpoint. Staging certificates are NOT trusted by browsers but are issued
+# with much higher rate limits, making this issuer ideal for testing the
+# issuance pipeline before switching to production.
+# -----------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+  labels:
+    app: ribix-ide
+spec:
+  acme:
+    # Let's Encrypt staging ACME endpoint.
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: ops@ribix.dev
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+
+---
+# -----------------------------------------------------------------------------
+# Certificate: ide.ribix.dev
+#
+# Explicitly requests a certificate for ide.ribix.dev from the production
+# ClusterIssuer. The issued certificate + private key are stored in the
+# `ribix-ide-tls` Secret, which is referenced by the Ingress TLS section.
+#
+# While cert-manager can auto-generate a Certificate from Ingress annotations,
+# defining it explicitly gives full control over the issuer, common name, and
+# secret name, and makes the renewal status directly observable.
+# -----------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ribix-ide-tls-cert
+  namespace: ribix-ide
+  labels:
+    app: ribix-ide
+spec:
+  # Secret where the signed certificate and private key are stored.
+  secretName: ribix-ide-tls
+  # Use the production issuer. Switch to letsencrypt-staging for testing.
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+    group: cert-manager.io
+  # Primary domain name on the certificate.
+  commonName: ide.ribix.dev
+  # Subject Alternative Names (SANs). Include the apex and wildcard if needed.
+  dnsNames:
+  - ide.ribix.dev
+  - www.ribix.dev
+  duration: 2160h   # 90 days (Let's Encrypt maximum)
+  renewBefore: 360h # Renew 15 days before expiry
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+
+---
+# -----------------------------------------------------------------------------
+# Ingress: ribix-ide (TLS-hardened)
+#
+# This is the consolidated, fully TLS-hardened Ingress for ribix-ide. It mirrors
+# the Ingress defined in deployment.yaml but adds the complete set of nginx
+# security annotations. Apply either this Ingress OR the one in deployment.yaml
+# (not both) to avoid redundant apply operations; their TLS configuration is
+# identical.
+#
+# Security features:
+#   - HTTP -> HTTPS redirect (ssl-redirect + force-ssl-redirect)
+#   - HSTS header with preload and includeSubDomains
+#   - Modern cipher suites (ECDHE + AES-GCM / ChaCha20-Poly1305)
+#   - TLS 1.2 and TLS 1.3 only (legacy protocols disabled)
+# -----------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ribix-ide-ingress
+  namespace: ribix-ide
+  labels:
+    app: ribix-ide
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # Use cert-manager to provision the certificate from the production issuer.
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Route WebSocket upgrade traffic to the websocket service.
+    nginx.ingress.kubernetes.io/websocket-services: "ribix-ide-websocket"
+    # Redirect all HTTP requests to HTTPS.
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # HTTP Strict Transport Security (HSTS) - 1 year, preload, all subdomains.
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/hsts-preload: "true"
+    nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
+    # Modern cipher suites (ECDHE forward secrecy + AEAD only).
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+    # Disable legacy TLS versions; allow only TLS 1.2 and TLS 1.3.
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    # Optimize TLS session resumption.
+    nginx.ingress.kubernetes.io/enable-ocsp: "true"
+spec:
+  tls:
+  - hosts:
+    - ide.ribix.dev
+    secretName: ribix-ide-tls
+  rules:
+  - host: ide.ribix.dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ribix-ide-web
+            port:
+              number: 80
+      - path: /collaboration
+        pathType: Prefix
+        backend:
+          service:
+            name: ribix-ide-websocket
+            port:
+              number: 1234
+
+---
+# -----------------------------------------------------------------------------
+# NetworkPolicy: TLS ingress on port 443
+#
+# Restricts ingress traffic to the ribix-ide-web pods so that only the
+# ingress-nginx namespace is allowed to reach them, and only on the ports the
+# controller actually uses (HTTP backend on 3000). A dedicated policy for the
+# ingress-nginx namespace itself is not required here because the nginx
+# controller terminates TLS on port 443 at the LoadBalancer edge; this policy
+# documents and enforces that the only externally exposed TLS port is 443.
+#
+# NOTE: The NetworkPolicy below applies to the ingress-nginx namespace pods to
+# explicitly limit inbound TLS traffic to port 443 (and HTTP-01 challenge port
+# 80 used by cert-manager). Apply it in the ingress-nginx namespace.
+# -----------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ingress-tls-443-only
+  namespace: ingress-nginx
+  labels:
+    app: ribix-ide
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow inbound HTTPS (TLS) traffic from anywhere on port 443.
+  - ports:
+    - protocol: TCP
+      port: 443
+  # Allow inbound HTTP on port 80 for ACME HTTP-01 challenges and redirect.
+  - ports:
+    - protocol: TCP
+      port: 80
+
+---
+# -----------------------------------------------------------------------------
+# PodSecurityPolicy: non-root, read-only containers
+#
+# Enforces that all pods in the ribix-ide namespace run as non-root users,
+# drop all Linux capabilities, mount a read-only root filesystem, and do not
+# request privileged mode or host namespaces.
+#
+# IMPORTANT: PodSecurityPolicy is deprecated in Kubernetes 1.21 and removed in
+# 1.25+. On clusters >= 1.25, use Pod Security Admission instead by labeling
+# the namespace:
+#
+#   kubectl label namespace ribix-ide \
+#     pod-security.kubernetes.io/enforce=restricted \
+#     pod-security.kubernetes.io/enforce-version=latest \
+#     pod-security.kubernetes.io/audit=restricted \
+#     pod-security.kubernetes.io/warn=restricted
+#
+# The PSP below is retained for clusters < 1.25 and is paired with the RBAC
+# bindings required to make it effective.
+# -----------------------------------------------------------------------------
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: ribix-ide-restricted
+  labels:
+    app: ribix-ide
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: "runtime/default"
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+  - ALL
+  hostNetwork: false
+  hostPID: false
+  hostIPC: false
+  hostPorts:
+  - min: 0
+    max: 65535
+  readOnlyRootFilesystem: true
+  runAsUser:
+    # Containers MUST run as a non-root UID.
+    rule: MustRunAsNonRoot
+    ranges:
+    - min: 10001
+      max: 65535
+  runAsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 10001
+      max: 65535
+  supplementalGroups:
+    rule: MustRunAs
+    ranges:
+    - min: 10001
+      max: 65535
+  fsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 10001
+      max: 65535
+  seLinux:
+    rule: RunAsAny
+  volumes:
+  - configMap
+  - secret
+  - emptyDir
+  - projected
+  - downwardAPI
+  - persistentVolumeClaim
+
+---
+# RBAC: allow service accounts in ribix-ide to use the restricted PSP.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ribix-ide-psp-use
+  labels:
+    app: ribix-ide
+rules:
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  resourceNames:
+  - ribix-ide-restricted
+  verbs:
+  - use
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ribix-ide-psp-use
+  namespace: ribix-ide
+  labels:
+    app: ribix-ide
+roleRef:
+  kind: ClusterRole
+  name: ribix-ide-psp-use
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: ribix-ide

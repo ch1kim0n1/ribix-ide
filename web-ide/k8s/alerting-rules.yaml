@@ -1,0 +1,364 @@
+# Prometheus alerting rules for ribix-ide
+# Deploy AFTER monitoring.yaml:
+#   kubectl apply -f web-ide/k8s/alerting-rules.yaml
+#
+# This ConfigMap is mounted into the Prometheus pod at /etc/prometheus/rules/
+# (see monitoring.yaml). The Prometheus Operator alternative is a PrometheusRule
+# CRD — included at the bottom for clusters that run the operator.
+
+# ---------------------------------------------------------------------------
+# ConfigMap with rule files (used by the standalone Prometheus deployment)
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: ribix-monitoring
+  labels:
+    app: prometheus
+data:
+  ribix-ide-alerts.yml: |
+    groups:
+      - name: ribix-ide-http
+        interval: 30s
+        rules:
+          # HighErrorRate — HTTP 5xx > 5% for 5 minutes
+          - alert: HighErrorRate
+            expr: |
+              sum(rate(http_requests_total{namespace="ribix-ide",status=~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total{namespace="ribix-ide"}[5m]))
+              > 0.05
+            for: 5m
+            labels:
+              severity: critical
+              service: ribix-ide-web
+              namespace: ribix-ide
+            annotations:
+              summary: "High HTTP 5xx error rate on ribix-ide-web"
+              description: "5xx errors are {{ $value | humanizePercentage }} of all requests (threshold 5%) for the last 5 minutes."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#higherrorrate"
+
+          # HighLatency — p95 latency > 2s for 5 minutes
+          - alert: HighLatency
+            expr: |
+              histogram_quantile(0.95,
+                sum(rate(http_request_duration_seconds_bucket{namespace="ribix-ide"}[5m])) by (le)
+              ) > 2
+            for: 5m
+            labels:
+              severity: warning
+              service: ribix-ide-web
+              namespace: ribix-ide
+            annotations:
+              summary: "High p95 latency on ribix-ide-web"
+              description: "p95 request latency is {{ $value }}s (threshold 2s) for the last 5 minutes."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#highlatency"
+
+      - name: ribix-ide-pods
+        interval: 30s
+        rules:
+          # PodCrashLooping — restart count > 3 in 10 minutes
+          - alert: PodCrashLooping
+            expr: |
+              increase(kube_pod_container_status_restarts_total{namespace="ribix-ide"}[10m]) > 3
+            for: 0m
+            labels:
+              severity: critical
+              namespace: ribix-ide
+            annotations:
+              summary: "Pod {{ $labels.pod }} is crash looping"
+              description: "Container {{ $labels.container }} in pod {{ $labels.pod }} restarted {{ $value | printf \"%.0f\" }} times in the last 10 minutes (threshold 3)."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#podcrashlooping"
+
+          # PodNotReady — pod not ready for 5 minutes
+          - alert: PodNotReady
+            expr: |
+              kube_pod_status_ready{namespace="ribix-ide",condition="true"} == 0
+            for: 5m
+            labels:
+              severity: critical
+              namespace: ribix-ide
+            annotations:
+              summary: "Pod {{ $labels.pod }} is not Ready"
+              description: "Pod {{ $labels.pod }} has been in a non-Ready state for more than 5 minutes."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#podnotready"
+
+      - name: ribix-ide-resources
+        interval: 30s
+        rules:
+          # HighCPUUsage — CPU > 80% of limit for 10 minutes
+          - alert: HighCPUUsage
+            expr: |
+              sum(rate(container_cpu_usage_seconds_total{namespace="ribix-ide",container!=\"POD\",container!=\"\"}[5m])) by (pod)
+              /
+              sum(kube_pod_container_resource_limits{namespace="ribix-ide",resource="cpu"}) by (pod)
+              > 0.80
+            for: 10m
+            labels:
+              severity: warning
+              namespace: ribix-ide
+            annotations:
+              summary: "High CPU usage on pod {{ $labels.pod }}"
+              description: "Pod {{ $labels.pod }} CPU usage is {{ $value | humanizePercentage }} of its limit (threshold 80%) for the last 10 minutes."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#highcpuusage"
+
+          # HighMemoryUsage — Memory > 85% of limit for 10 minutes
+          - alert: HighMemoryUsage
+            expr: |
+              sum(container_memory_working_set_bytes{namespace="ribix-ide",container!=\"POD\",container!=\"\"}) by (pod)
+              /
+              sum(kube_pod_container_resource_limits{namespace="ribix-ide",resource="memory"}) by (pod)
+              > 0.85
+            for: 10m
+            labels:
+              severity: warning
+              namespace: ribix-ide
+            annotations:
+              summary: "High memory usage on pod {{ $labels.pod }}"
+              description: "Pod {{ $labels.pod }} memory usage is {{ $value | humanizePercentage }} of its limit (threshold 85%) for the last 10 minutes."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#highmemoryusage"
+
+      - name: ribix-ide-websocket
+        interval: 30s
+        rules:
+          # WebSocketServerDown — websocket health endpoint failing for 2 minutes
+          - alert: WebSocketServerDown
+            expr: |
+              up{job="ribix-ide-websocket"} == 0
+            for: 2m
+            labels:
+              severity: critical
+              service: ribix-ide-websocket
+              namespace: ribix-ide
+            annotations:
+              summary: "WebSocket server {{ $labels.pod }} is down"
+              description: "The ribix-ide-websocket health endpoint on pod {{ $labels.pod }} has been failing for 2 minutes."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#websocketserverdown"
+
+      - name: ribix-ide-certificates
+        interval: 5m
+        rules:
+          # CertificateExpiringSoon — TLS cert < 14 days to expiry
+          - alert: CertificateExpiringSoon
+            expr: |
+              certmanager_certificate_expiration_timestamp_seconds{secret_name="ribix-ide-tls"}
+                - time() < 14 * 24 * 3600
+            for: 10m
+            labels:
+              severity: warning
+              namespace: ribix-ide
+            annotations:
+              summary: "TLS certificate expiring soon"
+              description: "Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} expires in less than 14 days."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#certificateexpiringsoon"
+
+      - name: ribix-ide-ingress
+        interval: 30s
+        rules:
+          # IngressBackendErrors — ingress 5xx > 1% for 5 minutes
+          - alert: IngressBackendErrors
+            expr: |
+              sum(rate(nginx_ingress_controller_requests{namespace="ribix-ide",status=~"5.."}[5m]))
+              /
+              sum(rate(nginx_ingress_controller_requests{namespace="ribix-ide"}[5m]))
+              > 0.01
+            for: 5m
+            labels:
+              severity: warning
+              namespace: ribix-ide
+            annotations:
+              summary: "Ingress backend 5xx errors"
+              description: "Ingress 5xx error rate is {{ $value | humanizePercentage }} (threshold 1%) for ribix-ide backends over the last 5 minutes."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#ingressbackenderrors"
+
+      - name: ribix-ide-nodes
+        interval: 1m
+        rules:
+          # DiskPressure — node disk usage > 85%
+          - alert: DiskPressure
+            expr: |
+              (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}
+                  / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) * 100 > 85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Disk pressure on {{ $labels.instance }}"
+              description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ $value | printf \"%.0f\" }}% full (threshold 85%)."
+              runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#diskpressure"
+
+---
+# ---------------------------------------------------------------------------
+# PrometheusRule CRD (for clusters running the Prometheus Operator)
+# Same alerts, expressed as a PrometheusRule so the operator picks them up
+# automatically without mounting the ConfigMap.
+# ---------------------------------------------------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ribix-ide-alerts
+  namespace: ribix-monitoring
+  labels:
+    release: ribix-monitoring
+    app: ribix-ide
+spec:
+  groups:
+    - name: ribix-ide-http
+      interval: 30s
+      rules:
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(http_requests_total{namespace="ribix-ide",status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{namespace="ribix-ide"}[5m]))
+            > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: ribix-ide-web
+            namespace: ribix-ide
+          annotations:
+            summary: "High HTTP 5xx error rate on ribix-ide-web"
+            description: "5xx errors are {{ $value | humanizePercentage }} of all requests (threshold 5%) for the last 5 minutes."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#higherrorrate"
+
+        - alert: HighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{namespace="ribix-ide"}[5m])) by (le)
+            ) > 2
+          for: 5m
+          labels:
+            severity: warning
+            service: ribix-ide-web
+            namespace: ribix-ide
+          annotations:
+            summary: "High p95 latency on ribix-ide-web"
+            description: "p95 request latency is {{ $value }}s (threshold 2s) for the last 5 minutes."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#highlatency"
+
+    - name: ribix-ide-pods
+      interval: 30s
+      rules:
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="ribix-ide"}[10m]) > 3
+          for: 0m
+          labels:
+            severity: critical
+            namespace: ribix-ide
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash looping"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} restarted {{ $value | printf \"%.0f\" }} times in the last 10 minutes (threshold 3)."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#podcrashlooping"
+
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="ribix-ide",condition="true"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            namespace: ribix-ide
+          annotations:
+            summary: "Pod {{ $labels.pod }} is not Ready"
+            description: "Pod {{ $labels.pod }} has been in a non-Ready state for more than 5 minutes."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#podnotready"
+
+    - name: ribix-ide-resources
+      interval: 30s
+      rules:
+        - alert: HighCPUUsage
+          expr: |
+            sum(rate(container_cpu_usage_seconds_total{namespace="ribix-ide",container!="POD",container!=""}[5m])) by (pod)
+            /
+            sum(kube_pod_container_resource_limits{namespace="ribix-ide",resource="cpu"}) by (pod)
+            > 0.80
+          for: 10m
+          labels:
+            severity: warning
+            namespace: ribix-ide
+          annotations:
+            summary: "High CPU usage on pod {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} CPU usage is {{ $value | humanizePercentage }} of its limit (threshold 80%) for the last 10 minutes."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#highcpuusage"
+
+        - alert: HighMemoryUsage
+          expr: |
+            sum(container_memory_working_set_bytes{namespace="ribix-ide",container!="POD",container!=""}) by (pod)
+            /
+            sum(kube_pod_container_resource_limits{namespace="ribix-ide",resource="memory"}) by (pod)
+            > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            namespace: ribix-ide
+          annotations:
+            summary: "High memory usage on pod {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} memory usage is {{ $value | humanizePercentage }} of its limit (threshold 85%) for the last 10 minutes."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#highmemoryusage"
+
+    - name: ribix-ide-websocket
+      interval: 30s
+      rules:
+        - alert: WebSocketServerDown
+          expr: |
+            up{job="ribix-ide-websocket"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: ribix-ide-websocket
+            namespace: ribix-ide
+          annotations:
+            summary: "WebSocket server {{ $labels.pod }} is down"
+            description: "The ribix-ide-websocket health endpoint on pod {{ $labels.pod }} has been failing for 2 minutes."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#websocketserverdown"
+
+    - name: ribix-ide-certificates
+      interval: 5m
+      rules:
+        - alert: CertificateExpiringSoon
+          expr: |
+            certmanager_certificate_expiration_timestamp_seconds{secret_name="ribix-ide-tls"}
+              - time() < 14 * 24 * 3600
+          for: 10m
+          labels:
+            severity: warning
+            namespace: ribix-ide
+          annotations:
+            summary: "TLS certificate expiring soon"
+            description: "Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} expires in less than 14 days."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#certificateexpiringsoon"
+
+    - name: ribix-ide-ingress
+      interval: 30s
+      rules:
+        - alert: IngressBackendErrors
+          expr: |
+            sum(rate(nginx_ingress_controller_requests{namespace="ribix-ide",status=~"5.."}[5m]))
+            /
+            sum(rate(nginx_ingress_controller_requests{namespace="ribix-ide"}[5m]))
+            > 0.01
+          for: 5m
+          labels:
+            severity: warning
+            namespace: ribix-ide
+          annotations:
+            summary: "Ingress backend 5xx errors"
+            description: "Ingress 5xx error rate is {{ $value | humanizePercentage }} (threshold 1%) for ribix-ide backends over the last 5 minutes."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#ingressbackenderrors"
+
+    - name: ribix-ide-nodes
+      interval: 1m
+      rules:
+        - alert: DiskPressure
+          expr: |
+            (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}
+                / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) * 100 > 85
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Disk pressure on {{ $labels.instance }}"
+            description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ $value | printf \"%.0f\" }}% full (threshold 85%)."
+            runbook_url: "https://github.com/ribix/ribix-ide/blob/main/docs/monitoring-setup.md#diskpressure"

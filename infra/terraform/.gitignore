@@ -1,0 +1,9 @@
+# .gitignore for Terraform
+*.tfvars
+!terraform.tfvars.example
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.pem
+*.key

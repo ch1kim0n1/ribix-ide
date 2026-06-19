@@ -1,0 +1,981 @@
+# Monitoring stack for ribix-ide
+# Includes: Namespace, Prometheus, Grafana, Alertmanager, ServiceMonitors,
+# and a Grafana dashboard ConfigMap for IDE health.
+#
+# Deploy with:
+#   kubectl apply -f web-ide/k8s/monitoring.yaml
+#   kubectl apply -f web-ide/k8s/alerting-rules.yaml
+#
+# Requires the Prometheus Operator CRDs (ServiceMonitor, PodMonitor) to be
+# installed in the cluster. Install the kube-prometheus-stack chart or:
+#   kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/\
+# prometheus-operator/main/bundle.yaml
+
+# ---------------------------------------------------------------------------
+# Namespace
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ribix-monitoring
+  labels:
+    name: ribix-monitoring
+    app: ribix-monitoring
+
+---
+# ---------------------------------------------------------------------------
+# ServiceAccount & RBAC for Prometheus
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: ribix-monitoring
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/metrics
+  - services
+  - endpoints
+  - pods
+  - pods/status
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+  verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: ribix-monitoring
+
+---
+# ---------------------------------------------------------------------------
+# Grafana admin password secret
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-admin-secret
+  namespace: ribix-monitoring
+type: Opaque
+stringData:
+  # CHANGE THIS in production. Base64 is NOT encryption.
+  admin-user: "admin"
+  admin-password: "ribix-grafana-admin"
+  # Prometheus datasource basic auth (matches prometheus service account)
+  prometheus-user: "prometheus"
+  prometheus-password: "prometheus"
+
+---
+# ---------------------------------------------------------------------------
+# Prometheus ConfigMap (used by the Prometheus instance when the Operator
+# is NOT available; also referenced as a fallback scrape config).
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: ribix-monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: ribix-ide
+        monitor: ribix-monitoring
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+                - alertmanager:9093
+
+    scrape_configs:
+      # Prometheus self-monitoring
+      - job_name: "prometheus"
+        static_configs:
+          - targets: ["localhost:9090"]
+
+      # ribix-ide-web pods (metrics + health)
+      - job_name: "ribix-ide-web"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["ribix-ide"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: ribix-ide-web
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            regex: "3000"
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            regex: (.+)
+            target_label: __address__
+            replacement: ${1}:3000
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: "go_.*"
+            action: drop
+
+      # ribix-ide-websocket pods (metrics + health)
+      - job_name: "ribix-ide-websocket"
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["ribix-ide"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: ribix-ide-websocket
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            regex: "1235"
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            regex: (.+)
+            target_label: __address__
+            replacement: ${1}:1235
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+
+      # Kubernetes nodes (kubelet + cAdvisor)
+      - job_name: "kubernetes-nodes"
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __address__
+            replacement: ${1}:10250
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: __metrics_path__
+            replacement: /metrics/cadvisor
+
+      # kube-state-metrics (if installed) for restart counts, pod phases
+      - job_name: "kube-state-metrics"
+        static_configs:
+          - targets: ["kube-state-metrics.kube-system.svc:8080"]
+
+      # nginx ingress controller metrics
+      - job_name: "nginx-ingress"
+        static_configs:
+          - targets: ["ingress-nginx-controller-metrics.ingress-nginx.svc:10254"]
+
+---
+# ---------------------------------------------------------------------------
+# Prometheus Deployment + Service
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: ribix-monitoring
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.51.1
+        imagePullPolicy: IfNotPresent
+        args:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--storage.tsdb.path=/prometheus/data"
+        - "--storage.tsdb.retention.time=15d"
+        - "--web.enable-lifecycle"
+        - "--web.enable-admin-api"
+        ports:
+        - containerPort: 9090
+          name: web
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus/prometheus.yml
+          subPath: prometheus.yml
+          readOnly: true
+        - name: prometheus-rules
+          mountPath: /etc/prometheus/rules
+          readOnly: true
+        - name: prometheus-data
+          mountPath: /prometheus/data
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: web
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: web
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+      - name: prometheus-rules
+        configMap:
+          name: prometheus-rules
+      - name: prometheus-data
+        persistentVolumeClaim:
+          claimName: prometheus-data
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data
+  namespace: ribix-monitoring
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: ribix-monitoring
+  labels:
+    app: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - protocol: TCP
+    port: 9090
+    targetPort: web
+  type: ClusterIP
+
+---
+# ---------------------------------------------------------------------------
+# Alertmanager ConfigMap (notification routing)
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: ribix-monitoring
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+
+    # Receiver templates are placeholders. Fill in real webhook URLs / SMTP
+    # settings via a Secret and merge, or edit this ConfigMap after deploy.
+    # See docs/monitoring-setup.md for Slack / email / PagerDuty examples.
+    route:
+      group_by: ["alertname", "namespace", "severity"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: "default"
+      routes:
+        - matchers:
+            - severity = critical
+          receiver: "pagerduty"
+          group_wait: 10s
+          repeat_interval: 1h
+        - matchers:
+            - severity = warning
+          receiver: "slack"
+        - matchers:
+            - alertname =~ "CertificateExpiringSoon|IngressBackendErrors"
+          receiver: "email"
+
+    receivers:
+      - name: "default"
+        webhook_configs:
+          - url: "http://localhost:9093"
+            send_resolved: true
+
+      - name: "slack"
+        slack_configs:
+          - api_url: "https://hooks.slack.com/services/REPLACE_ME"
+            channel: "#ribix-alerts"
+            send_resolved: true
+            title: "{{ .CommonLabels.alertname }}"
+            text: "{{ .CommonAnnotations.summary }}\n{{ .CommonAnnotations.description }}"
+
+      - name: "email"
+        email_configs:
+          - to: "oncall@ribix.dev"
+            from: "alertmanager@ribix.dev"
+            smarthost: "smtp.ribix.dev:587"
+            auth_username: "alertmanager@ribix.dev"
+            auth_password: "REPLACE_ME"
+            require_tls: true
+            send_resolved: true
+
+      - name: "pagerduty"
+        webhook_configs:
+          - url: "https://events.pagerduty.com/v2/enqueue"
+            send_resolved: true
+
+    inhibit_rules:
+      - source_matchers: ["severity = critical"]
+        target_matchers: ["severity = warning"]
+        equal: ["alertname", "namespace"]
+
+---
+# ---------------------------------------------------------------------------
+# Alertmanager Deployment + Service
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: ribix-monitoring
+  labels:
+    app: alertmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: alertmanager
+        image: prom/alertmanager:v0.27.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - "--config.file=/etc/alertmanager/alertmanager.yml"
+        - "--storage.path=/alertmanager"
+        ports:
+        - containerPort: 9093
+          name: web
+        volumeMounts:
+        - name: alertmanager-config
+          mountPath: /etc/alertmanager/alertmanager.yml
+          subPath: alertmanager.yml
+          readOnly: true
+        - name: alertmanager-data
+          mountPath: /alertmanager
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: web
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: web
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: alertmanager-config
+        configMap:
+          name: alertmanager-config
+      - name: alertmanager-data
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: ribix-monitoring
+  labels:
+    app: alertmanager
+spec:
+  selector:
+    app: alertmanager
+  ports:
+  - protocol: TCP
+    port: 9093
+    targetPort: web
+  type: ClusterIP
+
+---
+# ---------------------------------------------------------------------------
+# Grafana ConfigMap (datasources + dashboard provider)
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: ribix-monitoring
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        editable: true
+      - name: Alertmanager
+        type: alertmanager
+        access: proxy
+        url: http://alertmanager:9093
+        jsonData:
+          implementation: prometheus
+
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: "ribix-ide-dashboards"
+        orgId: 1
+        folder: "Ribix IDE"
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
+
+---
+# ---------------------------------------------------------------------------
+# Grafana Dashboard ConfigMap — IDE Health
+# Panels: request rate, error rate, latency p95/p99, WebSocket connections,
+# pod CPU, pod memory.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-ide-health
+  namespace: ribix-monitoring
+  labels:
+    grafana_dashboard: "1"
+    app: ribix-monitoring
+data:
+  ide-health.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "title": "Ribix IDE Health",
+      "uid": "ribix-ide-health",
+      "schemaVersion": 39,
+      "version": 1,
+      "timezone": "browser",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "refresh": "30s",
+      "tags": ["ribix", "ide", "health"],
+      "templating": {
+        "list": [
+          {
+            "name": "namespace",
+            "type": "query",
+            "datasource": "Prometheus",
+            "query": "label_values(http_requests_total, namespace)",
+            "refresh": 1,
+            "includeAll": true,
+            "current": { "text": "All", "value": "$__all" }
+          },
+          {
+            "name": "pod",
+            "type": "query",
+            "datasource": "Prometheus",
+            "query": "label_values(http_requests_total{namespace=\"$namespace\"}, pod)",
+            "refresh": 1,
+            "includeAll": true,
+            "current": { "text": "All", "value": "$__all" }
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "HTTP Request Rate (req/s)",
+          "type": "stat",
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{namespace=\"$namespace\"}[1m]))",
+              "legendFormat": "req/s",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "reqps" }
+          }
+        },
+        {
+          "id": 2,
+          "title": "HTTP Error Rate (5xx %)",
+          "type": "stat",
+          "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{namespace=\"$namespace\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{namespace=\"$namespace\"}[5m])) * 100",
+              "legendFormat": "5xx %",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "Request Latency p95 / p99 (s)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[5m])) by (le))",
+              "legendFormat": "p95",
+              "refId": "A"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[5m])) by (le))",
+              "legendFormat": "p99",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "s" }
+          }
+        },
+        {
+          "id": 4,
+          "title": "WebSocket Active Connections",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(websocket_connections_active{namespace=\"ribix-ide\"}) by (pod)",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "short" }
+          }
+        },
+        {
+          "id": 5,
+          "title": "WebSocket Health Check Status",
+          "type": "stat",
+          "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "up{job=\"ribix-ide-websocket\"}",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+              ]
+            }
+          }
+        },
+        {
+          "id": 6,
+          "title": "Pod CPU Usage (cores)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"ribix-ide\",container!=\"POD\",container!=\"\"}[5m])) by (pod)",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "cores" }
+          }
+        },
+        {
+          "id": 7,
+          "title": "Pod Memory Usage (bytes)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(container_memory_working_set_bytes{namespace=\"ribix-ide\",container!=\"POD\",container!=\"\"}) by (pod)",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "bytes" }
+          }
+        },
+        {
+          "id": 8,
+          "title": "Pod Restarts (last 1h)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"ribix-ide\"}[1h])",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "title": "Pod Ready Status",
+          "type": "stat",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "kube_pod_status_ready{condition=\"true\",namespace=\"ribix-ide\"}",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                { "type": "value", "options": { "0": { "text": "NotReady", "color": "red" }, "1": { "text": "Ready", "color": "green" } } }
+              ]
+            }
+          }
+        },
+        {
+          "id": 10,
+          "title": "Node Disk Usage (%)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "(1 - node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay\"}) * 100",
+              "legendFormat": "{{instance}} {{mountpoint}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "percent" }
+          }
+        }
+      ]
+    }
+
+---
+# ---------------------------------------------------------------------------
+# Grafana Deployment + Service
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: ribix-monitoring
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        runAsUser: 472
+        fsGroup: 472
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.4.2
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: grafana-admin-secret
+              key: admin-user
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-admin-secret
+              key: admin-password
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        - name: GF_INSTALL_PLUGINS
+          value: ""
+        ports:
+        - containerPort: 3000
+          name: web
+        volumeMounts:
+        - name: grafana-config
+          mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+          subPath: datasources.yaml
+          readOnly: true
+        - name: grafana-config
+          mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+          subPath: dashboards.yaml
+          readOnly: true
+        - name: grafana-dashboards
+          mountPath: /var/lib/grafana/dashboards
+          readOnly: true
+        - name: grafana-data
+          mountPath: /var/lib/grafana
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: web
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: web
+          initialDelaySeconds: 15
+          periodSeconds: 10
+      volumes:
+      - name: grafana-config
+        configMap:
+          name: grafana-config
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboard-ide-health
+      - name: grafana-data
+        persistentVolumeClaim:
+          claimName: grafana-data
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: ribix-monitoring
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: ribix-monitoring
+  labels:
+    app: grafana
+spec:
+  selector:
+    app: grafana
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: web
+  type: ClusterIP
+
+---
+# ---------------------------------------------------------------------------
+# ServiceMonitor for ribix-ide-web (requires Prometheus Operator CRDs)
+# ---------------------------------------------------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ribix-ide-web
+  namespace: ribix-monitoring
+  labels:
+    release: ribix-monitoring
+    app: ribix-ide-web
+spec:
+  namespaceSelector:
+    matchNames:
+      - ribix-ide
+  selector:
+    matchLabels:
+      app: ribix-ide-web
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+    - port: http
+      path: /health
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: true
+
+---
+# ---------------------------------------------------------------------------
+# ServiceMonitor for ribix-ide-websocket
+# ---------------------------------------------------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ribix-ide-websocket
+  namespace: ribix-monitoring
+  labels:
+    release: ribix-monitoring
+    app: ribix-ide-websocket
+spec:
+  namespaceSelector:
+    matchNames:
+      - ribix-ide
+  selector:
+    matchLabels:
+      app: ribix-ide-websocket
+  endpoints:
+    - port: ws-metrics
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+    - port: ws-health
+      path: /health
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: true
+
+---
+# ---------------------------------------------------------------------------
+# PodMonitor for ribix-ide pods (fallback when Service port names differ)
+# ---------------------------------------------------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ribix-ide-pods
+  namespace: ribix-monitoring
+  labels:
+    release: ribix-monitoring
+    app: ribix-ide
+spec:
+  namespaceSelector:
+    matchNames:
+      - ribix-ide
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - ribix-ide-web
+          - ribix-ide-websocket
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+    - port: ws-metrics
+      path: /metrics
+      interval: 15s
+
+---
+# ---------------------------------------------------------------------------
+# NetworkPolicy: allow Prometheus to scrape ribix-ide pods
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: ribix-ide
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - ribix-ide-web
+          - ribix-ide-websocket
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ribix-monitoring
+    ports:
+    - protocol: TCP
+      port: 3000
+    - protocol: TCP
+      port: 1234
+    - protocol: TCP
+      port: 1235

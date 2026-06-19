@@ -1,0 +1,11 @@
+# terraform.tfvars.example
+# Copy to terraform.tfvars and fill in your values.
+
+project_id      = "your-gcp-project-id"
+region          = "us-central1"
+zone            = "us-central1-a"
+cluster_name    = "ribix-ide-prod"
+domain          = "ide.ribix.dev"
+min_node_count  = 1
+max_node_count  = 4
+machine_type    = "e2-standard-4"
