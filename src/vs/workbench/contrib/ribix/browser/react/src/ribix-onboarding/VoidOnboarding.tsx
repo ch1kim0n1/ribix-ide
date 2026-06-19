@@ -5,13 +5,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAccessor, useIsDark, useSettingsState } from '../util/services.js';
-import { Brain, Check, ChevronRight, DollarSign, ExternalLink, Lock, X } from 'lucide-react';
+import { Brain, Check, ChevronRight, DollarSign, ExternalLink, Lock, Rocket, X } from 'lucide-react';
 import { displayInfoOfProviderName, ProviderName, providerNames, localProviderNames, featureNames, FeatureName, isFeatureNameDisabled } from '../../../../common/ribixSettingsTypes.js';
 import { ChatMarkdownRender } from '../markdown/ChatMarkdownRender.js';
 import { OllamaSetupInstructions, OneClickSwitchButton, SettingsForProvider, ModelDump } from '../void-settings-tsx/Settings.js';
 import { ColorScheme } from '../../../../../../../platform/theme/common/theme.js';
 import ErrorBoundary from '../sidebar-tsx/ErrorBoundary.js';
 import { isLinux } from '../../../../../../../base/common/platform.js';
+import { QUICK_START_TEMPLATES, type QuickStartTemplate } from '../../../../browser/ribixQuickStartTemplates.js';
 
 const OVERRIDE_VALUE = false
 
@@ -466,6 +467,62 @@ const PrimaryActionButton = ({ children, className, ringSize, ...props }: { chil
 
 type WantToUseOption = 'smart' | 'private' | 'cheap' | 'all'
 
+// =============================================
+//  QuickStartPage — template selection
+// =============================================
+
+const QuickStartPage = ({ pageIndex, setPageIndex }: { pageIndex: number, setPageIndex: (index: number) => void }) => {
+	const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+
+	return (
+		<div className="flex flex-col items-center w-full h-[80vh] gap-6 max-w-[800px] mx-auto">
+			<div className="text-5xl font-light text-center mt-8">Quick Start</div>
+			<div className="text-sm opacity-80 text-center max-w-md">
+				Choose a template to scaffold a new project, or skip to start with an empty workspace.
+				Each template includes a pre-configured Ribix mission so you can see the agents in action.
+			</div>
+
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mt-4 overflow-y-auto pb-4">
+				{QUICK_START_TEMPLATES.map((template: QuickStartTemplate) => (
+					<button
+						key={template.id}
+						onClick={() => setSelectedTemplate(template.id)}
+						className={`text-left p-6 rounded-lg border transition-all duration-200 ${
+							selectedTemplate === template.id
+								? 'border-[#C6AA58] bg-[#C6AA58]/10'
+								: 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20'
+						}`}
+					>
+						<div className="flex items-center gap-3 mb-2">
+							<Rocket className="w-5 h-5 text-[#C6AA58]" />
+							<div className="text-xl font-medium">{template.displayName}</div>
+						</div>
+						<div className="text-sm opacity-70 mb-3">{template.description}</div>
+						<div className="flex items-center gap-2 text-xs opacity-50">
+							<span>~{template.estimatedMinutes} min to first run</span>
+							<span>•</span>
+							<span>{template.files.length} files</span>
+							<span>•</span>
+							<span>includes mission</span>
+						</div>
+					</button>
+				))}
+			</div>
+
+			<div className="flex items-center gap-2 mt-auto pt-4">
+				<PreviousButton onClick={() => setPageIndex(pageIndex - 1)} />
+				<NextButton
+					onClick={() => {
+						// In a full implementation, this would call scaffoldTemplate()
+						// via a VS Code command. For now, just proceed to the next page.
+						setPageIndex(pageIndex + 1);
+					}}
+				/>
+			</div>
+		</div>
+	);
+};
+
 const VoidOnboardingContent = () => {
 
 
@@ -622,7 +679,12 @@ const VoidOnboardingContent = () => {
 				<AddProvidersPage pageIndex={pageIndex} setPageIndex={setPageIndex} />
 			}
 		/>,
-		2: <OnboardingPageShell
+		2: <OnboardingPageShell hasMaxWidth={false}
+			content={
+				<QuickStartPage pageIndex={pageIndex} setPageIndex={setPageIndex} />
+			}
+		/>,
+		3: <OnboardingPageShell
 
 			content={
 				<div>

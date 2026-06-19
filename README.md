@@ -37,25 +37,43 @@ Every other AI IDE helps you write code faster. Ribix IDE makes sure the code yo
 
 ## One-click install
 
-The fastest way to get Ribix IDE running. The installer clones the repo, installs dependencies, compiles, downloads Electron, and creates a desktop shortcut — no manual steps.
+The fastest way to get Ribix IDE running. The installer downloads a pre-built binary, extracts it, and creates a desktop shortcut — no build tools required.
 
 **macOS / Linux**
 ```bash
 curl -sSL https://raw.githubusercontent.com/ch1kim0n1/ribix-ide/main/install.sh | bash
 ```
 
-**Windows** (run in PowerShell or Command Prompt from the directory where you want the repo cloned)
+**Windows** (run in PowerShell or Command Prompt)
 ```bat
 curl -sSL https://raw.githubusercontent.com/ch1kim0n1/ribix-ide/main/install.bat -o install.bat && install.bat
 ```
 
-> The first build takes ~8–10 minutes. Node.js 20.18.2 is required; the installer will warn if your version differs.
+The installer shows progress indicators for each step (download, extract, verify, create shortcut) and takes 1–2 minutes with a pre-built binary.
+
+> **No build tools needed**: The one-click installer downloads pre-built binaries from GitHub Releases. You only need Node.js and build tools if you're building from source (see Quick Start below).
+
+### Quick Start Templates
+
+On first launch, the onboarding wizard offers quick-start templates so you can start coding immediately — no blank workspace:
+
+| Template | Description | Includes |
+|---|---|---|
+| **React + TypeScript** | Vite + React + TS app with a working counter | package.json, tsconfig, vite.config, App.tsx, mission |
+| **Express API** | REST API with CRUD endpoints | package.json, tsconfig, server.ts, mission |
+| **Node.js CLI** | CLI tool with argument parsing and help screen | package.json, tsconfig, index.ts, mission |
+| **TypeScript Library** | Publishable library with build + test setup | package.json, tsconfig, index.ts, tests, mission |
+| **Bug Hunt Demo** | Demo app with intentional bugs for QA agents | server.js with 7 bugs, mission |
+
+Each template includes a pre-configured Ribix mission (`.ribix/mission.md`) so you can see the QA agents in action immediately after scaffolding.
 
 ---
 
-## Quick start
+## Quick start (build from source)
 
 **Prerequisites:** Node.js 20.18.2 (via nvm), macOS/Windows/Linux
+
+> This is for developers building from source. For the faster path, use the [one-click install](#one-click-install) above.
 
 **Linux users** — install build dependencies first:
 ```bash
