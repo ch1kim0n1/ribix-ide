@@ -84,6 +84,10 @@ export class MarketplaceCompatibilityManager {
 	private ribixApiUrl: string;
 	/** User-Agent value for desktop requests */
 	private userAgent: string;
+	/** Periodic refresh timer for the seed list (issue #28). */
+	private refreshTimer: ReturnType<typeof setInterval> | undefined;
+	/** OpenVSX fallback URL (issue #28). Used when the primary Marketplace/proxy is unreachable. */
+	private openvsxUrl = 'https://open-vsx.org/vscode/gallery';
 
 	constructor(
 		@IWorkbenchEnvironmentService environmentService?: IWorkbenchEnvironmentService,
@@ -206,7 +210,8 @@ export class MarketplaceCompatibilityManager {
 			});
 
 			if (!response.ok) {
-				return null;
+				// Primary endpoint failed — try OpenVSX fallback (issue #28).
+				return this.fetchFromOpenVSX(extensionId);
 			}
 
 			const data = await response.json() as {
@@ -215,7 +220,8 @@ export class MarketplaceCompatibilityManager {
 
 			const ext = data.results[0]?.extensions[0];
 			if (!ext) {
-				return null;
+				// No match in the Gallery — try OpenVSX before giving up.
+				return this.fetchFromOpenVSX(extensionId);
 			}
 
 			return {
@@ -227,8 +233,70 @@ export class MarketplaceCompatibilityManager {
 				compatibilityNotes: 'Fetched from Marketplace — compatibility not yet verified in this fork',
 			};
 		} catch {
-			// Network failure or CORS block — caller falls back to unknown record.
+			// Network failure or CORS block — try OpenVSX, then fall back to unknown record.
+			const ovx = await this.fetchFromOpenVSX(extensionId).catch(() => null);
+			return ovx;
+		}
+	}
+
+	/**
+	 * OpenVSX fallback (issue #28). Used when the primary Marketplace endpoint
+	 * (direct or via the ribix backend proxy) is unreachable or returns no
+	 * match. OpenVSX is a vendor-neutral extension registry that mirrors many
+	 * popular VS Code extensions.
+	 */
+	private async fetchFromOpenVSX(extensionId: string): Promise<MarketplaceExtension | null> {
+		try {
+			const [publisher, name] = extensionId.split('.');
+			if (!publisher || !name) {
+				return null;
+			}
+			// OpenVSX exposes a per-extension metadata endpoint.
+			const url = `${this.openvsxUrl}/api/${publisher}/${name}`;
+			const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+			if (!response.ok) {
+				return null;
+			}
+			const data = await response.json() as {
+				name: string;
+				namespace: string;
+				version?: string;
+				versions?: Array<{ version: string }>;
+			};
+			return {
+				id: extensionId,
+				name: data.name,
+				publisher: data.namespace,
+				version: data.version ?? data.versions?.[0]?.version ?? 'unknown',
+				compatibilityStatus: 'unknown',
+				compatibilityNotes: 'Fetched from OpenVSX fallback — compatibility not yet verified in this fork',
+			};
+		} catch {
 			return null;
+		}
+	}
+
+	/**
+	 * Starts a periodic refresh of the seed list (issue #28).
+	 *
+	 * Every `intervalMs` (default 24h) the manager re-runs `preloadTopExtensions`
+	 * so newly popular extensions appear in the compatibility database without
+	 * requiring a restart. Safe to call multiple times — only one timer runs.
+	 */
+	startPeriodicRefresh(intervalMs = 24 * 60 * 60 * 1000): void {
+		this.stopPeriodicRefresh();
+		this.refreshTimer = setInterval(() => {
+			this.preloadTopExtensions().catch(() => {
+				// Silently ignore — the seed data is still valid.
+			});
+		}, intervalMs);
+	}
+
+	/** Stops the periodic refresh timer if one is running. */
+	stopPeriodicRefresh(): void {
+		if (this.refreshTimer) {
+			clearInterval(this.refreshTimer);
+			this.refreshTimer = undefined;
 		}
 	}
 
