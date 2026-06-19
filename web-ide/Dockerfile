@@ -35,10 +35,13 @@ FROM node:20.18.2-alpine AS production
 
 WORKDIR /app
 
+# Copy only production dependencies (issue #30: reduce image size from ~800MB
+# to ~200MB by excluding devDependencies like vitest, testing-library, etc.)
+COPY --from=builder /app/package*.json ./
+RUN npm ci --omit=dev
+
 # Copy the built app and the toolchain needed for `vite preview`.
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/vite.config.ts ./vite.config.ts
 
 # Create non-root user

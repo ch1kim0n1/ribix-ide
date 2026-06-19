@@ -7,6 +7,7 @@ import { WebSocketServer } from 'ws';
 import * as Y from 'yjs';
 import { setupWSConnection } from 'y-websocket/bin/utils';
 import { pathToFileURL } from 'node:url';
+import http from 'node:http';
 
 export interface WebSocketServerConfig {
   port: number;
@@ -17,6 +18,7 @@ export interface WebSocketServerConfig {
 export class CollaborationWebSocketServer {
   private wss: WebSocketServer;
   private docs: Map<string, Y.Doc> = new Map();
+  private healthServer: http.Server | undefined;
 
   constructor(config: WebSocketServerConfig) {
     this.wss = new WebSocketServer({
@@ -26,6 +28,7 @@ export class CollaborationWebSocketServer {
     });
 
     this.setupServer();
+    this.setupHealthServer(config.port, config.host || '0.0.0.0');
   }
 
   private setupServer(): void {
@@ -60,6 +63,32 @@ export class CollaborationWebSocketServer {
   }
 
   /**
+   * Starts a minimal HTTP health server on port+1 so K8s HTTP probes and
+   * docker-compose healthchecks can verify the websocket pod is alive
+   * without upgrading to a WebSocket connection (issue #30).
+   */
+  private setupHealthServer(wsPort: number, host: string): void {
+    const healthPort = wsPort + 1;
+    this.healthServer = http.createServer((_req, res) => {
+      if (_req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          status: 'ok',
+          service: 'ribix-ide-websocket',
+          wsPort,
+          docs: this.docs.size,
+          timestamp: Date.now(),
+        }));
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+    this.healthServer.listen(healthPort, host);
+    console.log(`Health server running on port ${healthPort}`);
+  }
+
+  /**
    * Get document for a file
    */
   getDocument(fileId: string): Y.Doc | undefined {
@@ -80,6 +109,7 @@ export class CollaborationWebSocketServer {
     this.docs.forEach((doc) => doc.destroy());
     this.docs.clear();
     this.wss.close();
+    this.healthServer?.close();
   }
 }
 

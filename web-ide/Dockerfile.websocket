@@ -1,4 +1,7 @@
-FROM node:20.18.2-alpine
+# Multi-stage Dockerfile for the Ribix IDE WebSocket collaboration server.
+# The health server listens on WS_PORT+1 (default 1235) for HTTP probes.
+
+FROM node:20.18.2-alpine AS base
 
 RUN apk add --no-cache python3 make g++ git
 
@@ -8,8 +11,30 @@ COPY web-ide/package*.json ./
 RUN npm ci
 
 COPY web-ide/server ./server
+COPY web-ide/tsconfig.json ./tsconfig.json
 
-EXPOSE 1234
+# Development stage
+FROM base AS development
+EXPOSE 1234 1235
+CMD ["npm", "run", "dev:websocket"]
+
+# Production stage
+FROM node:20.18.2-alpine AS production
+
+WORKDIR /app
+
+COPY --from=base /app/package*.json ./
+COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/server ./server
+COPY --from=base /app/tsconfig.json ./tsconfig.json
+
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S ribix -u 1001
+
+RUN chown -R ribix:nodejs /app
+USER ribix
+
+EXPOSE 1234 1235
 ENV NODE_ENV=production
 ENV WS_PORT=1234
 

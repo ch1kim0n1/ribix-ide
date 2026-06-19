@@ -1,12 +1,32 @@
 import { defineConfig, loadEnv, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const marketplaceHealthPlugin = (): PluginOption => ({
-  name: 'ribix-marketplace-health',
+/**
+ * Health check plugin (issue #30).
+ *
+ * Adds a /health endpoint to both the dev server (configureServer) and the
+ * preview server (configurePreviewServer) so K8s liveness/readiness probes
+ * get a 200 instead of a 404. The endpoint returns a minimal JSON body with
+ * the service name and timestamp.
+ */
+const healthPlugin = (): PluginOption => ({
+  name: 'ribix-health-endpoint',
   configureServer(server) {
+    server.middlewares.use('/health', (_req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(JSON.stringify({ status: 'ok', service: 'ribix-ide-web', timestamp: Date.now() }));
+    });
     server.middlewares.use('/web-ide/marketplace/health', (_req, res) => {
       res.statusCode = 204;
       res.end();
+    });
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use('/health', (_req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(JSON.stringify({ status: 'ok', service: 'ribix-ide-web', timestamp: Date.now() }));
     });
   },
 });
@@ -17,7 +37,7 @@ export default defineConfig(({ mode }) => {
   const collaborationTarget = env.VITE_DEV_COLLABORATION_TARGET;
 
   return {
-    plugins: [react(), marketplaceHealthPlugin()],
+    plugins: [react(), healthPlugin()],
     server: {
       port: 3000,
       host: true,

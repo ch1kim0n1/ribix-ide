@@ -1,0 +1,48 @@
+# Local cloud dev environment validation (issue #30).
+#
+# Brings up the web IDE, websocket server, and a fake backend so the full
+# stack can be validated locally without a K8s cluster. Run:
+#   docker compose up --build
+# Then check:
+#   curl http://localhost:3000/health          → 200 {"status":"ok",...}
+#   curl http://localhost:3001/health          → 200 (websocket server)
+# The health endpoints match the paths used by the K8s liveness/readiness
+# probes in k8s/deployment.yaml.
+
+services:
+  web-ide:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      VITE_WEB_IDE_API_BASE_URL: /web-ide
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      websocket:
+        condition: service_healthy
+
+  websocket:
+    build:
+      context: ..
+      dockerfile: web-ide/Dockerfile.websocket
+      target: production
+    ports:
+      - "1234:1234"
+      - "1235:1235"
+    environment:
+      WS_PORT: "1234"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:1235/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
