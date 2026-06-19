@@ -127,6 +127,14 @@ Expected: Ribix IDE finds and fixes all 4 server bugs and 3 UI bugs in under 10 
 
 ---
 
+## Documentation
+
+- [Production Secrets & Environment Configuration](docs/production-secrets.md)
+- [SLOs, Error Budgets & Load Testing](docs/slos.md)
+- [Data Privacy & Retention Policy](docs/privacy-policy.md)
+
+---
+
 ## License
 
 MIT — see [LICENSE.txt](LICENSE.txt).
