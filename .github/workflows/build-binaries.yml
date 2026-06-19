@@ -1,5 +1,8 @@
 name: Build Pre-built Binaries
 
+# Disabled: use build-release.yml instead, which uses gulp directly
+# (the `npm run package` script doesn't exist in this repo).
+# Re-enable by removing the `if: false` condition below.
 on:
   push:
     branches: [ main ]
@@ -11,6 +14,7 @@ on:
 
 jobs:
   build:
+    if: false
     strategy:
       fail-fast: false
       matrix:
