@@ -10,7 +10,7 @@
 
 import { ITextModel } from '../../../../../../editor/common/model.js';
 import { EndOfLinePreference } from '../../../../../../editor/common/model.js';
-import { ComputedDiff, DiffArea } from '../../common/editCodeServiceTypes.js';
+import { DiffArea } from '../../../common/editCodeServiceTypes.js';
 
 export const numLinesOfStr = (str: string): number => str.split('\n').length;
 

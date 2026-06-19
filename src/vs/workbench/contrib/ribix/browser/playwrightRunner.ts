@@ -318,39 +318,6 @@ function classifySeverity({ type, message }) {
 		}
 	}
 
-	/**
-	 * Classifies an anomaly into P0–P3 severity.
-	 *
-	 * Classification rules (ordered by priority):
-	 *   P0 — crash, uncaught exception, navigation failure, 5xx server error
-	 *   P1 — broken flow: 4xx on a non-asset resource, complete network failure
-	 *   P2 — degraded UX: console errors, 4xx on assets, visual anomaly signals
-	 *   P3 — cosmetic: console warnings, minor layout hints
-	 */
-	private classifySeverity(error: { type: string; message: string }): 'p0' | 'p1' | 'p2' | 'p3' {
-		const { type, message } = error;
-
-		if (type === 'exception' || type === 'navigation') {
-			return 'p0';
-		}
-
-		if (type === 'http') {
-			const status = parseInt(message, 10);
-			if (status >= 500) { return 'p0'; }
-			if (status >= 400) { return 'p1'; }
-		}
-
-		if (type === 'network') {
-			return 'p1';
-		}
-
-		if (type === 'console' && /error/i.test(message)) {
-			return 'p2';
-		}
-
-		return 'p3';
-	}
-
 	private normalizeSeverity(raw: unknown): 'p0' | 'p1' | 'p2' | 'p3' {
 		if (raw === 'p0' || raw === 'p1' || raw === 'p2' || raw === 'p3') {
 			return raw;

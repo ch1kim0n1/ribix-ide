@@ -80,6 +80,9 @@ function makeAgentService(llm: any, tools: any) {
 		checkpointStub,
 		settingsStub,
 		mcpStub,
+		undefined as any,
+		undefined as any,
+		undefined as any,
 	);
 }
 
@@ -224,6 +227,7 @@ suite('RibixAgentService — agentic loop', () => {
 		const tools = makeToolsStub({ rewrite_file: 'wrote 1 file' });
 		const service = new RibixAgentService(
 			tools.service, llm.service, lock, { ...memoryStub, written: [] }, checkpoint, settingsStub, mcpStub,
+			undefined as any, undefined as any, undefined as any,
 		);
 
 		const completion = waitForCompletion(service);
@@ -242,7 +246,8 @@ suite('RibixAgentService — agentic loop', () => {
 		const mem = { getWorkspaceId: async () => 'ws', getEntries: async () => [], writeEntry: async (e: any) => { written.push(e); return e; } } as any;
 		const llm = makeLLMStub(['Summary: done.']);
 		const tools = makeToolsStub({});
-		const service = new RibixAgentService(tools.service, llm.service, lockStub, mem, checkpointStub, settingsStub, mcpStub);
+		const service = new RibixAgentService(tools.service, llm.service, lockStub, mem, checkpointStub, settingsStub, mcpStub,
+		undefined as any, undefined as any, undefined as any);
 
 		const completion = waitForCompletion(service);
 		await service.spawnAgent('m1', 't1', 'coder', 'noop');

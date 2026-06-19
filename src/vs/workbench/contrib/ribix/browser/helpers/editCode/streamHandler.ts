@@ -9,9 +9,10 @@
  */
 
 import { ITextModel } from '../../../../../../editor/common/model.js';
-import { EndOfLinePreference } from '../../../../../../editor/common/model.js';
-import { DiffZone, StreamLocationMutable } from '../../common/editCodeServiceTypes.js';
+import { DiffZone } from '../../../common/editCodeServiceTypes.js';
 import { numLinesOfStr } from './diffAreaUtils.js';
+
+type StreamLocationMutable = { line: number, col: number, addedSplitYet: boolean, originalCodeStartLine: number };
 
 export interface StreamHandlerResult {
 	appliedText: string;
@@ -87,7 +88,7 @@ export const updateStreamState = (
 		...diffZone._streamState,
 		line: streamState.line,
 		col: streamState.col,
-	};
+	} as any;
 };
 
 // Check if streaming should stop

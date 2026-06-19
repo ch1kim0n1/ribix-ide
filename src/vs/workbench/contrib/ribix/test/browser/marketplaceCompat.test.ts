@@ -108,7 +108,7 @@ suite('MarketplaceCompatibilityManager — registerCompatibilityOverride', () =>
 
 	test('overrides an existing seed extension', () => {
 		const mgr = new MarketplaceCompatibilityManager();
-		mgr.registerCompatibilityOverride('dbaeumer.vscode-eslint', 'incompatible', 'broke in fork');
+		mgr.registerCompatibilityOverride('dbaeumer.vscode-eslint', 'incompatible' as any, 'broke in fork');
 		// checkCompatibility returns from cache, which was overridden
 		// Note: override updates compatDb but checkCompatibility returns cached first
 		const all = mgr.getAll();

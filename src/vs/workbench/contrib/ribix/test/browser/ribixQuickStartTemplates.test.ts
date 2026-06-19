@@ -13,7 +13,6 @@ import {
 	scaffoldTemplate,
 	joinPath,
 	dirname,
-	type QuickStartTemplate,
 	type ScaffoldOptions,
 } from '../../browser/ribixQuickStartTemplates.js';
 
@@ -346,7 +345,6 @@ suite('scaffoldTemplate', () => {
 	});
 
 	test('returns errors when writeFile throws', () => {
-		const mock = createMockFs();
 		const options: ScaffoldOptions = {
 			workspaceRoot: '/workspace',
 			fileExists: () => false,

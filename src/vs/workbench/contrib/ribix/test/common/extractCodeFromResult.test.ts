@@ -158,7 +158,7 @@ suite('extractCodeFromRegular', () => {
 
 	test('extracts code from a fenced code block', () => {
 		const text = '```python\nprint("hello")\n```';
-		const [code, delta, ignored] = extractCodeFromRegular({ text, recentlyAddedTextLen: 0 });
+		const [code, _delta, _ignored] = extractCodeFromRegular({ text, recentlyAddedTextLen: 0 });
 		assert.strictEqual(code, 'print("hello")');
 	});
 

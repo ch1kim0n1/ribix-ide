@@ -94,7 +94,7 @@ export async function callLlm(
 			...(systemMessage ? [{ role: 'system' as const, content: systemMessage.content }] : []),
 			...chatMessages,
 		];
-		return aiProviderManager.callLLM(providerMessages, { maxTokens: 4096 });
+		return aiProviderManager.callLLM(providerMessages as any, { maxTokens: 4096 });
 	}
 
 	// Anthropic path: use the VS Code-native ILLMMessageService.

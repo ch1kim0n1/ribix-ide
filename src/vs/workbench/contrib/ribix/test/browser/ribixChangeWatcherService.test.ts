@@ -103,7 +103,7 @@ function make(opts: { storage?: FakeStorage; agent?: FakeAgentService; marker?: 
 		textFile as any, lock as any, mission as any,
 		notification as any, workspaceStub, storage as any, mainProcessStub,
 		undefined as any, undefined as any, undefined as any, // real DI services — unused because overrides below win
-		{ debounceMs: 5, scmOverride: scmStub, agentOverride: agent, markerOverride: marker, fileOverride: file },
+		{ debounceMs: 5, scmOverride: scmStub, agentOverride: agent as any, markerOverride: marker as any, fileOverride: file as any },
 	);
 	return { service, storage, textFile, lock, mission, notification, agent, marker, file };
 }
@@ -221,7 +221,7 @@ suite('RibixChangeWatcherService', () => {
 	test('auto mode runs unattended and renders reviewer findings as Problems-panel markers (G-AUTOTRIGGER)', async () => {
 		const agent = new FakeAgentService();
 		let spawnedId = '';
-		const origSpawn = agent.spawnAgent.bind(agent);
+		const origSpawn = agent.spawnAgent.bind(agent) as any;
 		agent.spawnAgent = async (...args: any[]) => { const id = await origSpawn(...args); spawnedId = id; return id; };
 		const { service, textFile, marker, notification } = make({ agent });
 
@@ -233,7 +233,7 @@ suite('RibixChangeWatcherService', () => {
 
 		// Agent completes with a finding anchored to the saved file.
 		const findings: AgentFinding[] = [
-			{ severity: 'high', file: '/repo/src/a.ts', line: 12, message: 'null deref', findingType: 'bug' },
+			{ severity: 'high', file: '/repo/src/a.ts', line: 12, message: 'null deref', findingType: 'bug' as any },
 		];
 		agent.complete(spawnedId, findings);
 		// Allow the completion listener + render promise to settle.
@@ -252,7 +252,7 @@ suite('RibixChangeWatcherService', () => {
 	test('auto mode surfaces a no-issues toast and clears markers when the reviewer finds nothing', async () => {
 		const agent = new FakeAgentService();
 		let spawnedId = '';
-		const origSpawn = agent.spawnAgent.bind(agent);
+		const origSpawn = agent.spawnAgent.bind(agent) as any;
 		agent.spawnAgent = async (...args: any[]) => { const id = await origSpawn(...args); spawnedId = id; return id; };
 		const { service, textFile, marker, notification } = make({ agent });
 

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { 
   extensionCompatibilityManager, 
   extensionMarketplaceCompatibility 
-} from './extensionCompatibility';
+} from './extensionCompatibility.js';
 
 /**
  * Register extension compatibility commands
@@ -116,7 +116,7 @@ export function registerExtensionCompatibilityCommands(context: vscode.Extension
         return;
       }
 
-      const items = incompatible.map(ext => ({
+      const items: vscode.QuickPickItem[] = incompatible.map((ext: string) => ({
         label: ext,
         description: extensionCompatibilityManager.getCompatibilityInfo(ext)?.issues.join(', ')
       }));

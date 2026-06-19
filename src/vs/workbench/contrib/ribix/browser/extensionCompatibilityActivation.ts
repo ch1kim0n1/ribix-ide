@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { registerExtensionCompatibilityCommands } from './extensionCompatibilityCommands';
+import { registerExtensionCompatibilityCommands } from './extensionCompatibilityCommands.js';
 
 /**
  * Activate extension compatibility system

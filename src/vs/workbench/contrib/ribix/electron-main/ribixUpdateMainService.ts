@@ -12,7 +12,7 @@ import { RibixCheckUpdateResponse } from '../common/ribixUpdateServiceTypes.js';
 
 
 
-export class VoidMainUpdateService extends Disposable implements IRibixUpdateService {
+export class RibixMainUpdateService extends Disposable implements IRibixUpdateService {
 	_serviceBrand: undefined;
 
 	constructor(

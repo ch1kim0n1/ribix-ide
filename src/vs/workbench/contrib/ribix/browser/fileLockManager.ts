@@ -161,7 +161,7 @@ class FileLockStatusBarContribution extends Disposable implements IWorkbenchCont
 
 	constructor(
 		@IStatusbarService private readonly statusbarService: IStatusbarService,
-		@ICommandService private readonly commandService: ICommandService,
+		@ICommandService _commandService: ICommandService,
 	) {
 		super();
 		this.statusBarItem = this._register(

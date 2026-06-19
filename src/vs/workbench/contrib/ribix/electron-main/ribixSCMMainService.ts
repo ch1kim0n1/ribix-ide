@@ -53,7 +53,7 @@ const hasStagedChanges = async (path: string): Promise<boolean> => {
 	return output.length > 0
 }
 
-export class VoidSCMService implements IRibixSCMService {
+export class RibixSCMService implements IRibixSCMService {
 	readonly _serviceBrand: undefined
 
 	async gitStat(path: string): Promise<string> {

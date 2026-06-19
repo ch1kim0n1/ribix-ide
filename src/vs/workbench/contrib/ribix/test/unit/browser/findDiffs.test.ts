@@ -5,7 +5,6 @@
 
 import * as assert from 'assert';
 import { findDiffs } from '../../../browser/helpers/findDiffs.js';
-import { ComputedDiff } from '../../../common/editCodeServiceTypes.js';
 
 suite('findDiffs', () => {
 	const originalCode = `\
@@ -35,10 +34,10 @@ E`;
 		assert.strictEqual(diffs.length, 1);
 		const diff = diffs[0];
 		assert.strictEqual(diff.type, 'insertion');
-		assert.strictEqual(diff.originalCode, '');
+		assert.strictEqual((diff as any).originalCode, '');
 		assert.strictEqual(diff.code, 'F');
 		assert.strictEqual(diff.originalStartLine, 4);
-		assert.strictEqual(diff.originalEndLine, 4);
+		assert.strictEqual((diff as any).originalEndLine, 4);
 		assert.strictEqual(diff.startLine, 4);
 		assert.strictEqual(diff.endLine, 4);
 	});
@@ -49,11 +48,11 @@ E`;
 		const diff = diffs[0];
 		assert.strictEqual(diff.type, 'deletion');
 		assert.strictEqual(diff.originalCode, 'F');
-		assert.strictEqual(diff.code, '');
+		assert.strictEqual((diff as any).code, '');
 		assert.strictEqual(diff.originalStartLine, 4);
 		assert.strictEqual(diff.originalEndLine, 4);
 		assert.strictEqual(diff.startLine, 4);
-		assert.strictEqual(diff.endLine, 4);
+		assert.strictEqual((diff as any).endLine, 4);
 	});
 
 	test('detects modification (edit)', () => {
@@ -75,9 +74,9 @@ E`;
 		assert.strictEqual(diffs.length, 1);
 		const diff = diffs[0];
 		assert.strictEqual(diff.type, 'insertion');
-		assert.strictEqual(diff.originalCode, '');
+		assert.strictEqual((diff as any).originalCode, '');
 		assert.strictEqual(diff.originalStartLine, 6);
-		assert.strictEqual(diff.originalEndLine, 6);
+		assert.strictEqual((diff as any).originalEndLine, 6);
 		assert.strictEqual(diff.startLine, 6);
 		assert.strictEqual(diff.endLine, 6);
 	});
@@ -92,7 +91,7 @@ E`;
 		assert.strictEqual(diffs.length, 1);
 		const diff = diffs[0];
 		assert.strictEqual(diff.type, 'insertion');
-		assert.strictEqual(diff.originalCode, '');
+		assert.strictEqual((diff as any).originalCode, '');
 		assert.strictEqual(diff.code, 'A\nB');
 	});
 
@@ -102,6 +101,6 @@ E`;
 		const diff = diffs[0];
 		assert.strictEqual(diff.type, 'deletion');
 		assert.strictEqual(diff.originalCode, 'A\nB');
-		assert.strictEqual(diff.code, '');
+		assert.strictEqual((diff as any).code, '');
 	});
 });

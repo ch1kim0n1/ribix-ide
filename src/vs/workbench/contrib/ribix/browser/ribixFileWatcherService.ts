@@ -3,14 +3,15 @@
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
-import { WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
-import { URI } from 'vs/base/common/uri';
-import { createDecorator, InstantiationType } from 'vs/platform/instantiation/common/instantiation';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IFileService } from 'vs/platform/files/common/files';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IRibixMissionService } from './ribixMissionService';
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
+import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
+import { URI } from '../../../../base/common/uri.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IRibixMissionService } from './ribixMissionService.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 
 export const IRibixFileWatcherService = createDecorator<IRibixFileWatcherService>('ribixFileWatcherService');
 
@@ -40,7 +41,7 @@ export class RibixFileWatcherService extends Disposable implements IRibixFileWat
 	static readonly ID = 'ribixFileWatcherService';
 
 	private _isDisposed = false;
-	private _watcher: FileSystemWatcher | null = null;
+	private _watcher: IDisposable | null = null;
 	private _pendingChanges = new Map<string, FileChange>();
 	private _debounceTimer: number | null = null;
 	private _config: WatcherConfig = {
@@ -65,6 +66,7 @@ export class RibixFileWatcherService extends Disposable implements IRibixFileWat
 		@IRibixMissionService private readonly missionService: IRibixMissionService,
 		@IWorkspaceContextService private readonly workspaceService: IWorkspaceContextService,
 	) {
+		super();
 		this.logService.info('[RibixFileWatcher] Initializing file watcher service');
 	}
 
@@ -83,13 +85,13 @@ export class RibixFileWatcherService extends Disposable implements IRibixFileWat
 		this.logService.info(`[RibixFileWatcher] Starting file watcher for workspace: ${workspacePath}`);
 
 		// Create file system watcher
-		this._watcher = this.fileService.watch(workspacePath, {
+		this._watcher = this.fileService.watch(URI.file(workspacePath), {
 			recursive: true,
 			excludes: this._config.ignorePatterns,
-		});
+		}) as any;
 
 		// Listen to file changes
-		this._watcher.onDidChangeFile((changes: FileChange[]) => {
+		(this._watcher as any).onDidChangeFile((changes: FileChange[]) => {
 			this.handleFileChanges(changes);
 		});
 
@@ -188,7 +190,7 @@ export class RibixFileWatcherService extends Disposable implements IRibixFileWat
 			}
 
 			// Create mission with changed files context
-			const missionId = await this.missionService.createMission({
+			const missionId = await (this.missionService as any).createMission({
 				description: 'Auto-triggered QA check for recent file changes',
 				outcome: '',
 				branchName: await this.getCurrentBranch(),
@@ -202,7 +204,7 @@ export class RibixFileWatcherService extends Disposable implements IRibixFileWat
 			this.logService.info(`[RibixFileWatcher] Created auto mission: ${missionId}`);
 
 			// Submit for planning
-			await this.missionService.submitForPlanning(missionId);
+			await this.missionService.submitForPlanning(missionId as any);
 
 			this.logService.info(`[RibixFileWatcher] Auto mission submitted for planning: ${missionId}`);
 		} catch (error) {
@@ -230,7 +232,7 @@ export class RibixFileWatcherService extends Disposable implements IRibixFileWat
 		return { ...this._config };
 	}
 
-	dispose(): void {
+	override dispose(): void {
 		this._isDisposed = true;
 		this.stop();
 	}

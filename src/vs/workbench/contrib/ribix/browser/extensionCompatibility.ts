@@ -68,8 +68,8 @@ export class ExtensionCompatibilityManager {
     // Theme extensions - should work
     this.markCompatible('PKief.material-icon-theme', '*', []);
     this.markCompatible('zhuangtongfa.Material-theme', '*', []);
-    this.markCompatible('dracula-theme.theme-dracula', '*');
-    this.markCompatible('slevesque.vscode-material-icon-theme', '*');
+    this.markCompatible('dracula-theme.theme-dracula', '*', []);
+    this.markCompatible('slevesque.vscode-material-icon-theme', '*', []);
   }
 
   /**
@@ -137,29 +137,29 @@ export class ExtensionCompatibilityManager {
 
       // Test command registration
       try {
-        const commands = await vscode.commands.getCommands(true);
+        await vscode.commands.getCommands(true);
         // Commands work
       } catch (error) {
         issues.push('Command registration may not work correctly');
-        workarounds('Use alternative command registration');
+        workarounds.push('Use alternative command registration');
       }
 
       // Test workspace API
       try {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
+        vscode.workspace.workspaceFolders;
         // Workspace API works
       } catch (error) {
         issues.push('Workspace API may have issues');
-        workarounds('Use file system API directly');
+        workarounds.push('Use file system API directly');
       }
 
       // Test configuration API
       try {
-        const config = vscode.workspace.getConfiguration();
+        vscode.workspace.getConfiguration();
         // Configuration API works
       } catch (error) {
         issues.push('Configuration API may have issues');
-        workarounds('Use environment variables');
+        workarounds.push('Use environment variables');
       }
 
       if (issues.length === 0) {

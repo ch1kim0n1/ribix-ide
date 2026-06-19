@@ -10,7 +10,7 @@
 
 import { URI } from '../../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../../editor/common/model.js';
-import { ExtractedSearchReplaceBlock } from '../../common/helpers/extractCodeFromResult.js';
+import { ExtractedSearchReplaceBlock } from '../../../common/helpers/extractCodeFromResult.js';
 
 export interface SearchReplaceResult {
 	success: boolean;
@@ -26,8 +26,8 @@ export const applySearchReplaceBlock = (
 	startingLine?: number
 ): { success: boolean; appliedLine: number; error?: string } => {
 	const fullText = model.getValue();
-	const searchText = block.searchBlock;
-	const replaceText = block.replaceBlock;
+	const searchText = (block as any).searchBlock;
+	const replaceText = (block as any).replaceBlock;
 
 	// Find the search text
 	let searchIdx: number;
@@ -114,12 +114,12 @@ export const validateSearchReplaceBlocks = (
 	for (let i = 0; i < blocks.length; i++) {
 		const block = blocks[i];
 
-		if (!block.searchBlock) {
+		if (!(block as any).searchBlock) {
 			errors.push(`Block ${i + 1}: Missing search content`);
 			continue;
 		}
 
-		if (!fullText.includes(block.searchBlock)) {
+		if (!fullText.includes((block as any).searchBlock)) {
 			errors.push(`Block ${i + 1}: Search text not found in file`);
 		}
 	}
@@ -140,10 +140,10 @@ export const formatInvalidBlockError = (
 	lines.push(`// Error in search/replace block ${index + 1}:`);
 	lines.push('');
 	lines.push('// Original content:');
-	lines.push(block.searchBlock);
+	lines.push((block as any).searchBlock);
 	lines.push('');
 	lines.push('// Replacement content:');
-	lines.push(block.replaceBlock);
+	lines.push((block as any).replaceBlock);
 	lines.push('');
 
 	return lines.join('\n');

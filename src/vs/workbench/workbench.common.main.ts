@@ -12,8 +12,8 @@ import './browser/workbench.contribution.js';
 
 //#endregion
 
-//#region --- Void
-import './contrib/void/browser/void.contribution.js'; // Void added this
+//#region --- Ribix
+import './contrib/ribix/browser/ribix.contribution.js'; // Ribix added this
 //#endregion
 
 //#region --- workbench actions
