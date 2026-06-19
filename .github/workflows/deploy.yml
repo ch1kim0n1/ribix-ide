@@ -1,5 +1,7 @@
 name: Build and Deploy Ribix IDE
 
+# Disabled: web IDE deployment is not currently needed (desktop-only shipping).
+# Re-enable by removing the `if: false` condition below.
 on:
   push:
     branches: [ main ]
@@ -7,14 +9,12 @@ on:
       - 'v*'
   pull_request:
     branches: [ main ]
-
-env:
-  NODE_VERSION: '20.18.2'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  workflow_dispatch:
 
 jobs:
+  # All jobs gated — web IDE deployment not needed for desktop-only shipping
   test:
+    if: false
     runs-on: ubuntu-latest
     
     steps:
