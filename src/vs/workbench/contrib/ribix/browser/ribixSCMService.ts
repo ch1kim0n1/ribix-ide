@@ -11,7 +11,7 @@ import { ISCMService } from '../../scm/common/scm.js'
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js'
 import { IRibixSCMService } from '../common/ribixSCMTypes.js'
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js'
-import { IVoidSettingsService } from '../common/ribixSettingsService.js'
+import { IRibixSettingsService } from '../common/ribixSettingsService.js'
 import { IConvertToLLMMessageService } from './convertToLLMMessageService.js'
 import { ILLMMessageService } from '../common/sendLLMMessageService.js'
 import { ModelSelection, OverridesOfModel, ModelSelectionOptions } from '../common/ribixSettingsTypes.js'
@@ -37,22 +37,22 @@ export interface IGenerateCommitMessageService {
 	abort(): void
 }
 
-export const IGenerateCommitMessageService = createDecorator<IGenerateCommitMessageService>('voidGenerateCommitMessageService');
+export const IGenerateCommitMessageService = createDecorator<IGenerateCommitMessageService>('ribixGenerateCommitMessageService');
 
-const loadingContextKey = 'voidSCMGenerateCommitMessageLoading'
+const loadingContextKey = 'ribixSCMGenerateCommitMessageLoading'
 
 class GenerateCommitMessageService extends Disposable implements IGenerateCommitMessageService {
 	readonly _serviceBrand: undefined;
 	private readonly execute = new ThrottledDelayer(300)
 	private llmRequestId: string | null = null
 	private currentRequestId: string | null = null
-	private voidSCM: IRibixSCMService
+	private ribixSCM: IRibixSCMService
 	private loadingContextKey: IContextKey<boolean>
 
 	constructor(
 		@ISCMService private readonly scmService: ISCMService,
 		@IMainProcessService mainProcessService: IMainProcessService,
-		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
+		@IRibixSettingsService private readonly ribixSettingsService: IRibixSettingsService,
 		@IConvertToLLMMessageService private readonly convertToLLMMessageService: IConvertToLLMMessageService,
 		@ILLMMessageService private readonly llmMessageService: ILLMMessageService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
@@ -60,7 +60,7 @@ class GenerateCommitMessageService extends Disposable implements IGenerateCommit
 	) {
 		super()
 		this.loadingContextKey = this.contextKeyService.createKey(loadingContextKey, false)
-		this.voidSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('void-channel-scm'))
+		this.ribixSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('ribix-channel-scm'))
 	}
 
 	override dispose() {
@@ -78,17 +78,17 @@ class GenerateCommitMessageService extends Disposable implements IGenerateCommit
 			try {
 				const { path, repo } = this.gitRepoInfo()
 				const [stat, sampledDiffs, branch, log] = await Promise.all([
-					this.voidSCM.gitStat(path),
-					this.voidSCM.gitSampledDiffs(path),
-					this.voidSCM.gitBranch(path),
-					this.voidSCM.gitLog(path)
+					this.ribixSCM.gitStat(path),
+					this.ribixSCM.gitSampledDiffs(path),
+					this.ribixSCM.gitBranch(path),
+					this.ribixSCM.gitLog(path)
 				])
 
 				if (!this.isCurrentRequest(requestId)) { throw new CancellationError() }
 
-				const modelSelection = this.voidSettingsService.state.modelSelectionOfFeature['SCM'] ?? null
-				const modelSelectionOptions = modelSelection ? this.voidSettingsService.state.optionsOfModelSelection['SCM'][modelSelection?.providerName]?.[modelSelection.modelName] : undefined
-				const overridesOfModel = this.voidSettingsService.state.overridesOfModel
+				const modelSelection = this.ribixSettingsService.state.modelSelectionOfFeature['SCM'] ?? null
+				const modelSelectionOptions = modelSelection ? this.ribixSettingsService.state.optionsOfModelSelection['SCM'][modelSelection?.providerName]?.[modelSelection.modelName] : undefined
+				const overridesOfModel = this.ribixSettingsService.state.overridesOfModel
 
 				const modelOptions: ModelOptions = { modelSelection, modelSelectionOptions, overridesOfModel }
 
@@ -159,7 +159,7 @@ class GenerateCommitMessageService extends Disposable implements IGenerateCommit
 				onAbort: () => {
 					reject(new CancellationError())
 				},
-				logging: { loggingName: 'VoidSCM - Commit Message' },
+				logging: { loggingName: 'RibixSCM - Commit Message' },
 			})
 		})
 	}
@@ -177,7 +177,7 @@ class GenerateCommitMessageService extends Disposable implements IGenerateCommit
 	private onError(error: any) {
 		if (!isCancellationError(error)) {
 			console.error(error)
-			this.notificationService.error(localize2('voidFailedToGenerateCommitMessage', 'Failed to generate commit message.').value)
+			this.notificationService.error(localize2('ribixFailedToGenerateCommitMessage', 'Failed to generate commit message.').value)
 		}
 	}
 }
@@ -186,9 +186,9 @@ class GenerateCommitMessageAction extends Action2 {
 	constructor() {
 		super({
 			id: 'void.generateCommitMessageAction',
-			title: localize2('voidCommitMessagePrompt', 'Ribix IDE: Generate Commit Message'),
+			title: localize2('ribixCommitMessagePrompt', 'Ribix IDE: Generate Commit Message'),
 			icon: ThemeIcon.fromId('sparkle'),
-			tooltip: localize2('voidCommitMessagePromptTooltip', 'Ribix IDE: Generate Commit Message'),
+			tooltip: localize2('ribixCommitMessagePromptTooltip', 'Ribix IDE: Generate Commit Message'),
 			f1: true,
 			menu: [{
 				id: MenuId.SCMInputBox,
@@ -208,9 +208,9 @@ class LoadingGenerateCommitMessageAction extends Action2 {
 	constructor() {
 		super({
 			id: 'void.loadingGenerateCommitMessageAction',
-			title: localize2('voidCommitMessagePromptCancel', 'Ribix IDE: Cancel Commit Message Generation'),
+			title: localize2('ribixCommitMessagePromptCancel', 'Ribix IDE: Cancel Commit Message Generation'),
 			icon: ThemeIcon.fromId('stop-circle'),
-			tooltip: localize2('voidCommitMessagePromptCancelTooltip', 'Ribix IDE: Cancel Commit Message Generation'),
+			tooltip: localize2('ribixCommitMessagePromptCancelTooltip', 'Ribix IDE: Cancel Commit Message Generation'),
 			f1: false, //Having a cancel command in the command palette is more confusing than useful.
 			menu: [{
 				id: MenuId.SCMInputBox,

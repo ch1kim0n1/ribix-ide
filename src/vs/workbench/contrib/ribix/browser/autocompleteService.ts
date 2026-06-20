@@ -18,7 +18,7 @@ import { extractCodeFromRegular } from '../common/helpers/extractCodeFromResult.
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { isWindows } from '../../../../base/common/platform.js';
-import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 import { FeatureName } from '../common/ribixSettingsTypes.js';
 import { IConvertToLLMMessageService } from './convertToLLMMessageService.js';
 // import { IContextGatheringService } from './contextGatheringService.js';
@@ -28,7 +28,7 @@ import { IConvertToLLMMessageService } from './convertToLLMMessageService.js';
 const allLinebreakSymbols = ['\r\n', '\n']
 const _ln = isWindows ? allLinebreakSymbols[0] : allLinebreakSymbols[1]
 
-// The extension this was called from is here - https://github.com/voideditor/void/blob/autocomplete/extensions/void/src/extension/extension.ts
+// The extension this was called from is here - https://github.com/ribix/void/blob/autocomplete/extensions/void/src/extension/extension.ts
 
 
 /*
@@ -893,7 +893,7 @@ export class AutocompleteService extends Disposable implements IAutocompleteServ
 		@ILLMMessageService private readonly _llmMessageService: ILLMMessageService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IModelService private readonly _modelService: IModelService,
-		@IVoidSettingsService private readonly _settingsService: IVoidSettingsService,
+		@IRibixSettingsService private readonly _settingsService: IRibixSettingsService,
 		@IConvertToLLMMessageService private readonly _convertToLLMMessageService: IConvertToLLMMessageService
 		// @IContextGatheringService private readonly _contextGatheringService: IContextGatheringService,
 	) {

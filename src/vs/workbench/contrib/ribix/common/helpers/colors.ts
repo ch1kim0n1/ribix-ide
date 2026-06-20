@@ -32,7 +32,7 @@ const configOfBG = (color: Color) => {
 	return { dark: color, light: color, hcDark: color, hcLight: color, }
 }
 
-// gets converted to --vscode-void-greenBG, see void.css, asCssVariable
+// gets converted to --vscode-ribix-greenBG, see void.css, asCssVariable
 registerColor('void.greenBG', configOfBG(acceptBG), '', true);
 registerColor('void.redBG', configOfBG(rejectBG), '', true);
 registerColor('void.sweepBG', configOfBG(sweepBG), '', true);

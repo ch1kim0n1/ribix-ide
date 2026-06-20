@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------*/
 
 import { mountFnGenerator } from '../util/mountFnGenerator.js'
-import { VoidCommandBarMain } from './VoidCommandBar.js'
-import { VoidSelectionHelperMain } from './VoidSelectionHelper.js'
+import { RibixCommandBarMain } from './RibixCommandBar.js'
+import { RibixSelectionHelperMain } from './RibixSelectionHelper.js'
 
-export const mountVoidCommandBar = mountFnGenerator(VoidCommandBarMain)
+export const mountRibixCommandBar = mountFnGenerator(RibixCommandBarMain)
 
-export const mountVoidSelectionHelper = mountFnGenerator(VoidSelectionHelperMain)
+export const mountRibixSelectionHelper = mountFnGenerator(RibixSelectionHelperMain)
 

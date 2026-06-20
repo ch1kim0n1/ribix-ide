@@ -9,8 +9,8 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { URI } from '../../../../base/common/uri.js';
-import { VoidFileSnapshot } from '../common/editCodeServiceTypes.js';
-import { IVoidModelService } from '../common/ribixModelService.js';
+import { RibixFileSnapshot } from '../common/editCodeServiceTypes.js';
+import { IRibixModelService } from '../common/ribixModelService.js';
 import { IEditCodeService } from './editCodeServiceInterface.js';
 import { EndOfLinePreference } from '../../../../editor/common/model.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
@@ -20,7 +20,7 @@ export type MissionCheckpoint = {
 	missionId: string;
 	agentId: string;
 	filePath: string;
-	snapshot: VoidFileSnapshot;
+	snapshot: RibixFileSnapshot;
 	timestamp: number;
 };
 
@@ -57,7 +57,7 @@ class RibixCheckpointService extends Disposable implements IRibixCheckpointServi
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
-		@IVoidModelService private readonly voidModelService: IVoidModelService,
+		@IRibixModelService private readonly ribixModelService: IRibixModelService,
 		@IEditCodeService private readonly editCodeService: IEditCodeService,
 	) {
 		super();
@@ -71,15 +71,15 @@ class RibixCheckpointService extends Disposable implements IRibixCheckpointServi
 		const uri = URI.file(filePath);
 		
 		// Get the current model to capture the snapshot
-		await this.voidModelService.initializeModel(uri);
-		const { model } = this.voidModelService.getModel(uri);
+		await this.ribixModelService.initializeModel(uri);
+		const { model } = this.ribixModelService.getModel(uri);
 
 		if (!model) {
 			throw new Error(`Failed to get model for file: ${filePath}`);
 		}
 
 		// Create a snapshot with the current file content
-		const snapshot: VoidFileSnapshot = {
+		const snapshot: RibixFileSnapshot = {
 			snapshottedDiffAreaOfId: {}, // Empty diff areas - we only care about file content for rollback
 			entireFileCode: model.getValue(EndOfLinePreference.LF),
 		};
@@ -160,7 +160,7 @@ class RibixCheckpointService extends Disposable implements IRibixCheckpointServi
 		this.storageService.store(CHECKPOINT_STORAGE_KEY, JSON.stringify(toSave), StorageScope.WORKSPACE, StorageTarget.USER);
 	}
 
-	private async restoreSnapshot(filePath: string, snapshot: VoidFileSnapshot): Promise<void> {
+	private async restoreSnapshot(filePath: string, snapshot: RibixFileSnapshot): Promise<void> {
 		const uri = URI.file(filePath);
 		
 		// Restore the file content from the snapshot

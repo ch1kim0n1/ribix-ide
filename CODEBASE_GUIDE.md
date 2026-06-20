@@ -22,7 +22,7 @@ src/vs/workbench/contrib/ribix/
 | `common/ribixTaskQueueService.ts` | Serialised task queue with concurrency guard |
 | `common/ribixFileLockService.ts` | File-level lock to prevent overlapping edits |
 | `electron-main/metricsMainService.ts` | PostHog telemetry (reads `RIBIX_POSTHOG_KEY` env var) |
-| `electron-main/voidUpdateMainService.ts` | Auto-update check (points to `ch1kim0n1/ribix-ide` releases) |
+| `electron-main/ribixUpdateMainService.ts` | Auto-update check (points to `ch1kim0n1/ribix-ide` releases) |
 
 ---
 

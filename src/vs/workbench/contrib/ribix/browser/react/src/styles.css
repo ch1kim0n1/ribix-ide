@@ -8,29 +8,29 @@
 @tailwind utilities;
 
 & {
-	--void-bg-1: var(--vscode-input-background);
-	--void-bg-1-alt: var(--vscode-badge-background);
-	--void-bg-2: var(--vscode-sideBar-background);
-	--void-bg-2-alt: color-mix(in srgb, var(--vscode-editor-background) 30%, var(--vscode-sideBar-background) 70%);
-	--void-bg-2-hover: color-mix(in srgb, var(--vscode-editor-foreground) 2%, var(--vscode-sideBar-background) 98%);
-	--void-bg-3: var(--vscode-editor-background);
+	--ribix-bg-1: var(--vscode-input-background);
+	--ribix-bg-1-alt: var(--vscode-badge-background);
+	--ribix-bg-2: var(--vscode-sideBar-background);
+	--ribix-bg-2-alt: color-mix(in srgb, var(--vscode-editor-background) 30%, var(--vscode-sideBar-background) 70%);
+	--ribix-bg-2-hover: color-mix(in srgb, var(--vscode-editor-foreground) 2%, var(--vscode-sideBar-background) 98%);
+	--ribix-bg-3: var(--vscode-editor-background);
 
-	--void-fg-0: color-mix(in srgb, var(--vscode-tab-activeForeground) 90%, black 10%);
-	--void-fg-1: var(--vscode-editor-foreground);
-	--void-fg-2: var(--vscode-input-foreground);
-	--void-fg-3: var(--vscode-input-placeholderForeground);
-	/* --void-fg-4: var(--vscode-tab-inactiveForeground); */
-	--void-fg-4: var(--vscode-list-deemphasizedForeground);
+	--ribix-fg-0: color-mix(in srgb, var(--vscode-tab-activeForeground) 90%, black 10%);
+	--ribix-fg-1: var(--vscode-editor-foreground);
+	--ribix-fg-2: var(--vscode-input-foreground);
+	--ribix-fg-3: var(--vscode-input-placeholderForeground);
+	/* --ribix-fg-4: var(--vscode-tab-inactiveForeground); */
+	--ribix-fg-4: var(--vscode-list-deemphasizedForeground);
 
-	--void-warning: var(--vscode-charts-yellow);
+	--ribix-warning: var(--vscode-charts-yellow);
 
-	--void-border-1: var(--vscode-commandCenter-activeBorder);
-	--void-border-2: var(--vscode-commandCenter-border);
-	--void-border-3: var(--vscode-commandCenter-inactiveBorder);
-	--void-border-4: var(--vscode-editorGroup-border);
+	--ribix-border-1: var(--vscode-commandCenter-activeBorder);
+	--ribix-border-2: var(--vscode-commandCenter-border);
+	--ribix-border-3: var(--vscode-commandCenter-inactiveBorder);
+	--ribix-border-4: var(--vscode-editorGroup-border);
 
-	--void-ring-color: #C6AA58;
-	--void-link-color: #C6AA58;
+	--ribix-ring-color: #C6AA58;
+	--ribix-link-color: #C6AA58;
 }
 
 .select-child-restyle select {
@@ -39,8 +39,8 @@
 	padding-right: 24px;
 }
 
-.void-force-child-placeholder-void-fg-1 ::placeholder {
-	color: var(--void-fg-3);
+.ribix-force-child-placeholder-ribix-fg-1 ::placeholder {
+	color: var(--ribix-fg-3);
 }
 
 * {

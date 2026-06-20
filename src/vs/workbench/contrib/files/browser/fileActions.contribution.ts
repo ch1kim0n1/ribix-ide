@@ -27,7 +27,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IExplorerService } from './files.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
-import { VOID_OPEN_SETTINGS_ACTION_ID } from '../../ribix/browser/ribixSettingsPane.js';
+import { RIBIX_OPEN_SETTINGS_ACTION_ID } from '../../ribix/browser/ribixSettingsPane.js';
 
 // Contribute Global Actions
 
@@ -677,12 +677,12 @@ for (const menuId of [MenuId.EmptyEditorGroupContext, MenuId.EditorTabsBarContex
 // File menu
 
 
-// Void added this:
+// Ribix added this:
 MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	group: '0_void',
 	command: {
-		id: VOID_OPEN_SETTINGS_ACTION_ID,
-		title: nls.localize({ key: 'openVoid', comment: ['&& denotes a mnemonic'] }, "&&Open Ribix Settings"),
+		id: RIBIX_OPEN_SETTINGS_ACTION_ID,
+		title: nls.localize({ key: 'openRibix', comment: ['&& denotes a mnemonic'] }, "&&Open Ribix Settings"),
 	},
 	order: 1
 });

@@ -10,7 +10,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
 import { IDirectoryStrService } from '../common/directoryStrService.js';
-import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 import { PlanTask, MissionContext } from '../common/ribixTypes.js';
 import { generatePlanningPrompt, PlanningPromptContext } from '../common/prompt/ribixPlanningPrompt.js';
 
@@ -44,7 +44,7 @@ class RibixPlanningService extends Disposable implements IRibixPlanningService {
 		@ILLMMessageService private readonly llmMessageService: ILLMMessageService,
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
 		@IDirectoryStrService private readonly directoryStrService: IDirectoryStrService,
-		@IVoidSettingsService private readonly settingsService: IVoidSettingsService,
+		@IRibixSettingsService private readonly settingsService: IRibixSettingsService,
 	) {
 		super();
 	}

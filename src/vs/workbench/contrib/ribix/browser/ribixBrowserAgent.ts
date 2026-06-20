@@ -13,7 +13,7 @@
  *
  * Architecture note: Playwright only runs in electron-main (it is a Node.js dependency),
  * so this renderer-side agent does not drive Playwright directly. It speaks to the
- * existing `void-channel-ribixBrowser` IPC channel (see electron-main/ribixBrowserChannel.ts),
+ * existing `ribix-channel-ribixBrowser` IPC channel (see electron-main/ribixBrowserChannel.ts),
  * which owns the headless Chromium instance and exposes navigate/click/type/scroll/getHtml,
  * plus a `diagnostics` command that drains console errors, uncaught page errors, and failed
  * network requests captured since the last drain.
@@ -246,11 +246,11 @@ export class RibixBrowserAgent {
 
 	/**
 	 * @param channel  Pass a channel directly (tests), or omit and pass mainProcessService to
-	 *                 resolve the real `void-channel-ribixBrowser` electron-main channel.
+	 *                 resolve the real `ribix-channel-ribixBrowser` electron-main channel.
 	 */
 	constructor(channelOrMainProcess: IRibixBrowserChannel | IMainProcessService) {
 		if ('getChannel' in channelOrMainProcess && typeof (channelOrMainProcess as IMainProcessService).getChannel === 'function') {
-			this.channel = (channelOrMainProcess as IMainProcessService).getChannel('void-channel-ribixBrowser') as unknown as IRibixBrowserChannel;
+			this.channel = (channelOrMainProcess as IMainProcessService).getChannel('ribix-channel-ribixBrowser') as unknown as IRibixBrowserChannel;
 		} else {
 			this.channel = channelOrMainProcess as IRibixBrowserChannel;
 		}

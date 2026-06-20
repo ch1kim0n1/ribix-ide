@@ -3,7 +3,7 @@
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
-import { IVoidSettingsService } from './ribixSettingsService.js';
+import { IRibixSettingsService } from './ribixSettingsService.js';
 import { ILLMMessageService } from './sendLLMMessageService.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -80,7 +80,7 @@ export class RefreshModelService extends Disposable implements IRefreshModelServ
 
 
 	constructor(
-		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
+		@IRibixSettingsService private readonly ribixSettingsService: IRibixSettingsService,
 		@ILLMMessageService private readonly llmMessageService: ILLMMessageService,
 	) {
 		super()
@@ -93,18 +93,18 @@ export class RefreshModelService extends Disposable implements IRefreshModelServ
 			disposables.forEach(d => d.dispose())
 			disposables.clear()
 
-			if (!voidSettingsService.state.globalSettings.autoRefreshModels) return
+			if (!ribixSettingsService.state.globalSettings.autoRefreshModels) return
 
 			for (const providerName of refreshableProviderNames) {
 
-				// const { '_didFillInProviderSettings': enabled } = this.voidSettingsService.state.settingsOfProvider[providerName]
+				// const { '_didFillInProviderSettings': enabled } = this.ribixSettingsService.state.settingsOfProvider[providerName]
 				this.startRefreshingModels(providerName, autoOptions)
 
 				// every time providerName.enabled changes, refresh models too, like a useEffect
-				let relevantVals = () => refreshBasedOn[providerName].map(settingName => voidSettingsService.state.settingsOfProvider[providerName][settingName])
+				let relevantVals = () => refreshBasedOn[providerName].map(settingName => ribixSettingsService.state.settingsOfProvider[providerName][settingName])
 				let prevVals = relevantVals() // each iteration of a for loop has its own context and vars, so this is ok
 				disposables.add(
-					voidSettingsService.onDidChangeState(() => { // we might want to debounce this
+					ribixSettingsService.onDidChangeState(() => { // we might want to debounce this
 						const newVals = relevantVals()
 						if (!eq(prevVals, newVals)) {
 
@@ -131,10 +131,10 @@ export class RefreshModelService extends Disposable implements IRefreshModelServ
 		}
 
 		// on mount (when get init settings state), and if a relevant feature flag changes, start refreshing models
-		voidSettingsService.waitForInitState.then(() => {
+		ribixSettingsService.waitForInitState.then(() => {
 			initializeAutoPollingAndOnChange()
 			this._register(
-				voidSettingsService.onDidChangeState((type) => { if (typeof type === 'object' && type[1] === 'autoRefreshModels') initializeAutoPollingAndOnChange() })
+				ribixSettingsService.onDidChangeState((type) => { if (typeof type === 'object' && type[1] === 'autoRefreshModels') initializeAutoPollingAndOnChange() })
 			)
 		})
 
@@ -155,7 +155,7 @@ export class RefreshModelService extends Disposable implements IRefreshModelServ
 		this._setRefreshState(providerName, 'refreshing', options)
 
 		const autoPoll = () => {
-			if (this.voidSettingsService.state.globalSettings.autoRefreshModels) {
+			if (this.ribixSettingsService.state.globalSettings.autoRefreshModels) {
 				// resume auto-polling
 				const timeoutId = setTimeout(() => this.startRefreshingModels(providerName, autoOptions), REFRESH_INTERVAL)
 				this._setTimeoutId(providerName, timeoutId)
@@ -168,7 +168,7 @@ export class RefreshModelService extends Disposable implements IRefreshModelServ
 			providerName,
 			onSuccess: ({ models }) => {
 				// set the models to the detected models
-				this.voidSettingsService.setAutodetectedModels(
+				this.ribixSettingsService.setAutodetectedModels(
 					providerName,
 					models.map(model => {
 						if (providerName === 'ollama') return (model as OllamaModelResponse).name;
@@ -179,7 +179,7 @@ export class RefreshModelService extends Disposable implements IRefreshModelServ
 					{ enableProviderOnSuccess: options.enableProviderOnSuccess, hideRefresh: options.doNotFire }
 				)
 
-				if (options.enableProviderOnSuccess) this.voidSettingsService.setSettingOfProvider(providerName, '_didFillInProviderSettings', true)
+				if (options.enableProviderOnSuccess) this.ribixSettingsService.setSettingOfProvider(providerName, '_didFillInProviderSettings', true)
 
 				this._setRefreshState(providerName, 'finished', options)
 				autoPoll()

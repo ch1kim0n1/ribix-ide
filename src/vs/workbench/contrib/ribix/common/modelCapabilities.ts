@@ -159,7 +159,7 @@ export const defaultModelsOfProvider = {
 
 
 
-export type VoidStaticModelInfo = { // not stateful
+export type RibixStaticModelInfo = { // not stateful
 	// Ribix IDE uses the information below to know how to handle each model.
 	// for some examples, see openAIModelOptions and anthropicModelOptions (below).
 
@@ -216,7 +216,7 @@ export const modelOverrideKeys = [
 ] as const
 
 export type ModelOverrides = Pick<
-	VoidStaticModelInfo,
+	RibixStaticModelInfo,
 	(typeof modelOverrideKeys)[number]
 >
 
@@ -233,10 +233,10 @@ type ProviderReasoningIOSettings = {
 	| { nameOfFieldInDelta?: undefined, needsManualParse?: true, };
 }
 
-type VoidStaticProviderInfo = { // doesn't change (not stateful)
+type RibixStaticProviderInfo = { // doesn't change (not stateful)
 	providerReasoningIOSettings?: ProviderReasoningIOSettings; // input/output settings around thinking (allowed to be empty) - only applied if the model supports reasoning output
-	modelOptions: { [key: string]: VoidStaticModelInfo };
-	modelOptionsFallback: (modelName: string, fallbackKnownValues?: Partial<VoidStaticModelInfo>) => (VoidStaticModelInfo & { modelName: string, recognizedModelName: string }) | null;
+	modelOptions: { [key: string]: RibixStaticModelInfo };
+	modelOptionsFallback: (modelName: string, fallbackKnownValues?: Partial<RibixStaticModelInfo>) => (RibixStaticModelInfo & { modelName: string, recognizedModelName: string }) | null;
 }
 
 
@@ -249,7 +249,7 @@ const defaultModelOptions = {
 	supportsSystemMessage: false,
 	supportsFIM: false,
 	reasoningCapabilities: false,
-} as const satisfies VoidStaticModelInfo
+} as const satisfies RibixStaticModelInfo
 
 // TODO!!! double check all context sizes below
 // TODO!!! add openrouter common models
@@ -385,18 +385,18 @@ const openSourceModelOptions_assumingOAICompat = {
 		reasoningCapabilities: false,
 		contextWindow: 1_000_000, reservedOutputTokenSpace: 32_000,
 	}
-} as const satisfies { [s: string]: Partial<VoidStaticModelInfo> }
+} as const satisfies { [s: string]: Partial<RibixStaticModelInfo> }
 
 
 
 
 // keep modelName, but use the fallback's defaults
-const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallback'] = (modelName, fallbackKnownValues) => {
+const extensiveModelOptionsFallback: RibixStaticProviderInfo['modelOptionsFallback'] = (modelName, fallbackKnownValues) => {
 
 	const lower = modelName.toLowerCase()
 
-	const toFallback = <T extends { [s: string]: Omit<VoidStaticModelInfo, 'cost' | 'downloadable'> },>(obj: T, recognizedModelName: string & keyof T)
-		: VoidStaticModelInfo & { modelName: string, recognizedModelName: string } => {
+	const toFallback = <T extends { [s: string]: Omit<RibixStaticModelInfo, 'cost' | 'downloadable'> },>(obj: T, recognizedModelName: string & keyof T)
+		: RibixStaticModelInfo & { modelName: string, recognizedModelName: string } => {
 
 		const opts = obj[recognizedModelName]
 		const supportsSystemMessage = opts.supportsSystemMessage === 'separated'
@@ -567,9 +567,9 @@ const anthropicModelOptions = {
 		supportsSystemMessage: 'separated',
 		reasoningCapabilities: false,
 	}
-} as const satisfies { [s: string]: VoidStaticModelInfo }
+} as const satisfies { [s: string]: RibixStaticModelInfo }
 
-const anthropicSettings: VoidStaticProviderInfo = {
+const anthropicSettings: RibixStaticProviderInfo = {
 	providerReasoningIOSettings: {
 		input: {
 			includeInPayload: (reasoningInfo) => {
@@ -700,7 +700,7 @@ const openAIModelOptions = { // https://platform.openai.com/docs/pricing
 		supportsSystemMessage: 'system-role', // ??
 		reasoningCapabilities: false,
 	},
-} as const satisfies { [s: string]: VoidStaticModelInfo }
+} as const satisfies { [s: string]: RibixStaticModelInfo }
 
 
 // https://platform.openai.com/docs/guides/reasoning?api-mode=chat
@@ -713,7 +713,7 @@ const openAICompatIncludeInPayloadReasoning = (reasoningInfo: SendableReasoningI
 
 }
 
-const openAISettings: VoidStaticProviderInfo = {
+const openAISettings: RibixStaticProviderInfo = {
 	modelOptions: openAIModelOptions,
 	modelOptionsFallback: (modelName) => {
 		const lower = modelName.toLowerCase()
@@ -784,9 +784,9 @@ const xAIModelOptions = {
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: false, reasoningSlider: { type: 'effort_slider', values: ['low', 'high'], default: 'low' } },
 	},
-} as const satisfies { [s: string]: VoidStaticModelInfo }
+} as const satisfies { [s: string]: RibixStaticModelInfo }
 
-const xAISettings: VoidStaticProviderInfo = {
+const xAISettings: RibixStaticProviderInfo = {
 	modelOptions: xAIModelOptions,
 	modelOptionsFallback: (modelName) => {
 		const lower = modelName.toLowerCase()
@@ -915,9 +915,9 @@ const geminiModelOptions = { // https://ai.google.dev/gemini-api/docs/pricing
 		specialToolFormat: 'gemini-style',
 		reasoningCapabilities: false,
 	},
-} as const satisfies { [s: string]: VoidStaticModelInfo }
+} as const satisfies { [s: string]: RibixStaticModelInfo }
 
-const geminiSettings: VoidStaticProviderInfo = {
+const geminiSettings: RibixStaticProviderInfo = {
 	modelOptions: geminiModelOptions,
 	modelOptionsFallback: (modelName) => { return null },
 }
@@ -940,10 +940,10 @@ const deepseekModelOptions = {
 		cost: { cache_read: .14, input: .55, output: 2.19, },
 		downloadable: false,
 	},
-} as const satisfies { [s: string]: VoidStaticModelInfo }
+} as const satisfies { [s: string]: RibixStaticModelInfo }
 
 
-const deepseekSettings: VoidStaticProviderInfo = {
+const deepseekSettings: RibixStaticProviderInfo = {
 	modelOptions: deepseekModelOptions,
 	modelOptionsFallback: (modelName) => { return null },
 	providerReasoningIOSettings: {
@@ -1030,9 +1030,9 @@ const mistralModelOptions = { // https://mistral.ai/products/la-plateforme#prici
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
-} as const satisfies { [s: string]: VoidStaticModelInfo }
+} as const satisfies { [s: string]: RibixStaticModelInfo }
 
-const mistralSettings: VoidStaticProviderInfo = {
+const mistralSettings: RibixStaticProviderInfo = {
 	modelOptions: mistralModelOptions,
 	modelOptionsFallback: (modelName) => { return null },
 	providerReasoningIOSettings: {
@@ -1079,8 +1079,8 @@ const groqModelOptions = { // https://console.groq.com/docs/models, https://groq
 		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: true, canTurnOffReasoning: false, openSourceThinkTags: ['<think>', '</think>'] }, // we're using reasoning_format:parsed so really don't need to know openSourceThinkTags
 	},
-} as const satisfies { [s: string]: VoidStaticModelInfo }
-const groqSettings: VoidStaticProviderInfo = {
+} as const satisfies { [s: string]: RibixStaticModelInfo }
+const groqSettings: RibixStaticProviderInfo = {
 	modelOptions: groqModelOptions,
 	modelOptionsFallback: (modelName) => { return null },
 	providerReasoningIOSettings: {
@@ -1101,8 +1101,8 @@ const groqSettings: VoidStaticProviderInfo = {
 
 // ---------------- GOOGLE VERTEX ----------------
 const googleVertexModelOptions = {
-} as const satisfies Record<string, VoidStaticModelInfo>
-const googleVertexSettings: VoidStaticProviderInfo = {
+} as const satisfies Record<string, RibixStaticModelInfo>
+const googleVertexSettings: RibixStaticProviderInfo = {
 	modelOptions: googleVertexModelOptions,
 	modelOptionsFallback: (modelName) => { return null },
 	providerReasoningIOSettings: {
@@ -1112,8 +1112,8 @@ const googleVertexSettings: VoidStaticProviderInfo = {
 
 // ---------------- MICROSOFT AZURE ----------------
 const microsoftAzureModelOptions = {
-} as const satisfies Record<string, VoidStaticModelInfo>
-const microsoftAzureSettings: VoidStaticProviderInfo = {
+} as const satisfies Record<string, RibixStaticModelInfo>
+const microsoftAzureSettings: RibixStaticProviderInfo = {
 	modelOptions: microsoftAzureModelOptions,
 	modelOptionsFallback: (modelName) => { return null },
 	providerReasoningIOSettings: {
@@ -1123,9 +1123,9 @@ const microsoftAzureSettings: VoidStaticProviderInfo = {
 
 // ---------------- AWS BEDROCK ----------------
 const awsBedrockModelOptions = {
-} as const satisfies Record<string, VoidStaticModelInfo>
+} as const satisfies Record<string, RibixStaticModelInfo>
 
-const awsBedrockSettings: VoidStaticProviderInfo = {
+const awsBedrockSettings: RibixStaticProviderInfo = {
 	modelOptions: awsBedrockModelOptions,
 	modelOptionsFallback: (modelName) => { return null },
 	providerReasoningIOSettings: {
@@ -1209,12 +1209,12 @@ const ollamaModelOptions = {
 		reasoningCapabilities: false,
 	},
 
-} as const satisfies Record<string, VoidStaticModelInfo>
+} as const satisfies Record<string, RibixStaticModelInfo>
 
 export const ollamaRecommendedModels = ['qwen2.5-coder:1.5b', 'llama3.1', 'qwq', 'deepseek-r1', 'devstral:latest'] as const satisfies (keyof typeof ollamaModelOptions)[]
 
 
-const vLLMSettings: VoidStaticProviderInfo = {
+const vLLMSettings: RibixStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => extensiveModelOptionsFallback(modelName, { downloadable: { sizeGb: 'not-known' } }),
 	modelOptions: {},
 	providerReasoningIOSettings: {
@@ -1224,7 +1224,7 @@ const vLLMSettings: VoidStaticProviderInfo = {
 	},
 }
 
-const lmStudioSettings: VoidStaticProviderInfo = {
+const lmStudioSettings: RibixStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => extensiveModelOptionsFallback(modelName, { downloadable: { sizeGb: 'not-known' }, contextWindow: 4_096 }),
 	modelOptions: {},
 	providerReasoningIOSettings: {
@@ -1233,7 +1233,7 @@ const lmStudioSettings: VoidStaticProviderInfo = {
 	},
 }
 
-const ollamaSettings: VoidStaticProviderInfo = {
+const ollamaSettings: RibixStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => extensiveModelOptionsFallback(modelName, { downloadable: { sizeGb: 'not-known' } }),
 	modelOptions: ollamaModelOptions,
 	providerReasoningIOSettings: {
@@ -1243,7 +1243,7 @@ const ollamaSettings: VoidStaticProviderInfo = {
 	},
 }
 
-const openaiCompatible: VoidStaticProviderInfo = {
+const openaiCompatible: RibixStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => extensiveModelOptionsFallback(modelName),
 	modelOptions: {},
 	providerReasoningIOSettings: {
@@ -1253,7 +1253,7 @@ const openaiCompatible: VoidStaticProviderInfo = {
 	},
 }
 
-const liteLLMSettings: VoidStaticProviderInfo = { // https://docs.litellm.ai/docs/reasoning_content
+const liteLLMSettings: RibixStaticProviderInfo = { // https://docs.litellm.ai/docs/reasoning_content
 	modelOptionsFallback: (modelName) => extensiveModelOptionsFallback(modelName, { downloadable: { sizeGb: 'not-known' } }),
 	modelOptions: {},
 	providerReasoningIOSettings: {
@@ -1407,9 +1407,9 @@ const openRouterModelOptions_assumingOpenAICompat = {
 		cost: { input: 0.07, output: 0.16 },
 		downloadable: false,
 	}
-} as const satisfies { [s: string]: VoidStaticModelInfo }
+} as const satisfies { [s: string]: RibixStaticModelInfo }
 
-const openRouterSettings: VoidStaticProviderInfo = {
+const openRouterSettings: RibixStaticProviderInfo = {
 	modelOptions: openRouterModelOptions_assumingOpenAICompat,
 	modelOptionsFallback: (modelName) => {
 		const res = extensiveModelOptionsFallback(modelName)
@@ -1451,7 +1451,7 @@ const openRouterSettings: VoidStaticProviderInfo = {
 
 // ---------------- model settings of everything above ----------------
 
-const modelSettingsOfProvider: { [providerName in ProviderName]: VoidStaticProviderInfo } = {
+const modelSettingsOfProvider: { [providerName in ProviderName]: RibixStaticProviderInfo } = {
 	openAI: openAISettings,
 	anthropic: anthropicSettings,
 	xAI: xAISettings,
@@ -1484,7 +1484,7 @@ export const getModelCapabilities = (
 	providerName: ProviderName,
 	modelName: string,
 	overridesOfModel: OverridesOfModel | undefined
-): VoidStaticModelInfo & (
+): RibixStaticModelInfo & (
 	| { modelName: string; recognizedModelName: string; isUnrecognizedModel: false }
 	| { modelName: string; recognizedModelName?: undefined; isUnrecognizedModel: true }
 ) => {

@@ -25,7 +25,7 @@ import { generateReviewerPrompt } from '../common/prompt/ribixReviewerPrompt.js'
 import { generateDocsPrompt } from '../common/prompt/ribixDocsPrompt.js';
 import { generateReleasePrompt } from '../common/prompt/ribixReleasePrompt.js';
 import { BROWSER_AGENT_PROMPT } from './ribixBrowserAgent.js';
-import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { PlaywrightRunner, PlaywrightFinding } from './playwrightRunner.js';
@@ -88,7 +88,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		@IRibixFileLockService private readonly fileLockService: IRibixFileLockService,
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
 		@IRibixCheckpointService private readonly checkpointService: IRibixCheckpointService,
-		@IVoidSettingsService private readonly settingsService: IVoidSettingsService,
+		@IRibixSettingsService private readonly settingsService: IRibixSettingsService,
 		@IMCPService private readonly mcpService: IMCPService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,

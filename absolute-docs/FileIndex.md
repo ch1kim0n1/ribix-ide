@@ -11,7 +11,7 @@
 | Service | File | Purpose |
 |---|---|---|
 | `IChatThreadService` | `browser/chatThreadService.ts` | Thread/message state machine, tool call lifecycle, checkpoint-based versioning |
-| `IEditCodeService` | `browser/editCodeService.ts` | DiffZone lifecycle, Fast/Slow Apply, VoidFileSnapshot creation |
+| `IEditCodeService` | `browser/editCodeService.ts` | DiffZone lifecycle, Fast/Slow Apply, RibixFileSnapshot creation |
 | `IToolsService` | `browser/toolsService.ts` | Built-in tool execution (read, write, terminal, search) |
 | `ITerminalToolService` | `browser/terminalToolService.ts` | Terminal command execution for agents |
 
@@ -19,9 +19,9 @@
 
 | Service | File | Purpose |
 |---|---|---|
-| `IVoidSettingsService` | `common/voidSettingsService.ts` | Provider/model config, FeatureName routing, ChatMode union |
+| `IRibixSettingsService` | `common/ribixSettingsService.ts` | Provider/model config, FeatureName routing, ChatMode union |
 | `ILLMMessageService` | `common/sendLLMMessageService.ts` | LLM API routing (browser → electron-main channel) |
-| `IVoidModelService` | `common/voidModelService.ts` | File read/write via URI, no load/save ceremony |
+| `IRibixModelService` | `common/ribixModelService.ts` | File read/write via URI, no load/save ceremony |
 | `IMCPService` | `common/mcpService.ts` | MCP tool integration, server registry |
 | `IMetricsService` | `common/metricsService.ts` | Telemetry and metrics collection |
 
@@ -65,7 +65,7 @@ type ToolApprovalType = 'edits' | 'terminal' | 'MCP tools'
 
 Both services use `IStorageService` with:
 
-- **VOID_SETTINGS_STORAGE_KEY** → `StorageScope.APPLICATION`, `StorageTarget.USER` (encrypted)
+- **RIBIX_SETTINGS_STORAGE_KEY** → `StorageScope.APPLICATION`, `StorageTarget.USER` (encrypted)
 - **THREAD_STORAGE_KEY** → `StorageScope.APPLICATION`, `StorageTarget.USER`
 - Version suffix pattern: `StorageII` (version 2, supports migration from v1)
 
@@ -90,8 +90,8 @@ this.instantiationService.invokeFunction(accessor => {
 
 Components using this pattern:
 - `mountSidebar()` — Chat panel
-- `mountVoidSettings()` — Settings pane
-- `mountVoidOnboarding()` — Onboarding flow
+- `mountRibixSettings()` — Settings pane
+- `mountRibixOnboarding()` — Onboarding flow
 - `mountCtrlK()` — Cmd+K quick edit
 
 ---
@@ -138,7 +138,7 @@ checkpoint → (user edits) → user message
 checkpoint → (LLM edits) → LLM message
 ```
 
-**VoidFileSnapshot captures:**
+**RibixFileSnapshot captures:**
 ```typescript
 {
   snapshottedDiffAreaOfId: Record<string, DiffAreaSnapshotEntry>
@@ -201,18 +201,18 @@ this._register(this.channel.listen('onText_sendLLMMessage')(e => {
 
 | Key | Current Value | Target Value |
 |---|---|---|
-| `nameShort` | "Void" | "Ribix IDE" |
-| `nameLong` | "Void" | "Ribix IDE" |
-| `applicationName` | "void" | "ribix-ide" |
-| `dataFolderName` | ".void-editor" | ".ribix-ide" |
-| `darwinBundleIdentifier` | "com.voideditor.code" | "dev.ribix.ide" |
-| `win32MutexName` | "voideditor" | "ribix-ide" |
-| URL Protocol | "void" | "ribix-ide" |
+| `nameShort` | "Ribix" | "Ribix IDE" |
+| `nameLong` | "Ribix" | "Ribix IDE" |
+| `applicationName` | "ribix" | "ribix-ide" |
+| `dataFolderName` | ".ribix-editor" | ".ribix-ide" |
+| `darwinBundleIdentifier` | "com.ribix.code" | "dev.ribix.ide" |
+| `win32MutexName` | "ribix" | "ribix-ide" |
+| URL Protocol | "ribix" | "ribix-ide" |
 
 ### URLs to update:
-- voideditor.com → ribix.dev
-- voideditor.dev → ribix.dev
-- github.com/voideditor/void → github.com/ribix/ribix-ide
+- ribix.com → ribix.dev
+- ribix.dev → ribix.dev
+- github.com/ribix/ribix-ide → github.com/ribix/ribix-ide
 
 ### Windows GUIDs to regenerate:
 - 4 different IDs for x64/ARM64 user/system installations
@@ -221,7 +221,7 @@ this._register(this.channel.listen('onText_sendLLMMessage')(e => {
 
 ## Service Registration Pattern
 
-All services follow this pattern in `void.contribution.ts`:
+All services follow this pattern in `ribix.contribution.ts`:
 
 ```typescript
 registerSingleton(IMyService, MyService, InstantiationType.Delayed)
@@ -250,7 +250,7 @@ constructor(@IMyService private readonly myService: IMyService) {}
 - **25 common services** (both browser + main)
 - **31 browser services** (browser-only)
 - **8 electron-main services** (main process only)
-- **Total: 64 source files** in `src/vs/workbench/contrib/void/`
+- **Total: 64 source files** in `src/vs/workbench/contrib/ribix/`
 
 ---
 

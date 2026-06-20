@@ -185,7 +185,7 @@ To test memory search with 1000 entries, use the following script:
 
 ```typescript
 // scripts/generateMemoryTestData.ts
-import { IRibixMemoryService } from 'vs/workbench/contrib/void/common/ribixMemoryService';
+import { IRibixMemoryService } from 'vs/workbench/contrib/ribix/common/ribixMemoryService';
 
 async function generateTestData(memoryService: IRibixMemoryService) {
   const entries = [];

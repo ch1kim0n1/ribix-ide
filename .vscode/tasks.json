@@ -29,7 +29,7 @@
 				}
 			}
 		},
-		{   // Void added this
+		{   // Ribix added this
 			"type": "npm",
 			"script": "watchreactd",
 			"label": "React - Build",

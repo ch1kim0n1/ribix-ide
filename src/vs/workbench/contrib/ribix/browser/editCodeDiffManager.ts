@@ -72,7 +72,7 @@ export async function acceptDiff(
 			...originalLines.slice((diff.originalEndLine - 1) + 1, Infinity),
 		].join('\n');
 	} else {
-		throw new Error(`Void error: ${diff}.type not recognized`);
+		throw new Error(`Ribix error: ${diff}.type not recognized`);
 	}
 
 	diffArea.originalCode = newOriginalCode;
@@ -128,7 +128,7 @@ export async function rejectDiff(
 		writeText = diff.originalCode;
 		toRange = { startLineNumber: diff.startLine, startColumn: 1, endLineNumber: diff.endLine, endColumn: Number.MAX_SAFE_INTEGER };
 	} else {
-		throw new Error(`Void error: ${diff}.type not recognized`);
+		throw new Error(`Ribix error: ${diff}.type not recognized`);
 	}
 
 	ctx.writeURIText(uri, writeText, toRange, { shouldRealignDiffAreas: true });

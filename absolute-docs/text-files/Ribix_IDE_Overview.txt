@@ -10,8 +10,8 @@ ________________
 
 1. Executive Summary
 
-Ribix IDE is a fork of the Void editor (itself a fork of VS Code) rebuilt from the ground up
-as an agent-first software engineering operating system. Where Void and Cursor ask engineers to
+Ribix IDE is a fork of the Ribix editor (itself a fork of VS Code) rebuilt from the ground up
+as an agent-first software engineering operating system. Where Ribix and Cursor ask engineers to
 write code assisted by AI, Ribix IDE asks engineers to describe outcomes — and deploys an
 autonomous multi-agent team to plan, code, test, debug, document, and ship the result.
 
@@ -28,7 +28,7 @@ compounds its knowledge of your codebase with every task it completes.
 Key Characteristics at a Glance
 
     Product:              Ribix IDE
-    Base:                 Void editor fork (VS Code / Code-OSS 1.99.3)
+    Base:                 Ribix editor fork (VS Code / Code-OSS 1.99.3)
     Primary UX:           Ribix Command Center (outcome-first, agent-managed)
     Secondary UX:         Code editor (inspection / annotation mode)
     Agent types:          Planner, Coder, Tester, Debugger, Reviewer, Docs, Release
@@ -38,7 +38,7 @@ Key Characteristics at a Glance
     Backend:              Connects to Ribix cloud for org memory sync and QA pipeline
     Auth:                 OAuth (shared with Ribix CLI and dashboard — one login)
     Branding:             #01311F background / #C6AA58 gold — Ribix design system
-    Build base:           Electron + TypeScript + React (Void's existing React layer)
+    Build base:           Electron + TypeScript + React (Ribix's existing React layer)
 
 
 ________________
@@ -46,7 +46,7 @@ ________________
 
 2. The Core Shift — From Editor to Operating System
 
-2.1 The Old Mental Model (Void / Cursor)
+2.1 The Old Mental Model (Ribix / Cursor)
 
 In every AI code editor that exists today:
 
@@ -242,8 +242,8 @@ Every file write creates a checkpoint. If an agent produces a bad result, engine
     - Abort the mission and restore all files to pre-mission state
     - Roll back a specific agent's work while keeping others
 
-Checkpoints use the same checkpoint system already present in Void's editCodeService
-(VoidFileSnapshot), extended with mission-scoped grouping.
+Checkpoints use the same checkpoint system already present in Ribix's editCodeService
+(RibixFileSnapshot), extended with mission-scoped grouping.
 
 
 ________________
@@ -411,9 +411,9 @@ The code editor remains fully functional. It is not removed or degraded. Its rol
 
 When an agent writes to a file, the editor switches to diff inspection mode for that file:
 
-    - Agent changes shown in standard red/green diff view (same as Void's DiffZone system)
+    - Agent changes shown in standard red/green diff view (same as Ribix's DiffZone system)
     - Each changed block annotated with the agent that made the change
-    - Per-block approve/reject controls (same UX as Void's existing apply approval)
+    - Per-block approve/reject controls (same UX as Ribix's existing apply approval)
     - "Show agent reasoning" button per block — opens the agent's decision log for that edit
 
 7.3 Inline Agent Annotations
@@ -429,7 +429,7 @@ that feed back into the next agent run.
 
 7.4 Autocomplete and Cmd+K
 
-Void's existing autocomplete and Cmd+K features remain intact. Engineers can still:
+Ribix's existing autocomplete and Cmd+K features remain intact. Engineers can still:
 
     - Get inline completions while writing code manually
     - Select a range and invoke Cmd+K for a targeted rewrite
@@ -442,26 +442,26 @@ of a full Mission.
 ________________
 
 
-8. Codebase Architecture (Void Base → Ribix IDE)
+8. Codebase Architecture (Ribix Base → Ribix IDE)
 
 8.1 Base Codebase
 
-Ribix IDE starts from the Void editor fork at:
-    src/vs/workbench/contrib/void/
+Ribix IDE starts from the Ribix editor fork at:
+    src/vs/workbench/contrib/ribix/
 
-All Void code is preserved and extended. No Void services are deleted. Ribix adds new services
+All Ribix code is preserved and extended. No Ribix services are deleted. Ribix adds new services
 alongside existing ones, following the same VSCode service registration pattern.
 
-8.2 Existing Void Services (Preserved)
+8.2 Existing Ribix Services (Preserved)
 
     Service                         File                                        Role
     ─────────────────────────────────────────────────────────────────────────────────────
     chatThreadService               browser/chatThreadService.ts                Thread/message management
     editCodeService                 browser/editCodeService.ts                  File diffs, DiffZone, Apply
     toolsService                    browser/toolsService.ts                     Tool execution (read/write/terminal)
-    voidSettingsService             common/voidSettingsService.ts               Provider/model config
+    ribixSettingsService             common/ribixSettingsService.ts               Provider/model config
     sendLLMMessageService           common/sendLLMMessageService.ts             LLM API calls
-    voidModelService                common/voidModelService.ts                  File read/write abstraction
+    ribixModelService                common/ribixModelService.ts                  File read/write abstraction
     contextGatheringService         browser/contextGatheringService.ts          Codebase context for LLM
     directoryStrService             common/directoryStrService.ts               Directory tree strings
     mcpService                      common/mcpService.ts                        MCP tool integration
@@ -470,7 +470,7 @@ alongside existing ones, following the same VSCode service registration pattern.
 
 8.3 New Ribix Services
 
-    Service                         File (under contrib/void/)                  Role
+    Service                         File (under contrib/ribix/)                  Role
     ─────────────────────────────────────────────────────────────────────────────────────
     ribixAgentService               browser/ribixAgentService.ts                Spawn, track, coordinate agents
     ribixMemoryService              common/ribixMemoryService.ts                Persistent codebase/org memory
@@ -485,7 +485,7 @@ alongside existing ones, following the same VSCode service registration pattern.
 
 8.4 New UI Panels
 
-    Panel                           File (under contrib/void/)                  Role
+    Panel                           File (under contrib/ribix/)                  Role
     ─────────────────────────────────────────────────────────────────────────────────────
     ribixCommandCenterPane          browser/ribixCommandCenterPane.tsx          Primary panel (Command Center)
     ribixMissionsPanel              browser/react/ribixMissionsPanel.tsx        Missions tab content
@@ -597,7 +597,7 @@ After sign-in, Ribix IDE:
 10.2 Offline Mode
 
 Without a backend connection, Ribix IDE operates in local-only mode:
-    - Local LLM providers (Ollama, LM Studio) supported via Void's existing provider system
+    - Local LLM providers (Ollama, LM Studio) supported via Ribix's existing provider system
     - Memory stored locally only (no org sync)
     - Mission history local only
     - PR creation not available

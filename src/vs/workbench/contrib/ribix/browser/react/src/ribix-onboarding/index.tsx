@@ -4,6 +4,6 @@
  *--------------------------------------------------------------------------------------*/
 
 import { mountFnGenerator } from '../util/mountFnGenerator.js'
-import { VoidOnboarding } from './VoidOnboarding.js'
+import { RibixOnboarding } from './RibixOnboarding.js'
 
-export const mountVoidOnboarding = mountFnGenerator(VoidOnboarding)
+export const mountRibixOnboarding = mountFnGenerator(RibixOnboarding)

@@ -9,15 +9,15 @@ import { ISearchService } from '../../../services/search/common/search.js'
 import { IEditCodeService } from './editCodeServiceInterface.js'
 import { ITerminalToolService } from './terminalToolService.js'
 import { LintErrorItem, BuiltinToolCallParams, BuiltinToolResultType, BuiltinToolName } from '../common/toolsServiceTypes.js'
-import { IVoidModelService } from '../common/ribixModelService.js'
+import { IRibixModelService } from '../common/ribixModelService.js'
 import { EndOfLinePreference } from '../../../../editor/common/model.js'
-import { IVoidCommandBarService } from './ribixCommandBarService.js'
+import { IRibixCommandBarService } from './ribixCommandBarService.js'
 import { computeDirectoryTree1Deep, IDirectoryStrService, stringifyDirectoryTree1Deep } from '../common/directoryStrService.js'
 import { IMarkerService, MarkerSeverity } from '../../../../platform/markers/common/markers.js'
 import { timeout } from '../../../../base/common/async.js'
 import { RawToolParamsObj } from '../common/sendLLMMessageTypes.js'
 import { MAX_CHILDREN_URIs_PAGE, MAX_FILE_CHARS_PAGE, MAX_TERMINAL_BG_COMMAND_TIME, MAX_TERMINAL_INACTIVE_TIME } from '../common/prompt/prompts.js'
-import { IVoidSettingsService } from '../common/ribixSettingsService.js'
+import { IRibixSettingsService } from '../common/ribixSettingsService.js'
 import { generateUuid } from '../../../../base/common/uuid.js'
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js'
 
@@ -147,13 +147,13 @@ export class ToolsService implements IToolsService {
 		@IWorkspaceContextService workspaceContextService: IWorkspaceContextService,
 		@ISearchService searchService: ISearchService,
 		@IInstantiationService instantiationService: IInstantiationService,
-		@IVoidModelService voidModelService: IVoidModelService,
+		@IRibixModelService ribixModelService: IRibixModelService,
 		@IEditCodeService editCodeService: IEditCodeService,
 		@ITerminalToolService private readonly terminalToolService: ITerminalToolService,
-		@IVoidCommandBarService private readonly commandBarService: IVoidCommandBarService,
+		@IRibixCommandBarService private readonly commandBarService: IRibixCommandBarService,
 		@IDirectoryStrService private readonly directoryStrService: IDirectoryStrService,
 		@IMarkerService private readonly markerService: IMarkerService,
-		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
+		@IRibixSettingsService private readonly ribixSettingsService: IRibixSettingsService,
 		@IMainProcessService private readonly mainProcessService: IMainProcessService,
 	) {
 		const queryBuilder = instantiationService.createInstance(QueryBuilder);
@@ -332,8 +332,8 @@ export class ToolsService implements IToolsService {
 
 		this.callTool = {
 			read_file: async ({ uri, startLine, endLine, pageNumber }) => {
-				await voidModelService.initializeModel(uri)
-				const { model } = await voidModelService.getModelSafe(uri)
+				await ribixModelService.initializeModel(uri)
+				const { model } = await ribixModelService.getModelSafe(uri)
 				if (model === null) { throw new Error(`No contents; File does not exist.`) }
 
 				let contents: string
@@ -407,8 +407,8 @@ export class ToolsService implements IToolsService {
 				return { result: { queryStr, uris, hasNextPage } }
 			},
 			search_in_file: async ({ uri, query, isRegex }) => {
-				await voidModelService.initializeModel(uri);
-				const { model } = await voidModelService.getModelSafe(uri);
+				await ribixModelService.initializeModel(uri);
+				const { model } = await ribixModelService.getModelSafe(uri);
 				if (model === null) { throw new Error(`No contents; File does not exist.`); }
 				const contents = model.getValue(EndOfLinePreference.LF);
 				const contentOfLine = contents.split('\n');
@@ -448,7 +448,7 @@ export class ToolsService implements IToolsService {
 			},
 
 			rewrite_file: async ({ uri, newContent }) => {
-				await voidModelService.initializeModel(uri)
+				await ribixModelService.initializeModel(uri)
 				if (this.commandBarService.getStreamState(uri) === 'streaming') {
 					throw new Error(`Another LLM is currently making changes to this file. Please stop streaming for now and ask the user to resume later.`)
 				}
@@ -464,7 +464,7 @@ export class ToolsService implements IToolsService {
 			},
 
 			edit_file: async ({ uri, searchReplaceBlocks }) => {
-				await voidModelService.initializeModel(uri)
+				await ribixModelService.initializeModel(uri)
 				if (this.commandBarService.getStreamState(uri) === 'streaming') {
 					throw new Error(`Another LLM is currently making changes to this file. Please stop streaming for now and ask the user to resume later.`)
 				}
@@ -500,37 +500,37 @@ export class ToolsService implements IToolsService {
 			},
 			// --- browser / QA tools ---
 			browser_navigate: async ({ url, width, height }) => {
-				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const ch = this.mainProcessService.getChannel('ribix-channel-ribixBrowser');
 				const result = await ch.call<{ screenshotPath: string; title: string; url: string }>('navigate', { url, width: width ?? undefined, height: height ?? undefined });
 				return { result };
 			},
 			browser_screenshot: async (_params) => {
-				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const ch = this.mainProcessService.getChannel('ribix-channel-ribixBrowser');
 				const result = await ch.call<{ screenshotPath: string; width: number; height: number }>('screenshot', {});
 				return { result };
 			},
 			browser_click: async ({ selector }) => {
-				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const ch = this.mainProcessService.getChannel('ribix-channel-ribixBrowser');
 				const result = await ch.call<{ screenshotPath: string }>('click', { selector });
 				return { result };
 			},
 			browser_type: async ({ selector, text }) => {
-				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const ch = this.mainProcessService.getChannel('ribix-channel-ribixBrowser');
 				const result = await ch.call<{ screenshotPath: string }>('type', { selector, text });
 				return { result };
 			},
 			browser_scroll: async ({ direction, amount }) => {
-				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const ch = this.mainProcessService.getChannel('ribix-channel-ribixBrowser');
 				const result = await ch.call<{ screenshotPath: string }>('scroll', { direction, amount: amount ?? undefined });
 				return { result };
 			},
 			browser_get_html: async ({ selector }) => {
-				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const ch = this.mainProcessService.getChannel('ribix-channel-ribixBrowser');
 				const result = await ch.call<{ html: string }>('getHtml', { selector: selector ?? undefined });
 				return { result };
 			},
 			browser_close: async (_params) => {
-				const ch = this.mainProcessService.getChannel('void-channel-ribixBrowser');
+				const ch = this.mainProcessService.getChannel('ribix-channel-ribixBrowser');
 				await ch.call('close', {});
 				return { result: {} };
 			},
@@ -565,7 +565,7 @@ export class ToolsService implements IToolsService {
 				return result.uris.map(uri => uri.fsPath).join('\n') + nextPageStr(result.hasNextPage)
 			},
 			search_in_file: (params, result) => {
-				const { model } = voidModelService.getModel(params.uri)
+				const { model } = ribixModelService.getModel(params.uri)
 				if (!model) return '<Error getting string of result>'
 				const lines = result.lines.map(n => {
 					const lineContent = model.getValueInRange({ startLineNumber: n, startColumn: 1, endLineNumber: n, endColumn: Number.MAX_SAFE_INTEGER }, EndOfLinePreference.LF)
@@ -587,7 +587,7 @@ export class ToolsService implements IToolsService {
 			},
 			edit_file: (params, result) => {
 				const lintErrsString = (
-					this.voidSettingsService.state.globalSettings.includeToolLintErrors ?
+					this.ribixSettingsService.state.globalSettings.includeToolLintErrors ?
 						(result.lintErrors ? ` Lint errors found after change:\n${stringifyLintErrors(result.lintErrors)}.\nIf this is related to a change made while calling this tool, you might want to fix the error.`
 							: ` No lint errors found.`)
 						: '')
@@ -596,7 +596,7 @@ export class ToolsService implements IToolsService {
 			},
 			rewrite_file: (params, result) => {
 				const lintErrsString = (
-					this.voidSettingsService.state.globalSettings.includeToolLintErrors ?
+					this.ribixSettingsService.state.globalSettings.includeToolLintErrors ?
 						(result.lintErrors ? ` Lint errors found after change:\n${stringifyLintErrors(result.lintErrors)}.\nIf this is related to a change made while calling this tool, you might want to fix the error.`
 							: ` No lint errors found.`)
 						: '')

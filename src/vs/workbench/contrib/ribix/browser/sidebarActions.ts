@@ -14,11 +14,11 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { IRange } from '../../../../editor/common/core/range.js';
-import { VOID_VIEW_CONTAINER_ID, VOID_VIEW_ID } from './sidebarPane.js';
+import { RIBIX_VIEW_CONTAINER_ID, RIBIX_VIEW_ID } from './sidebarPane.js';
 import { IMetricsService } from '../common/metricsService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { VOID_TOGGLE_SETTINGS_ACTION_ID } from './ribixSettingsPane.js';
-import { VOID_CTRL_L_ACTION_ID } from './actionIDs.js';
+import { RIBIX_TOGGLE_SETTINGS_ACTION_ID } from './ribixSettingsPane.js';
+import { RIBIX_CTRL_L_ACTION_ID } from './actionIDs.js';
 import { localize2 } from '../../../../nls.js';
 import { IChatThreadService } from './chatThreadService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -61,15 +61,15 @@ export const roundRangeToLines = (range: IRange | null | undefined, options: { e
 
 
 
-const VOID_OPEN_SIDEBAR_ACTION_ID = 'void.sidebar.open'
+const RIBIX_OPEN_SIDEBAR_ACTION_ID = 'void.sidebar.open'
 registerAction2(class extends Action2 {
 	constructor() {
-		super({ id: VOID_OPEN_SIDEBAR_ACTION_ID, title: localize2('voidOpenSidebar', 'Ribix IDE: Open Sidebar'), f1: true });
+		super({ id: RIBIX_OPEN_SIDEBAR_ACTION_ID, title: localize2('ribixOpenSidebar', 'Ribix IDE: Open Sidebar'), f1: true });
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const viewsService = accessor.get(IViewsService)
 		const chatThreadsService = accessor.get(IChatThreadService)
-		viewsService.openViewContainer(VOID_VIEW_CONTAINER_ID)
+		viewsService.openViewContainer(RIBIX_VIEW_CONTAINER_ID)
 		await chatThreadsService.focusCurrentChat()
 	}
 })
@@ -79,12 +79,12 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_CTRL_L_ACTION_ID,
+			id: RIBIX_CTRL_L_ACTION_ID,
 			f1: true,
-			title: localize2('voidCmdL', 'Ribix IDE: Add Selection to Chat'),
+			title: localize2('ribixCmdL', 'Ribix IDE: Add Selection to Chat'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyCode.KeyL,
-				weight: KeybindingWeight.VoidExtension
+				weight: KeybindingWeight.RibixExtension
 			}
 		});
 	}
@@ -106,9 +106,9 @@ registerAction2(class extends Action2 {
 		const selectionRange = roundRangeToLines(editor?.getSelection(), { emptySelectionBehavior: 'null' })
 
 		// open panel
-		const wasAlreadyOpen = viewsService.isViewContainerVisible(VOID_VIEW_CONTAINER_ID)
+		const wasAlreadyOpen = viewsService.isViewContainerVisible(RIBIX_VIEW_CONTAINER_ID)
 		if (!wasAlreadyOpen) {
-			await commandService.executeCommand(VOID_OPEN_SIDEBAR_ACTION_ID)
+			await commandService.executeCommand(RIBIX_OPEN_SIDEBAR_ACTION_ID)
 		}
 
 		// Add selection to chat
@@ -144,18 +144,18 @@ registerAction2(class extends Action2 {
 
 
 // New chat keybind + menu button
-const VOID_CMD_SHIFT_L_ACTION_ID = 'void.cmdShiftL'
+const RIBIX_CMD_SHIFT_L_ACTION_ID = 'void.cmdShiftL'
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_CMD_SHIFT_L_ACTION_ID,
+			id: RIBIX_CMD_SHIFT_L_ACTION_ID,
 			title: 'New Chat',
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyL,
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			},
 			icon: { id: 'add' },
-			menu: [{ id: MenuId.ViewTitle, group: 'navigation', when: ContextKeyExpr.equals('view', VOID_VIEW_ID), }],
+			menu: [{ id: MenuId.ViewTitle, group: 'navigation', when: ContextKeyExpr.equals('view', RIBIX_VIEW_ID), }],
 		});
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
@@ -212,7 +212,7 @@ registerAction2(class extends Action2 {
 			id: 'void.historyAction',
 			title: 'View Past Chats',
 			icon: { id: 'history' },
-			menu: [{ id: MenuId.ViewTitle, group: 'navigation', when: ContextKeyExpr.equals('view', VOID_VIEW_ID), }]
+			menu: [{ id: MenuId.ViewTitle, group: 'navigation', when: ContextKeyExpr.equals('view', RIBIX_VIEW_ID), }]
 		});
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
@@ -229,7 +229,7 @@ registerAction2(class extends Action2 {
 		const commandService = accessor.get(ICommandService)
 
 		metricsService.capture('Chat Navigation', { type: 'History' })
-		commandService.executeCommand(VOID_CMD_SHIFT_L_ACTION_ID)
+		commandService.executeCommand(RIBIX_CMD_SHIFT_L_ACTION_ID)
 
 	}
 })
@@ -242,12 +242,12 @@ registerAction2(class extends Action2 {
 			id: 'void.settingsAction',
 			title: `Ribix IDE's Settings`,
 			icon: { id: 'settings-gear' },
-			menu: [{ id: MenuId.ViewTitle, group: 'navigation', when: ContextKeyExpr.equals('view', VOID_VIEW_ID), }]
+			menu: [{ id: MenuId.ViewTitle, group: 'navigation', when: ContextKeyExpr.equals('view', RIBIX_VIEW_ID), }]
 		});
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const commandService = accessor.get(ICommandService)
-		commandService.executeCommand(VOID_TOGGLE_SETTINGS_ACTION_ID)
+		commandService.executeCommand(RIBIX_TOGGLE_SETTINGS_ACTION_ID)
 	}
 })
 

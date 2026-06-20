@@ -6,26 +6,26 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
 
-type VoidModelType = {
+type RibixModelType = {
 	model: ITextModel | null;
 	editorModel: IResolvedTextEditorModel | null;
 };
 
-export interface IVoidModelService {
+export interface IRibixModelService {
 	readonly _serviceBrand: undefined;
 	initializeModel(uri: URI): Promise<void>;
-	getModel(uri: URI): VoidModelType;
-	getModelFromFsPath(fsPath: string): VoidModelType;
-	getModelSafe(uri: URI): Promise<VoidModelType>;
+	getModel(uri: URI): RibixModelType;
+	getModelFromFsPath(fsPath: string): RibixModelType;
+	getModelSafe(uri: URI): Promise<RibixModelType>;
 	saveModel(uri: URI): Promise<void>;
 
 }
 
-export const IVoidModelService = createDecorator<IVoidModelService>('voidVoidModelService');
+export const IRibixModelService = createDecorator<IRibixModelService>('ribixRibixModelService');
 
-class VoidModelService extends Disposable implements IVoidModelService {
+class RibixModelService extends Disposable implements IRibixModelService {
 	_serviceBrand: undefined;
-	static readonly ID = 'voidVoidModelService';
+	static readonly ID = 'ribixRibixModelService';
 	private readonly _modelRefOfURI: Record<string, IReference<IResolvedTextEditorModel>> = {};
 
 	constructor(
@@ -53,7 +53,7 @@ class VoidModelService extends Disposable implements IVoidModelService {
 		}
 	};
 
-	getModelFromFsPath = (fsPath: string): VoidModelType => {
+	getModelFromFsPath = (fsPath: string): RibixModelType => {
 		const editorModelRef = this._modelRefOfURI[fsPath];
 		if (!editorModelRef) {
 			return { model: null, editorModel: null };
@@ -73,7 +73,7 @@ class VoidModelService extends Disposable implements IVoidModelService {
 	}
 
 
-	getModelSafe = async (uri: URI): Promise<VoidModelType> => {
+	getModelSafe = async (uri: URI): Promise<RibixModelType> => {
 		if (!(uri.fsPath in this._modelRefOfURI)) await this.initializeModel(uri);
 		return this.getModel(uri);
 
@@ -87,4 +87,4 @@ class VoidModelService extends Disposable implements IVoidModelService {
 	}
 }
 
-registerSingleton(IVoidModelService, VoidModelService, InstantiationType.Eager);
+registerSingleton(IRibixModelService, RibixModelService, InstantiationType.Eager);

@@ -24,7 +24,7 @@
 //      A paused state would require explicit UI approval — implement that via
 //      agentController.pause() + a UI prompt if desired.
 //
-//   4. Add missionCeilingTokens to the Ribix settings (voidSettingsTypes.ts / Settings.tsx)
+//   4. Add missionCeilingTokens to the Ribix settings (ribixSettingsTypes.ts / Settings.tsx)
 //      so engineers can tune it per workspace.
 
 /** Default token ceiling per mission (≈ $0.50 at typical rates for 100k tokens). */

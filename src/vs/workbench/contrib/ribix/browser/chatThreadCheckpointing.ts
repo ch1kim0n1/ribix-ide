@@ -15,7 +15,7 @@
 
 import { URI } from '../../../../base/common/uri.js';
 import { CheckpointEntry } from '../common/chatThreadServiceTypes.js';
-import { VoidFileSnapshot } from '../common/editCodeServiceTypes.js';
+import { RibixFileSnapshot } from '../common/editCodeServiceTypes.js';
 import { ThreadsState, ThreadStreamState, ThreadType } from './chatThreadService.js';
 import { IEditCodeService } from './editCodeServiceInterface.js';
 
@@ -29,26 +29,26 @@ export interface CheckpointContext {
 	setThreadState(threadId: string, state: Partial<ThreadType['state']>, doNotRefreshMountInfo?: boolean): void;
 }
 
-/** Returns the voidFileSnapshot and optionally user-modified snapshot for a checkpoint/uri. */
+/** Returns the ribixFileSnapshot and optionally user-modified snapshot for a checkpoint/uri. */
 export function getCheckpointInfo(
 	checkpointMessage: CheckpointEntry,
 	fsPath: string,
 	opts: { includeUserModifiedChanges: boolean },
-): { voidFileSnapshot: VoidFileSnapshot | null } {
-	const voidFileSnapshot = checkpointMessage.voidFileSnapshotOfURI
-		? checkpointMessage.voidFileSnapshotOfURI[fsPath] ?? null
+): { ribixFileSnapshot: RibixFileSnapshot | null } {
+	const ribixFileSnapshot = checkpointMessage.ribixFileSnapshotOfURI
+		? checkpointMessage.ribixFileSnapshotOfURI[fsPath] ?? null
 		: null;
 
 	if (!opts.includeUserModifiedChanges) {
-		return { voidFileSnapshot };
+		return { ribixFileSnapshot };
 	}
 
-	const userModifiedVoidFileSnapshot =
-		fsPath in checkpointMessage.userModifications.voidFileSnapshotOfURI
-			? checkpointMessage.userModifications.voidFileSnapshotOfURI[fsPath] ?? null
+	const userModifiedRibixFileSnapshot =
+		fsPath in checkpointMessage.userModifications.ribixFileSnapshotOfURI
+			? checkpointMessage.userModifications.ribixFileSnapshotOfURI[fsPath] ?? null
 			: null;
 
-	return { voidFileSnapshot: userModifiedVoidFileSnapshot ?? voidFileSnapshot };
+	return { ribixFileSnapshot: userModifiedRibixFileSnapshot ?? ribixFileSnapshot };
 }
 
 /** Returns the last checkpoint message at or before messageIdx, plus its index. */
@@ -82,7 +82,7 @@ export function getCheckpointsBetween(
 		const message = thread.messages[i];
 		if (message?.role !== 'checkpoint') continue;
 		const checkpoint = message as CheckpointEntry;
-		for (const fsPath in checkpoint.voidFileSnapshotOfURI) {
+		for (const fsPath in checkpoint.ribixFileSnapshotOfURI) {
 			lastIdxOfURI[fsPath] = i;
 		}
 	}
@@ -128,15 +128,15 @@ export function makeUsStandOnCheckpoint(
 export function addUserModificationsToCurrCheckpoint(
 	{ threadId }: { threadId: string },
 	ctx: CheckpointContext,
-	computeNewCheckpointInfo: (opts: { threadId: string }) => { voidFileSnapshotOfURI: { [fsPath: string]: VoidFileSnapshot | undefined } } | undefined,
+	computeNewCheckpointInfo: (opts: { threadId: string }) => { ribixFileSnapshotOfURI: { [fsPath: string]: RibixFileSnapshot | undefined } } | undefined,
 ): void {
-	const { voidFileSnapshotOfURI } = computeNewCheckpointInfo({ threadId }) ?? {};
+	const { ribixFileSnapshotOfURI } = computeNewCheckpointInfo({ threadId }) ?? {};
 	const res = readCurrentCheckpoint(threadId, ctx);
 	if (!res) return;
 	const [checkpoint, checkpointIdx] = res;
 	ctx.editMessageInThread(threadId, checkpointIdx, {
 		...checkpoint,
-		userModifications: { voidFileSnapshotOfURI: voidFileSnapshotOfURI ?? {} },
+		userModifications: { ribixFileSnapshotOfURI: ribixFileSnapshotOfURI ?? {} },
 	});
 }
 
@@ -148,7 +148,7 @@ export function jumpToCheckpointBeforeMessageIdx(
 	opts: { threadId: string; messageIdx: number; jumpToUserModified: boolean },
 	ctx: CheckpointContext,
 	addUserCheckpoint: (opts: { threadId: string }) => void,
-	computeNewCheckpointInfo: (opts: { threadId: string }) => { voidFileSnapshotOfURI: { [fsPath: string]: VoidFileSnapshot | undefined } } | undefined,
+	computeNewCheckpointInfo: (opts: { threadId: string }) => { ribixFileSnapshotOfURI: { [fsPath: string]: RibixFileSnapshot | undefined } } | undefined,
 ): void {
 	const { threadId, messageIdx, jumpToUserModified } = opts;
 
@@ -186,9 +186,9 @@ export function jumpToCheckpointBeforeMessageIdx(
 				if (message.role !== 'checkpoint') continue;
 				const res = getCheckpointInfo(message as CheckpointEntry, fsPath, { includeUserModifiedChanges: jumpToUserModified });
 				if (!res) continue;
-				const { voidFileSnapshot } = res;
-				if (!voidFileSnapshot) continue;
-				ctx.editCodeService.restoreVoidFileSnapshot(URI.file(fsPath), voidFileSnapshot);
+				const { ribixFileSnapshot } = res;
+				if (!ribixFileSnapshot) continue;
+				ctx.editCodeService.restoreRibixFileSnapshot(URI.file(fsPath), ribixFileSnapshot);
 				break;
 			}
 		}
@@ -203,9 +203,9 @@ export function jumpToCheckpointBeforeMessageIdx(
 				if (message.role !== 'checkpoint') continue;
 				const res = getCheckpointInfo(message as CheckpointEntry, fsPath, { includeUserModifiedChanges: jumpToUserModified });
 				if (!res) continue;
-				const { voidFileSnapshot } = res;
-				if (!voidFileSnapshot) continue;
-				ctx.editCodeService.restoreVoidFileSnapshot(URI.file(fsPath), voidFileSnapshot);
+				const { ribixFileSnapshot } = res;
+				if (!ribixFileSnapshot) continue;
+				ctx.editCodeService.restoreRibixFileSnapshot(URI.file(fsPath), ribixFileSnapshot);
 				break;
 			}
 		}

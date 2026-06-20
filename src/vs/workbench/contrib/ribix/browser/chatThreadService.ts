@@ -14,7 +14,7 @@ import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { isABuiltinToolName } from '../common/prompt/prompts.js';
 import { AnthropicReasoning, getErrorMessage, RawToolCallObj, RawToolParamsObj } from '../common/sendLLMMessageTypes.js';
 import { FeatureName, ModelSelection, ModelSelectionOptions } from '../common/ribixSettingsTypes.js';
-import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 import { approvalTypeOfBuiltinToolName, BuiltinToolCallParams, ToolCallParams, ToolName, ToolResult } from '../common/toolsServiceTypes.js';
 import { IToolsService } from './toolsService.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
@@ -23,10 +23,10 @@ import { ChatMessage, CheckpointEntry, CodespanLocationLink, StagingSelectionIte
 import { Position } from '../../../../editor/common/core/position.js';
 import { IMetricsService } from '../common/metricsService.js';
 import { shorten } from '../../../../base/common/labels.js';
-import { IVoidModelService } from '../common/ribixModelService.js';
+import { IRibixModelService } from '../common/ribixModelService.js';
 import { findLast, findLastIdx } from '../../../../base/common/arraysFind.js';
 import { IEditCodeService } from './editCodeServiceInterface.js';
-import { VoidFileSnapshot } from '../common/editCodeServiceTypes.js';
+import { RibixFileSnapshot } from '../common/editCodeServiceTypes.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { truncate } from '../../../../base/common/strings.js';
 import { THREAD_STORAGE_KEY } from '../common/storageKeys.js';
@@ -292,7 +292,7 @@ export interface IChatThreadService {
 	blurCurrentChat: () => Promise<void>
 }
 
-export const IChatThreadService = createDecorator<IChatThreadService>('voidChatThreadService');
+export const IChatThreadService = createDecorator<IChatThreadService>('ribixChatThreadService');
 class ChatThreadService extends Disposable implements IChatThreadService {
 	_serviceBrand: undefined;
 
@@ -313,10 +313,10 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 
 	constructor(
 		@IStorageService private readonly _storageService: IStorageService,
-		@IVoidModelService private readonly _voidModelService: IVoidModelService,
+		@IRibixModelService private readonly _ribixModelService: IRibixModelService,
 		@ILLMMessageService private readonly _llmMessageService: ILLMMessageService,
 		@IToolsService private readonly _toolsService: IToolsService,
-		@IVoidSettingsService private readonly _settingsService: IVoidSettingsService,
+		@IRibixSettingsService private readonly _settingsService: IRibixSettingsService,
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 		@IMetricsService private readonly _metricsService: IMetricsService,
 		@IEditCodeService private readonly _editCodeService: IEditCodeService,
@@ -442,11 +442,11 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 			// set streamState
 			const messages = newState.allThreads[threadId]?.messages
 			const lastMessage = messages && messages[messages.length - 1]
-			// if awaiting user but stream state doesn't indicate it (happens if restart Void)
+			// if awaiting user but stream state doesn't indicate it (happens if restart Ribix)
 			if (lastMessage && lastMessage.role === 'tool' && lastMessage.type === 'tool_request')
 				this._setStreamState(threadId, { isRunning: 'awaiting_user', })
 
-			// if running now but stream state doesn't indicate it (happens if restart Void), cancel that last tool
+			// if running now but stream state doesn't indicate it (happens if restart Ribix), cancel that last tool
 			if (lastMessage && lastMessage.role === 'tool' && lastMessage.type === 'running_now') {
 
 				this._updateLatestTool(threadId, { role: 'tool', type: 'rejected', content: lastMessage.content, id: lastMessage.id, rawParams: lastMessage.rawParams, result: null, name: lastMessage.name, params: lastMessage.params, mcpServerName: lastMessage.mcpServerName })
@@ -944,11 +944,11 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 
 
 	private _getCheckpointInfo = (checkpointMessage: ChatMessage & { role: 'checkpoint' }, fsPath: string, opts: { includeUserModifiedChanges: boolean }) => {
-		const voidFileSnapshot = checkpointMessage.voidFileSnapshotOfURI ? checkpointMessage.voidFileSnapshotOfURI[fsPath] ?? null : null
-		if (!opts.includeUserModifiedChanges) { return { voidFileSnapshot, } }
+		const ribixFileSnapshot = checkpointMessage.ribixFileSnapshotOfURI ? checkpointMessage.ribixFileSnapshotOfURI[fsPath] ?? null : null
+		if (!opts.includeUserModifiedChanges) { return { ribixFileSnapshot, } }
 
-		const userModifiedVoidFileSnapshot = fsPath in checkpointMessage.userModifications.voidFileSnapshotOfURI ? checkpointMessage.userModifications.voidFileSnapshotOfURI[fsPath] ?? null : null
-		return { voidFileSnapshot: userModifiedVoidFileSnapshot ?? voidFileSnapshot, }
+		const userModifiedRibixFileSnapshot = fsPath in checkpointMessage.userModifications.ribixFileSnapshotOfURI ? checkpointMessage.userModifications.ribixFileSnapshotOfURI[fsPath] ?? null : null
+		return { ribixFileSnapshot: userModifiedRibixFileSnapshot ?? ribixFileSnapshot, }
 	}
 
 	private _computeNewCheckpointInfo({ threadId }: { threadId: string }) {
@@ -958,59 +958,59 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 		const lastCheckpointIdx = findLastIdx(thread.messages, (m) => m.role === 'checkpoint') ?? -1
 		if (lastCheckpointIdx === -1) return
 
-		const voidFileSnapshotOfURI: { [fsPath: string]: VoidFileSnapshot | undefined } = {}
+		const ribixFileSnapshotOfURI: { [fsPath: string]: RibixFileSnapshot | undefined } = {}
 
 		// add a change for all the URIs in the checkpoint history
 		const { lastIdxOfURI } = this._getCheckpointsBetween({ threadId, loIdx: 0, hiIdx: lastCheckpointIdx, }) ?? {}
 		for (const fsPath in lastIdxOfURI ?? {}) {
-			const { model } = this._voidModelService.getModelFromFsPath(fsPath)
+			const { model } = this._ribixModelService.getModelFromFsPath(fsPath)
 			if (!model) continue
 			const checkpoint2 = thread.messages[lastIdxOfURI[fsPath]] || null
 			if (!checkpoint2) continue
 			if (checkpoint2.role !== 'checkpoint') continue
 			const res = this._getCheckpointInfo(checkpoint2, fsPath, { includeUserModifiedChanges: false })
 			if (!res) continue
-			const { voidFileSnapshot: oldVoidFileSnapshot } = res
+			const { ribixFileSnapshot: oldRibixFileSnapshot } = res
 
 			// if there was any change to the str or diffAreaSnapshot, update. rough approximation of equality, oldDiffAreasSnapshot === diffAreasSnapshot is not perfect
-			const voidFileSnapshot = this._editCodeService.getVoidFileSnapshot(URI.file(fsPath))
-			if (oldVoidFileSnapshot === voidFileSnapshot) continue
-			voidFileSnapshotOfURI[fsPath] = voidFileSnapshot
+			const ribixFileSnapshot = this._editCodeService.getRibixFileSnapshot(URI.file(fsPath))
+			if (oldRibixFileSnapshot === ribixFileSnapshot) continue
+			ribixFileSnapshotOfURI[fsPath] = ribixFileSnapshot
 		}
 
 		// // add a change for all user-edited files (that aren't in the history)
 		// for (const fsPath of this._userModifiedFilesToCheckInCheckpoints.keys()) {
 		// 	if (fsPath in lastIdxOfURI) continue // if already visisted, don't visit again
-		// 	const { model } = this._voidModelService.getModelFromFsPath(fsPath)
+		// 	const { model } = this._ribixModelService.getModelFromFsPath(fsPath)
 		// 	if (!model) continue
 		// 	currStrOfFsPath[fsPath] = model.getValue(EndOfLinePreference.LF)
 		// }
 
-		return { voidFileSnapshotOfURI }
+		return { ribixFileSnapshotOfURI }
 	}
 
 
 	private _addUserCheckpoint({ threadId }: { threadId: string }) {
-		const { voidFileSnapshotOfURI } = this._computeNewCheckpointInfo({ threadId }) ?? {}
+		const { ribixFileSnapshotOfURI } = this._computeNewCheckpointInfo({ threadId }) ?? {}
 		this._addCheckpoint(threadId, {
 			role: 'checkpoint',
 			type: 'user_edit',
-			voidFileSnapshotOfURI: voidFileSnapshotOfURI ?? {},
-			userModifications: { voidFileSnapshotOfURI: {}, },
+			ribixFileSnapshotOfURI: ribixFileSnapshotOfURI ?? {},
+			userModifications: { ribixFileSnapshotOfURI: {}, },
 		})
 	}
 	// call this right after LLM edits a file
 	private _addToolEditCheckpoint({ threadId, uri, }: { threadId: string, uri: URI }) {
 		const thread = this.state.allThreads[threadId]
 		if (!thread) return
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 		if (!model) return // should never happen
-		const diffAreasSnapshot = this._editCodeService.getVoidFileSnapshot(uri)
+		const diffAreasSnapshot = this._editCodeService.getRibixFileSnapshot(uri)
 		this._addCheckpoint(threadId, {
 			role: 'checkpoint',
 			type: 'tool_edit',
-			voidFileSnapshotOfURI: { [uri.fsPath]: diffAreasSnapshot },
-			userModifications: { voidFileSnapshotOfURI: {} },
+			ribixFileSnapshotOfURI: { [uri.fsPath]: diffAreasSnapshot },
+			userModifications: { ribixFileSnapshotOfURI: {} },
 		})
 	}
 
@@ -1024,7 +1024,7 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 		for (let i = loIdx; i <= hiIdx; i += 1) {
 			const message = thread.messages[i]
 			if (message?.role !== 'checkpoint') continue
-			for (const fsPath in message.voidFileSnapshotOfURI) { // do not include userModified.beforeStrOfURI here, jumping should not include those changes
+			for (const fsPath in message.ribixFileSnapshotOfURI) { // do not include userModified.beforeStrOfURI here, jumping should not include those changes
 				lastIdxOfURI[fsPath] = i
 			}
 		}
@@ -1277,7 +1277,7 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 			// check all prevUris for the target
 			for (const uri of prevUris) {
 
-				const modelRef = await this._voidModelService.getModelSafe(uri)
+				const modelRef = await this._ribixModelService.getModelSafe(uri)
 				const { model } = modelRef
 				if (!model) continue
 

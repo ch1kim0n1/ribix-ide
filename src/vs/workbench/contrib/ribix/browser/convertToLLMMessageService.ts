@@ -9,11 +9,11 @@ import { ChatMessage } from '../common/chatThreadServiceTypes.js';
 import { getIsReasoningEnabledState, getReservedOutputTokenSpace, getModelCapabilities } from '../common/modelCapabilities.js';
 import { reParsedToolXMLString, chat_systemMessage } from '../common/prompt/prompts.js';
 import { AnthropicLLMChatMessage, AnthropicReasoning, GeminiLLMChatMessage, LLMChatMessage, LLMFIMMessage, OpenAILLMChatMessage, RawToolParamsObj } from '../common/sendLLMMessageTypes.js';
-import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 import { ChatMode, FeatureName, ModelSelection, ProviderName } from '../common/ribixSettingsTypes.js';
 import { IDirectoryStrService } from '../common/directoryStrService.js';
 import { ITerminalToolService } from './terminalToolService.js';
-import { IVoidModelService } from '../common/ribixModelService.js';
+import { IRibixModelService } from '../common/ribixModelService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { EndOfLinePreference } from '../../../../editor/common/model.js';
 import { ToolName } from '../common/toolsServiceTypes.js';
@@ -538,25 +538,25 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		@IEditorService private readonly editorService: IEditorService,
 		@IDirectoryStrService private readonly directoryStrService: IDirectoryStrService,
 		@ITerminalToolService private readonly terminalToolService: ITerminalToolService,
-		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
-		@IVoidModelService private readonly voidModelService: IVoidModelService,
+		@IRibixSettingsService private readonly ribixSettingsService: IRibixSettingsService,
+		@IRibixModelService private readonly ribixModelService: IRibixModelService,
 		@IMCPService private readonly mcpService: IMCPService,
 	) {
 		super()
 	}
 
 	// Read .voidrules files from workspace folders
-	private _getVoidRulesFileContents(): string {
+	private _getRibixRulesFileContents(): string {
 		try {
 			const workspaceFolders = this.workspaceContextService.getWorkspace().folders;
-			let voidRules = '';
+			let ribixRules = '';
 			for (const folder of workspaceFolders) {
 				const uri = URI.joinPath(folder.uri, '.voidrules')
-				const { model } = this.voidModelService.getModel(uri)
+				const { model } = this.ribixModelService.getModel(uri)
 				if (!model) continue
-				voidRules += model.getValue(EndOfLinePreference.LF) + '\n\n';
+				ribixRules += model.getValue(EndOfLinePreference.LF) + '\n\n';
 			}
-			return voidRules.trim();
+			return ribixRules.trim();
 		}
 		catch (e) {
 			return ''
@@ -565,12 +565,12 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 
 	// Get combined AI instructions from settings and .voidrules files
 	private _getCombinedAIInstructions(): string {
-		const globalAIInstructions = this.voidSettingsService.state.globalSettings.aiInstructions;
-		const voidRulesFileContent = this._getVoidRulesFileContents();
+		const globalAIInstructions = this.ribixSettingsService.state.globalSettings.aiInstructions;
+		const ribixRulesFileContent = this._getRibixRulesFileContents();
 
 		const ans: string[] = []
 		if (globalAIInstructions) ans.push(globalAIInstructions)
-		if (voidRulesFileContent) ans.push(voidRulesFileContent)
+		if (ribixRulesFileContent) ans.push(ribixRulesFileContent)
 		return ans.join('\n\n')
 	}
 
@@ -637,7 +637,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 	prepareLLMSimpleMessages: IConvertToLLMMessageService['prepareLLMSimpleMessages'] = ({ simpleMessages, systemMessage, modelSelection, featureName }) => {
 		if (modelSelection === null) return { messages: [], separateSystemMessage: undefined }
 
-		const { overridesOfModel } = this.voidSettingsService.state
+		const { overridesOfModel } = this.ribixSettingsService.state
 
 		const { providerName, modelName } = modelSelection
 		const {
@@ -646,7 +646,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 			supportsSystemMessage,
 		} = getModelCapabilities(providerName, modelName, overridesOfModel)
 
-		const modelSelectionOptions = this.voidSettingsService.state.optionsOfModelSelection[featureName][modelSelection.providerName]?.[modelSelection.modelName]
+		const modelSelectionOptions = this.ribixSettingsService.state.optionsOfModelSelection[featureName][modelSelection.providerName]?.[modelSelection.modelName]
 
 		// Get combined AI instructions
 		const aiInstructions = this._getCombinedAIInstructions();
@@ -670,7 +670,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 	prepareLLMChatMessages: IConvertToLLMMessageService['prepareLLMChatMessages'] = async ({ chatMessages, chatMode, modelSelection }) => {
 		if (modelSelection === null) return { messages: [], separateSystemMessage: undefined }
 
-		const { overridesOfModel } = this.voidSettingsService.state
+		const { overridesOfModel } = this.ribixSettingsService.state
 
 		const { providerName, modelName } = modelSelection
 		const {
@@ -679,11 +679,11 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 			supportsSystemMessage,
 		} = getModelCapabilities(providerName, modelName, overridesOfModel)
 
-		const { disableSystemMessage } = this.voidSettingsService.state.globalSettings;
+		const { disableSystemMessage } = this.ribixSettingsService.state.globalSettings;
 		const fullSystemMessage = await this._generateChatMessagesSystemMessage(chatMode, specialToolFormat)
 		const systemMessage = disableSystemMessage ? '' : fullSystemMessage;
 
-		const modelSelectionOptions = this.voidSettingsService.state.optionsOfModelSelection['Chat'][modelSelection.providerName]?.[modelSelection.modelName]
+		const modelSelectionOptions = this.ribixSettingsService.state.optionsOfModelSelection['Chat'][modelSelection.providerName]?.[modelSelection.modelName]
 
 		// Get combined AI instructions
 		const aiInstructions = this._getCombinedAIInstructions();

@@ -8,7 +8,7 @@
 
 ## Overview
 
-Ribix IDE is built on the Void editor fork (Code-OSS 1.99.3). The build process uses gulp tasks and follows the standard VS Code build pattern with Ribix-specific branding and configuration.
+Ribix IDE is built on the Ribix editor fork (Code-OSS 1.99.3). The build process uses gulp tasks and follows the standard VS Code build pattern with Ribix-specific branding and configuration.
 
 ---
 

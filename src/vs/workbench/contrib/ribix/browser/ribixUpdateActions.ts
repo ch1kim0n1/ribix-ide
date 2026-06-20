@@ -137,31 +137,31 @@ const notifyErrChecking = (notifService: INotificationService): INotificationHan
 }
 
 
-const performVoidCheck = async (
+const performRibixCheck = async (
 	explicit: boolean,
 	notifService: INotificationService,
-	voidUpdateService: IRibixUpdateService,
+	ribixUpdateService: IRibixUpdateService,
 	metricsService: IMetricsService,
 	updateService: IUpdateService,
 ): Promise<INotificationHandle | null> => {
 
 	const metricsTag = explicit ? 'Manual' : 'Auto'
 
-	metricsService.capture(`Void Update ${metricsTag}: Checking...`, {})
-	const res = await voidUpdateService.check(explicit)
+	metricsService.capture(`Ribix Update ${metricsTag}: Checking...`, {})
+	const res = await ribixUpdateService.check(explicit)
 	if (!res) {
 		const notifController = notifyErrChecking(notifService);
-		metricsService.capture(`Void Update ${metricsTag}: Error`, { res })
+		metricsService.capture(`Ribix Update ${metricsTag}: Error`, { res })
 		return notifController
 	}
 	else {
 		if (res.message) {
 			const notifController = notifyUpdate(res, notifService, updateService)
-			metricsService.capture(`Void Update ${metricsTag}: Yes`, { res })
+			metricsService.capture(`Ribix Update ${metricsTag}: Yes`, { res })
 			return notifController
 		}
 		else {
-			metricsService.capture(`Void Update ${metricsTag}: No`, { res })
+			metricsService.capture(`Ribix Update ${metricsTag}: No`, { res })
 			return null
 		}
 	}
@@ -176,19 +176,19 @@ registerAction2(class extends Action2 {
 	constructor() {
 		super({
 			f1: true,
-			id: 'void.voidCheckUpdate',
-			title: localize2('voidCheckUpdate', 'Ribix IDE: Check for Updates'),
+			id: 'void.ribixCheckUpdate',
+			title: localize2('ribixCheckUpdate', 'Ribix IDE: Check for Updates'),
 		});
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const voidUpdateService = accessor.get(IRibixUpdateService)
+		const ribixUpdateService = accessor.get(IRibixUpdateService)
 		const notifService = accessor.get(INotificationService)
 		const metricsService = accessor.get(IMetricsService)
 		const updateService = accessor.get(IUpdateService)
 
 		const currNotifController = lastNotifController
 
-		const newController = await performVoidCheck(true, notifService, voidUpdateService, metricsService, updateService)
+		const newController = await performRibixCheck(true, notifService, ribixUpdateService, metricsService, updateService)
 
 		if (newController) {
 			currNotifController?.close()
@@ -198,10 +198,10 @@ registerAction2(class extends Action2 {
 })
 
 // on mount
-class VoidUpdateWorkbenchContribution extends Disposable implements IWorkbenchContribution {
-	static readonly ID = 'workbench.contrib.void.voidUpdate'
+class RibixUpdateWorkbenchContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.ribix.ribixUpdate'
 	constructor(
-		@IRibixUpdateService voidUpdateService: IRibixUpdateService,
+		@IRibixUpdateService ribixUpdateService: IRibixUpdateService,
 		@IMetricsService metricsService: IMetricsService,
 		@INotificationService notifService: INotificationService,
 		@IUpdateService updateService: IUpdateService,
@@ -209,7 +209,7 @@ class VoidUpdateWorkbenchContribution extends Disposable implements IWorkbenchCo
 		super()
 
 		const autoCheck = () => {
-			performVoidCheck(false, notifService, voidUpdateService, metricsService, updateService)
+			performRibixCheck(false, notifService, ribixUpdateService, metricsService, updateService)
 		}
 
 		// check once 5 seconds after mount
@@ -225,4 +225,4 @@ class VoidUpdateWorkbenchContribution extends Disposable implements IWorkbenchCo
 
 	}
 }
-registerWorkbenchContribution2(VoidUpdateWorkbenchContribution.ID, VoidUpdateWorkbenchContribution, WorkbenchPhase.BlockRestore);
+registerWorkbenchContribution2(RibixUpdateWorkbenchContribution.ID, RibixUpdateWorkbenchContribution, WorkbenchPhase.BlockRestore);

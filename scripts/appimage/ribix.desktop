@@ -1,14 +1,14 @@
 [Desktop Entry]
-Name=Void
+Name=Ribix
 Comment=Open source AI code editor.
 GenericName=Text Editor
 Exec=void %F
 Icon=void
 Type=Application
 StartupNotify=false
-StartupWMClass=Void
+StartupWMClass=Ribix
 Categories=TextEditor;Development;IDE;
-MimeType=application/x-void-workspace;
+MimeType=application/x-ribix-workspace;
 Keywords=void;
 Actions=new-empty-window;
 

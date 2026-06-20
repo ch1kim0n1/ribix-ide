@@ -23,10 +23,10 @@ import * as dom from '../../../../base/browser/dom.js';
 import { Widget } from '../../../../base/browser/ui/widget.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConsistentEditorItemService, IConsistentItemService } from './helperServices/consistentItemService.js';
-import { voidPrefixAndSuffix, ctrlKStream_userMessage, ctrlKStream_systemMessage, defaultQuickEditFimTags, rewriteCode_systemMessage, rewriteCode_userMessage, searchReplaceGivenDescription_systemMessage, searchReplaceGivenDescription_userMessage, tripleTick, } from '../common/prompt/prompts.js';
-import { IVoidCommandBarService } from './ribixCommandBarService.js';
+import { ribixPrefixAndSuffix, ctrlKStream_userMessage, ctrlKStream_systemMessage, defaultQuickEditFimTags, rewriteCode_systemMessage, rewriteCode_userMessage, searchReplaceGivenDescription_systemMessage, searchReplaceGivenDescription_userMessage, tripleTick, } from '../common/prompt/prompts.js';
+import { IRibixCommandBarService } from './ribixCommandBarService.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { VOID_ACCEPT_DIFF_ACTION_ID, VOID_REJECT_DIFF_ACTION_ID } from './actionIDs.js';
+import { RIBIX_ACCEPT_DIFF_ACTION_ID, RIBIX_REJECT_DIFF_ACTION_ID } from './actionIDs.js';
 
 import { mountCtrlK } from './react/out/quick-edit-tsx/index.js'
 import { QuickEditPropsType } from './quickEditActions.js';
@@ -39,18 +39,18 @@ import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { LLMChatMessage } from '../common/sendLLMMessageTypes.js';
 import { IMetricsService } from '../common/metricsService.js';
 import { IEditCodeService, AddCtrlKOpts, StartApplyingOpts, CallBeforeStartApplyingOpts, } from './editCodeServiceInterface.js';
-import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 import { FeatureName } from '../common/ribixSettingsTypes.js';
-import { IVoidModelService } from '../common/ribixModelService.js';
+import { IRibixModelService } from '../common/ribixModelService.js';
 import { deepClone } from '../../../../base/common/objects.js';
 import { acceptBg, acceptBorder, buttonFontSize, buttonTextColor, rejectBg, rejectBorder } from '../common/helpers/colors.js';
-import { DiffArea, Diff, CtrlKZone, VoidFileSnapshot, DiffAreaSnapshotEntry, diffAreaSnapshotKeys, DiffZone, TrackingZone, ComputedDiff } from '../common/editCodeServiceTypes.js';
+import { DiffArea, Diff, CtrlKZone, RibixFileSnapshot, DiffAreaSnapshotEntry, diffAreaSnapshotKeys, DiffZone, TrackingZone, ComputedDiff } from '../common/editCodeServiceTypes.js';
 import { IConvertToLLMMessageService } from './convertToLLMMessageService.js';
 import { acceptDiff as _acceptDiff, rejectDiff as _rejectDiff, acceptOrRejectAllDiffAreas as _acceptOrRejectAllDiffAreas, DiffManagerContext } from './editCodeDiffManager.js';
 import { addCtrlKZone as _addCtrlKZone, removeCtrlKZone as _removeCtrlKZone, ZoneManagerContext } from './editCodeZoneManager.js';
 import { startApplying as _startApplying, ApplierContext } from './editCodeApplier.js';
 // import { isMacintosh } from '../../../../base/common/platform.js';
-// import { VOID_OPEN_SETTINGS_ACTION_ID } from './ribixSettingsPane.js';
+// import { RIBIX_OPEN_SETTINGS_ACTION_ID } from './ribixSettingsPane.js';
 
 const numLinesOfStr = (str: string) => str.split('\n').length
 
@@ -195,9 +195,9 @@ class EditCodeService extends Disposable implements IEditCodeService {
 		@IMetricsService private readonly _metricsService: IMetricsService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		// @ICommandService private readonly _commandService: ICommandService,
-		@IVoidSettingsService private readonly _settingsService: IVoidSettingsService,
+		@IRibixSettingsService private readonly _settingsService: IRibixSettingsService,
 		// @IFileService private readonly _fileService: IFileService,
-		@IVoidModelService private readonly _voidModelService: IVoidModelService,
+		@IRibixModelService private readonly _ribixModelService: IRibixModelService,
 		@IConvertToLLMMessageService private readonly _convertToLLMMessageService: IConvertToLLMMessageService,
 	) {
 		super();
@@ -206,7 +206,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 		const registeredModelURIs = new Set<string>()
 		const initializeModel = async (model: ITextModel) => {
 
-			await this._voidModelService.initializeModel(model.uri)
+			await this._ribixModelService.initializeModel(model.uri)
 
 			// do not add listeners to the same model twice - important, or will see duplicates
 			if (registeredModelURIs.has(model.uri.fsPath)) return
@@ -282,15 +282,15 @@ class EditCodeService extends Disposable implements IEditCodeService {
 	// 	const details = errorDetails(e.fullError)
 	// 	this._notificationService.notify({
 	// 		severity: Severity.Warning,
-	// 		message: `Void Error: ${e.message}`,
+	// 		message: `Ribix Error: ${e.message}`,
 	// 		actions: {
 	// 			secondary: [{
 	// 				id: 'void.onerror.opensettings',
 	// 				enabled: true,
-	// 				label: `Open Void's settings`,
+	// 				label: `Open Ribix's settings`,
 	// 				tooltip: '',
 	// 				class: undefined,
-	// 				run: () => { this._commandService.executeCommand(VOID_OPEN_SETTINGS_ACTION_ID) }
+	// 				run: () => { this._commandService.executeCommand(RIBIX_OPEN_SETTINGS_ACTION_ID) }
 	// 			}]
 	// 		},
 	// 		source: details ? `(Hold ${isMacintosh ? 'Option' : 'Alt'} to hover) - ${details}\n\nIf this persists, feel free to [report](https://github.com/ch1kim0n1/ribix-ide/issues/new) it.` : undefined
@@ -318,7 +318,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 
 	private _addDiffAreaStylesToURI = (uri: URI) => {
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 
 		for (const diffareaid of this.diffAreasOfURI[uri.fsPath] || []) {
 			const diffArea = this.diffAreaOfId[diffareaid]
@@ -327,10 +327,10 @@ class EditCodeService extends Disposable implements IEditCodeService {
 				// add sweep styles to the diffZone
 				if (diffArea._streamState.isStreaming) {
 					// sweepLine ... sweepLine
-					const fn1 = this._addLineDecoration(model, diffArea._streamState.line, diffArea._streamState.line, 'void-sweepIdxBG')
+					const fn1 = this._addLineDecoration(model, diffArea._streamState.line, diffArea._streamState.line, 'ribix-sweepIdxBG')
 					// sweepLine+1 ... endLine
 					const fn2 = diffArea._streamState.line + 1 <= diffArea.endLine ?
-						this._addLineDecoration(model, diffArea._streamState.line + 1, diffArea.endLine, 'void-sweepBG')
+						this._addLineDecoration(model, diffArea._streamState.line + 1, diffArea.endLine, 'ribix-sweepBG')
 						: null
 					diffArea._removeStylesFns.add(() => { fn1?.(); fn2?.(); })
 
@@ -339,7 +339,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 			else if (diffArea.type === 'CtrlKZone' && diffArea._linkedStreamingDiffZone === null) {
 				// highlight zone's text
-				const fn = this._addLineDecoration(model, diffArea.startLine, diffArea.endLine, 'void-highlightBG')
+				const fn = this._addLineDecoration(model, diffArea.startLine, diffArea.endLine, 'ribix-highlightBG')
 				diffArea._removeStylesFns.add(() => fn?.());
 			}
 		}
@@ -347,7 +347,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 
 	private _computeDiffsAndAddStylesToURI = (uri: URI) => {
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 		if (model === null) return
 		const fullFileText = model.getValue(EndOfLinePreference.LF)
 
@@ -480,11 +480,11 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 		const disposeInThisEditorFns: (() => void)[] = []
 
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 
 		// green decoration and minimap decoration
 		if (type !== 'deletion') {
-			const fn = this._addLineDecoration(model, diff.startLine, diff.endLine, 'void-greenBG', {
+			const fn = this._addLineDecoration(model, diff.startLine, diff.endLine, 'ribix-greenBG', {
 				minimap: { color: { id: 'minimapGutter.addedBackground' }, position: 2 },
 				overviewRuler: { color: { id: 'editorOverviewRuler.addedForeground' }, position: 7 }
 			})
@@ -499,7 +499,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 				fn: (editor) => {
 
 					const domNode = document.createElement('div');
-					domNode.className = 'void-redBG'
+					domNode.className = 'ribix-redBG'
 
 					const renderOptions = RenderOptions.fromEditor(editor)
 
@@ -588,7 +588,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 							offsetLines = 1
 						}
 					}
-					else { throw new Error('Void 1') }
+					else { throw new Error('Ribix 1') }
 
 					const buttonsWidget = this._instantiationService.createInstance(AcceptRejectInlineWidget, {
 						editor,
@@ -628,7 +628,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 	weAreWriting = false
 	private _writeURIText(uri: URI, text: string, range_: IRange | 'wholeFileRange', { shouldRealignDiffAreas, }: { shouldRealignDiffAreas: boolean, }) {
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 		if (!model) {
 			this._refreshStylesAndDiffsInURI(uri) // at the end of a write, we still expect to refresh all styles. e.g. sometimes we expect to restore all the decorations even if no edits were made when _writeText is used
 			return
@@ -666,8 +666,8 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 
 
-	private _getCurrentVoidFileSnapshot = (uri: URI): VoidFileSnapshot => {
-		const { model } = this._voidModelService.getModel(uri)
+	private _getCurrentRibixFileSnapshot = (uri: URI): RibixFileSnapshot => {
+		const { model } = this._ribixModelService.getModel(uri)
 		const snapshottedDiffAreaOfId: Record<string, DiffAreaSnapshotEntry> = {}
 
 		for (const diffareaid in this.diffAreaOfId) {
@@ -690,7 +690,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 	}
 
 
-	private _restoreVoidFileSnapshot = async (uri: URI, snapshot: VoidFileSnapshot) => {
+	private _restoreRibixFileSnapshot = async (uri: URI, snapshot: RibixFileSnapshot) => {
 		// for each diffarea in this uri, stop streaming if currently streaming
 		for (const diffareaid in this.diffAreaOfId) {
 			const diffArea = this.diffAreaOfId[diffareaid]
@@ -740,34 +740,34 @@ class EditCodeService extends Disposable implements IEditCodeService {
 	}
 
 	private _addToHistory(uri: URI, opts?: { onWillUndo?: () => void }) {
-		const beforeSnapshot: VoidFileSnapshot = this._getCurrentVoidFileSnapshot(uri)
-		let afterSnapshot: VoidFileSnapshot | null = null
+		const beforeSnapshot: RibixFileSnapshot = this._getCurrentRibixFileSnapshot(uri)
+		let afterSnapshot: RibixFileSnapshot | null = null
 
 		const elt: IUndoRedoElement = {
 			type: UndoRedoElementType.Resource,
 			resource: uri,
 			label: 'Ribix Agent',
 			code: 'undoredo.editCode',
-			undo: async () => { opts?.onWillUndo?.(); await this._restoreVoidFileSnapshot(uri, beforeSnapshot) },
-			redo: async () => { if (afterSnapshot) await this._restoreVoidFileSnapshot(uri, afterSnapshot) }
+			undo: async () => { opts?.onWillUndo?.(); await this._restoreRibixFileSnapshot(uri, beforeSnapshot) },
+			redo: async () => { if (afterSnapshot) await this._restoreRibixFileSnapshot(uri, afterSnapshot) }
 		}
 		this._undoRedoService.pushElement(elt)
 
 		const onFinishEdit = async () => {
-			afterSnapshot = this._getCurrentVoidFileSnapshot(uri)
-			await this._voidModelService.saveModel(uri)
+			afterSnapshot = this._getCurrentRibixFileSnapshot(uri)
+			await this._ribixModelService.saveModel(uri)
 		}
 		return { onFinishEdit }
 	}
 
 
-	public getVoidFileSnapshot(uri: URI) {
-		return this._getCurrentVoidFileSnapshot(uri)
+	public getRibixFileSnapshot(uri: URI) {
+		return this._getCurrentRibixFileSnapshot(uri)
 	}
 
 
-	public restoreVoidFileSnapshot(uri: URI, snapshot: VoidFileSnapshot): void {
-		this._restoreVoidFileSnapshot(uri, snapshot)
+	public restoreRibixFileSnapshot(uri: URI, snapshot: RibixFileSnapshot): void {
+		this._restoreRibixFileSnapshot(uri, snapshot)
 	}
 
 
@@ -1000,7 +1000,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 			else if (lastDiff.type === 'deletion')
 				endLineInLlmTextSoFar = lastDiff.startLine
 			else
-				throw new Error(`Void: diff.type not recognized on: ${lastDiff}`)
+				throw new Error(`Ribix: diff.type not recognized on: ${lastDiff}`)
 		}
 
 		// at the start, add a newline between the stream and originalCode to make reasoning easier
@@ -1096,8 +1096,8 @@ class EditCodeService extends Disposable implements IEditCodeService {
 	public async callBeforeApplyOrEdit(givenURI: URI | 'current') {
 		const uri = this._uriOfGivenURI(givenURI)
 		if (!uri) return
-		await this._voidModelService.initializeModel(uri)
-		await this._voidModelService.saveModel(uri) // save the URI
+		await this._ribixModelService.initializeModel(uri)
+		await this._ribixModelService.saveModel(uri) // save the URI
 	}
 
 
@@ -1232,7 +1232,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 		linkedCtrlKZone: CtrlKZone | null,
 		onWillUndo: () => void,
 	}) {
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 		if (!model) return
 
 		// treat like full file, unless linkedCtrlKZone was provided in which case use its diff's range
@@ -1339,10 +1339,10 @@ class EditCodeService extends Disposable implements IEditCodeService {
 			startRange = [startLine_, endLine_]
 		}
 		else {
-			throw new Error(`Void: diff.type not recognized on: ${from}`)
+			throw new Error(`Ribix: diff.type not recognized on: ${from}`)
 		}
 
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 		if (!model) return
 
 		let streamRequestIdRef: { current: string | null } = { current: null } // can use this as a proxy to set the diffArea's stream state requestId
@@ -1371,7 +1371,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 			const startLine = startRange === 'fullFile' ? 1 : startRange[0]
 			const endLine = startRange === 'fullFile' ? model.getLineCount() : startRange[1]
-			const { prefix, suffix } = voidPrefixAndSuffix({ fullFileStr: originalFileCode, startLine, endLine })
+			const { prefix, suffix } = ribixPrefixAndSuffix({ fullFileStr: originalFileCode, startLine, endLine })
 			const userContent = ctrlKStream_userMessage({ selection: originalCode, instructions: instructions, prefix, suffix, fimTags: quickEditFIMTags, language })
 
 			const { messages: a, separateSystemMessage: b } = this._convertToLLMMessageService.prepareLLMSimpleMessages({
@@ -1443,7 +1443,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 			else if (from === 'ClickApply') {
 				return extractCodeFromRegular({ text: fullText, recentlyAddedTextLen })
 			}
-			throw new Error('Void 1')
+			throw new Error('Ribix 1')
 		}
 
 		// refresh now in case onText takes a while to get 1st message
@@ -1541,7 +1541,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 	_fileLengthOfGivenURI(givenURI: URI | 'current') {
 		const uri = this._uriOfGivenURI(givenURI)
 		if (!uri) return null
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 		if (!model) return null
 		const numCharsInFile = model.getValueLength(EndOfLinePreference.LF)
 		return numCharsInFile
@@ -1580,7 +1580,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 		const blocks = extractSearchReplaceBlocks(blocksStr)
 		if (blocks.length === 0) throw new Error(`No Search/Replace blocks were received!`)
 
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 		if (!model) throw new Error(`Error applying Search/Replace blocks: File does not exist.`)
 		const modelStr = model.getValue(EndOfLinePreference.LF)
 		// .split('\n').map(l => '\t' + l).join('\n') // for testing purposes only, remember to remove this
@@ -1641,7 +1641,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 		const uri = this._getURIBeforeStartApplying(opts)
 		if (!uri) return
 
-		const { model } = this._voidModelService.getModel(uri)
+		const { model } = this._ribixModelService.getModel(uri)
 		if (!model) return
 
 		let streamRequestIdRef: { current: string | null } = { current: null } // can use this as a proxy to set the diffArea's stream state requestId
@@ -1931,7 +1931,7 @@ class EditCodeService extends Disposable implements IEditCodeService {
 
 						const blocks = extractSearchReplaceBlocks(fullText)
 						if (blocks.length === 0) {
-							this._notificationService.info(`Void: We ran Fast Apply, but the LLM didn't output any changes.`)
+							this._notificationService.info(`Ribix: We ran Fast Apply, but the LLM didn't output any changes.`)
 						}
 						this._writeURIText(uri, originalFileCode, 'wholeFileRange', { shouldRealignDiffAreas: true })
 
@@ -2110,7 +2110,7 @@ class AcceptRejectInlineWidget extends Widget implements IOverlayWidget {
 			startLine: number,
 			offsetLines: number
 		},
-		@IVoidCommandBarService private readonly _voidCommandBarService: IVoidCommandBarService,
+		@IRibixCommandBarService private readonly _ribixCommandBarService: IRibixCommandBarService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IEditCodeService private readonly _editCodeService: IEditCodeService,
 	) {
@@ -2133,15 +2133,15 @@ class AcceptRejectInlineWidget extends Widget implements IOverlayWidget {
 		const lineHeight = editor.getOption(EditorOption.lineHeight);
 
 		const getAcceptRejectText = () => {
-			const acceptKeybinding = this._keybindingService.lookupKeybinding(VOID_ACCEPT_DIFF_ACTION_ID);
-			const rejectKeybinding = this._keybindingService.lookupKeybinding(VOID_REJECT_DIFF_ACTION_ID);
+			const acceptKeybinding = this._keybindingService.lookupKeybinding(RIBIX_ACCEPT_DIFF_ACTION_ID);
+			const rejectKeybinding = this._keybindingService.lookupKeybinding(RIBIX_REJECT_DIFF_ACTION_ID);
 
 			// Use the standalone function directly since we're in a nested class that
 			// can't access EditCodeService's methods
 			const acceptKeybindLabel = this._editCodeService.processRawKeybindingText(acceptKeybinding && acceptKeybinding.getLabel() || '');
 			const rejectKeybindLabel = this._editCodeService.processRawKeybindingText(rejectKeybinding && rejectKeybinding.getLabel() || '');
 
-			const commandBarStateAtUri = this._voidCommandBarService.stateOfURI[uri.fsPath];
+			const commandBarStateAtUri = this._ribixCommandBarService.stateOfURI[uri.fsPath];
 			const selectedDiffIdx = commandBarStateAtUri?.diffIdx ?? 0; // 0th item is selected by default
 			const thisDiffIdx = commandBarStateAtUri?.sortedDiffIds.indexOf(diffid) ?? null;
 
@@ -2240,7 +2240,7 @@ class AcceptRejectInlineWidget extends Widget implements IOverlayWidget {
 
 
 		// Listen for state changes in the command bar service
-		this._register(this._voidCommandBarService.onDidChangeState(e => {
+		this._register(this._ribixCommandBarService.onDidChangeState(e => {
 			if (uri && e.uri.fsPath === uri.fsPath) {
 
 				const { acceptText, rejectText } = getAcceptRejectText()

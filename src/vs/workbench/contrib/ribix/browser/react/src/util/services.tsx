@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { MCPUserState, RefreshableProviderName, SettingsOfProvider } from '../../../../../../../workbench/contrib/ribix/common/ribixSettingsTypes.js'
 import { DisposableStore, IDisposable } from '../../../../../../../base/common/lifecycle.js'
-import { VoidSettingsState } from '../../../../../../../workbench/contrib/ribix/common/ribixSettingsService.js'
+import { RibixSettingsState } from '../../../../../../../workbench/contrib/ribix/common/ribixSettingsService.js'
 import { ColorScheme } from '../../../../../../../platform/theme/common/theme.js'
 import { RefreshModelStateOfProvider } from '../../../../../../../workbench/contrib/ribix/common/refreshModelService.js'
 
@@ -20,7 +20,7 @@ import { IHoverService } from '../../../../../../../platform/hover/browser/hover
 import { IThemeService } from '../../../../../../../platform/theme/common/themeService.js';
 import { ILLMMessageService } from '../../../../common/sendLLMMessageService.js';
 import { IRefreshModelService } from '../../../../../../../workbench/contrib/ribix/common/refreshModelService.js';
-import { IVoidSettingsService } from '../../../../../../../workbench/contrib/ribix/common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../../../../../../../workbench/contrib/ribix/common/ribixSettingsService.js';
 import { IExtensionTransferService } from '../../../../../../../workbench/contrib/ribix/browser/extensionTransferService.js'
 
 import { IInstantiationService } from '../../../../../../../platform/instantiation/common/instantiation.js'
@@ -66,8 +66,8 @@ const chatThreadsStateListeners: Set<(s: ThreadsState) => void> = new Set()
 let chatThreadsStreamState: ThreadStreamState
 const chatThreadsStreamStateListeners: Set<(threadId: string) => void> = new Set()
 
-let settingsState: VoidSettingsState // TODO: Rename to RibixSettingsState
-const settingsStateListeners: Set<(s: VoidSettingsState) => void> = new Set()
+let settingsState: RibixSettingsState // TODO: Rename to RibixSettingsState
+const settingsStateListeners: Set<(s: RibixSettingsState) => void> = new Set()
 
 let refreshModelState: RefreshModelStateOfProvider
 const refreshModelStateListeners: Set<(s: RefreshModelStateOfProvider) => void> = new Set()

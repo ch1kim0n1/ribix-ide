@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------*/
 
 /**
- * Compatibility layer between the Void fork's extension host
+ * Compatibility layer between the Ribix fork's extension host
  * and the official VS Code Marketplace API.
  *
  * This complements the lower-level ExtensionCompatibilityManager in
@@ -302,7 +302,7 @@ export class MarketplaceCompatibilityManager {
 
 	/**
 	 * Registers a manual compatibility override for an extension.
-	 * Use this for extensions confirmed to work correctly in the Void fork.
+	 * Use this for extensions confirmed to work correctly in the Ribix fork.
 	 */
 	registerCompatibilityOverride(id: string, status: 'compatible' | 'partial', notes?: string): void {
 		const existing = this.compatDb.get(id);

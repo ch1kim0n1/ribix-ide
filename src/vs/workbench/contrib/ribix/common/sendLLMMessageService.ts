@@ -12,7 +12,7 @@ import { IMainProcessService } from '../../../../platform/ipc/common/mainProcess
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IVoidSettingsService } from './ribixSettingsService.js';
+import { IRibixSettingsService } from './ribixSettingsService.js';
 import { IMCPService } from './mcpService.js';
 
 // calls channel to implement features
@@ -60,15 +60,15 @@ export class LLMMessageService extends Disposable implements ILLMMessageService 
 
 	constructor(
 		@IMainProcessService private readonly mainProcessService: IMainProcessService, // used as a renderer (only usable on client side)
-		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
+		@IRibixSettingsService private readonly ribixSettingsService: IRibixSettingsService,
 		// @INotificationService private readonly notificationService: INotificationService,
 		@IMCPService private readonly mcpService: IMCPService,
 	) {
 		super()
 
-		// const service = ProxyChannel.toService<LLMMessageChannel>(mainProcessService.getChannel('void-channel-sendLLMMessage')); // lets you call it like a service
+		// const service = ProxyChannel.toService<LLMMessageChannel>(mainProcessService.getChannel('ribix-channel-sendLLMMessage')); // lets you call it like a service
 		// see llmMessageChannel.ts
-		this.channel = this.mainProcessService.getChannel('void-channel-llmMessage')
+		this.channel = this.mainProcessService.getChannel('ribix-channel-llmMessage')
 
 		// .listen sets up an IPC channel and takes a few ms, so we set up listeners immediately and add hooks to them instead
 		// llm
@@ -116,7 +116,7 @@ export class LLMMessageService extends Disposable implements ILLMMessageService 
 			return null
 		}
 
-		const { settingsOfProvider, } = this.voidSettingsService.state
+		const { settingsOfProvider, } = this.ribixSettingsService.state
 
 		const mcpTools = this.mcpService.getMCPTools()
 
@@ -149,7 +149,7 @@ export class LLMMessageService extends Disposable implements ILLMMessageService 
 	ollamaList = (params: ServiceModelListParams<OllamaModelResponse>) => {
 		const { onSuccess, onError, ...proxyParams } = params
 
-		const { settingsOfProvider } = this.voidSettingsService.state
+		const { settingsOfProvider } = this.ribixSettingsService.state
 
 		// add state for request id
 		const requestId_ = generateUuid();
@@ -168,7 +168,7 @@ export class LLMMessageService extends Disposable implements ILLMMessageService 
 	openAICompatibleList = (params: ServiceModelListParams<OpenaiCompatibleModelResponse>) => {
 		const { onSuccess, onError, ...proxyParams } = params
 
-		const { settingsOfProvider } = this.voidSettingsService.state
+		const { settingsOfProvider } = this.ribixSettingsService.state
 
 		// add state for request id
 		const requestId_ = generateUuid();

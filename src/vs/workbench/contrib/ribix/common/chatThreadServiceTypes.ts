@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
-import { VoidFileSnapshot } from './editCodeServiceTypes.js';
+import { RibixFileSnapshot } from './editCodeServiceTypes.js';
 import { AnthropicReasoning, RawToolParamsObj } from './sendLLMMessageTypes.js';
 import { ToolCallParams, ToolName, ToolResult } from './toolsServiceTypes.js';
 
@@ -38,10 +38,10 @@ export type DecorativeCanceledTool = {
 export type CheckpointEntry = {
 	role: 'checkpoint';
 	type: 'user_edit' | 'tool_edit';
-	voidFileSnapshotOfURI: { [fsPath: string]: VoidFileSnapshot | undefined };
+	ribixFileSnapshotOfURI: { [fsPath: string]: RibixFileSnapshot | undefined };
 
 	userModifications: {
-		voidFileSnapshotOfURI: { [fsPath: string]: VoidFileSnapshot | undefined };
+		ribixFileSnapshotOfURI: { [fsPath: string]: RibixFileSnapshot | undefined };
 	};
 }
 

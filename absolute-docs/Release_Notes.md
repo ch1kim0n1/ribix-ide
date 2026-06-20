@@ -8,7 +8,7 @@
 
 ## Overview
 
-Ribix IDE is an agent-first software engineering operating system, built on the Void editor fork (Code-OSS 1.99.3). This alpha release introduces a paradigm shift from AI-assisted coding to autonomous agent-driven development.
+Ribix IDE is an agent-first software engineering operating system, built on the Ribix editor fork (Code-OSS 1.99.3). This alpha release introduces a paradigm shift from AI-assisted coding to autonomous agent-driven development.
 
 **Key Innovation:** The Command Center replaces the traditional code editor as the primary interface, with agents executing multi-step missions to achieve engineering outcomes.
 
@@ -59,10 +59,10 @@ Ribix IDE is an agent-first software engineering operating system, built on the 
 - **Diff Summary:** Post-mission summary of all file changes
 
 **Quick Edit Preserved (Phase 12)**
-- **Autocomplete:** Void's inline completion system fully functional
+- **Autocomplete:** Ribix's inline completion system fully functional
 - **Cmd+K:** Quick edit for selected code ranges
 - **Quick Edit Chat:** Secondary sidebar chat for single-turn queries
-- **No Regression:** All existing Void features preserved and working
+- **No Regression:** All existing Ribix features preserved and working
 
 ### Backend Integration
 
@@ -84,7 +84,7 @@ Ribix IDE is an agent-first software engineering operating system, built on the 
 - **Color Scheme:** Dark green (#01311F) activity bar with gold (#C6AA58) accents
 - **Icons:** Ribix branding in dock, title bar, and UI elements
 - **About Dialog:** Complete Ribix branding and version information
-- **No Void References:** All Void branding replaced with Ribix identity
+- **No Ribix References:** All Ribix branding replaced with Ribix identity
 
 ---
 
@@ -104,7 +104,7 @@ This alpha release includes the following completed phases from the Engineering 
 - ✅ **Phase 9 — Editor Integration:** Diff annotations and agent attribution
 - ✅ **Phase 10 — Backend Connection:** OAuth and API integration
 - ✅ **Phase 11 — PR Creation:** Automated pull request generation
-- ✅ **Phase 12 — Quick Edit Preservation:** Void feature compatibility
+- ✅ **Phase 12 — Quick Edit Preservation:** Ribix feature compatibility
 - ✅ **Phase 13 — Settings & Configuration:** Comprehensive settings system
 
 **Pending Phases:**
@@ -334,7 +334,7 @@ tar -xzf ribix-ide-1.99.3-alpha.tar.gz
 
 ## Credits
 
-**Base:** Void editor fork (Code-OSS 1.99.3)
+**Base:** Ribix editor fork (Code-OSS 1.99.3)
 **Developed by:** Ribix Inc.
 **License:** MIT
 

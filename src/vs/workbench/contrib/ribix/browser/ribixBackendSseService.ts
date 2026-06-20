@@ -60,7 +60,7 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 	private readonly _onDidReceiveCloudFinding = new Emitter<TaggedFinding>();
 	readonly onDidReceiveCloudFinding = this._onDidReceiveCloudFinding.event;
 
-	private voidSCM: IRibixSCMService;
+	private ribixSCM: IRibixSCMService;
 	private currentRepoFullName: string | null = null;
 	private cancelStream: (() => void) | null = null;
 
@@ -72,7 +72,7 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 	) {
 		super();
 		this._register(this._onDidReceiveCloudFinding);
-		this.voidSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('void-channel-scm'));
+		this.ribixSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('ribix-channel-scm'));
 
 		// Attempt to subscribe on construction; failures are suppressed.
 		this.ensureSubscribed().catch(e => {
@@ -112,7 +112,7 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 		// Resolve repoFullName
 		let repoFullName: string | null = null;
 		try {
-			const remoteUrl = await this.voidSCM.gitRemoteUrl(workspacePath);
+			const remoteUrl = await this.ribixSCM.gitRemoteUrl(workspacePath);
 			repoFullName = this.parseRepoFullName(remoteUrl);
 		} catch {
 			return; // No git remote — skip

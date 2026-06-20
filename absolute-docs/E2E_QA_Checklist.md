@@ -20,11 +20,11 @@ Before starting, confirm all of the following:
 - [ ] Title bar shows "Ribix IDE — [workspace name]"
 - [ ] Activity Bar background: `#01311F` (dark green)
 - [ ] Active Activity Bar item indicator: `#C6AA58` (gold)
-- [ ] About dialog: product name "Ribix IDE", no "Void" visible
-- [ ] Welcome / onboarding screen: mentions "Ribix IDE", no "Void" text
-- [ ] Window dock icon (macOS): Ribix logo, not VS Code / Void icon
+- [ ] About dialog: product name "Ribix IDE", no "Ribix" visible
+- [ ] Welcome / onboarding screen: mentions "Ribix IDE", no "Ribix" text
+- [ ] Window dock icon (macOS): Ribix logo, not VS Code / Ribix icon
 - [ ] Command Palette search "Ribix" → Ribix commands appear
-- [ ] Command Palette search "Void" → no Void-branded commands visible to engineer
+- [ ] Command Palette search "Ribix" → no Ribix-branded commands visible to engineer
 
 ---
 
@@ -165,7 +165,7 @@ Before starting, confirm all of the following:
 
 ---
 
-## 9. Quick Edit — Void Features Preserved (Phase 12)
+## 9. Quick Edit — Ribix Features Preserved (Phase 12)
 
 ### Autocomplete
 
@@ -190,7 +190,7 @@ Before starting, confirm all of the following:
 - [ ] Type a question: "What does the fetchUser function return?"
 - [ ] LLM response appears within 10 seconds
 - [ ] Response is accurate (not a placeholder or error)
-- [ ] No "Void" branding in the Quick Edit tab header
+- [ ] No "Ribix" branding in the Quick Edit tab header
 
 ---
 

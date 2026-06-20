@@ -16,11 +16,11 @@
 import { URI } from '../../../../base/common/uri.js';
 import { DiffZone } from '../common/editCodeServiceTypes.js';
 import { IEditCodeService, StartApplyingOpts } from './editCodeServiceInterface.js';
-import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 
 /** Minimal context the applier functions need from EditCodeService. */
 export interface ApplierContext {
-	settingsService: IVoidSettingsService;
+	settingsService: IRibixSettingsService;
 	fileLengthOfGivenURI(givenURI: URI | 'current'): number | null;
 	getURIBeforeStartApplying(opts: StartApplyingOpts): URI | undefined;
 	initializeWriteoverStream(opts: StartApplyingOpts): [DiffZone, Promise<void>] | undefined;

@@ -3,7 +3,7 @@ set -e  # Exit on error
 set -x  # Print commands as they are executed
 
 # Configuration
-APP_NAME="void"
+APP_NAME="ribix"
 APP_VERSION="1.0.0"
 ARCH="x86_64"
 
@@ -60,7 +60,7 @@ Exec=void
 Icon=void
 Type=Application
 Categories=Utility;
-Comment=Void Linux Application
+Comment=Ribix Linux Application
 EOF
 then
     echo "Error creating desktop file"

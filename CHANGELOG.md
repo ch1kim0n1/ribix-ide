@@ -40,7 +40,7 @@ All notable changes to Ribix IDE are documented here.
 - Ribix face logo (green circle, gold eyes) in onboarding screen
 - Editor watermark, file icons, Getting Started, Release Notes, Walkthrough screens all use Ribix SVG mark
 - Onboarding overlay: dark green background, gold CTA buttons, Ribix logo
-- `--void-ring-color` and `--void-link-color` updated to Ribix gold
+- `--ribix-ring-color` and `--ribix-link-color` updated to Ribix gold
 
 #### Developer Experience
 - CI pipeline: type check + React build on every PR; full gulp compile on main push
@@ -48,15 +48,15 @@ All notable changes to Ribix IDE are documented here.
 - `prepare-commit-msg` hook appends `Co-Authored-By: Ribix IDE <ide@ribix.dev>`
 
 ### Changed
-- Base: forked from Void editor (Code-OSS 1.99.3)
+- Base: forked from Ribix editor (Code-OSS 1.99.3)
 - Product identity: `product.json` fully updated (`nameShort: "Ribix IDE"`, `applicationName: "ribix-ide"`, `darwinBundleIdentifier: "dev.ribix.ide"`, `urlProtocol: "ribix-ide"`)
 - All React components renamed to PascalCase (`RibixMissionsPanel`, `RibixAgentsPanel`, etc.)
 - `useAccessor()` extended with `IInstantiationService.invokeFunction` fallback for services not in the pre-built accessor map (avoids circular module dep constraint)
 - All 10 command-center React components renamed to PascalCase
-- Existing Void "Chat" sidebar renamed to "Quick Edit" — preserves all Void functionality (autocomplete, Cmd+K, inline completions)
+- Existing Ribix "Chat" sidebar renamed to "Quick Edit" — preserves all Ribix functionality (autocomplete, Cmd+K, inline completions)
 
 ### Fixed
-- Circular module dependency: `util/services.tsx` no longer imports `IToolsService` or Ribix agent services directly; avoids toolsService → voidCommandBarService → void-editor-widgets → util/services → toolsService TDZ cycle
+- Circular module dependency: `util/services.tsx` no longer imports `IToolsService` or Ribix agent services directly; avoids toolsService → ribixCommandBarService → ribix-editor-widgets → util/services → toolsService TDZ cycle
 - `handleOAuthCallback` now on `IRibixAuthService` interface; redirect URI corrected to `ribix-ide://ribix.ribix-ide/oauth/callback`
 - `getWorkspacePath()` implemented via `IWorkspaceContextService` (was always-null stub)
 - `transitionToReviewing()` in orchestration service calls `missionService.setReviewing()` (was no-op stub)

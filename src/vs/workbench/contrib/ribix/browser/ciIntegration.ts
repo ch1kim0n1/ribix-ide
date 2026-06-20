@@ -329,7 +329,7 @@ const MISSION_LOG_TRIM = 500;
 export class RibixCIContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.ribixCI';
 
-	private readonly voidSCM: IRibixSCMService;
+	private readonly ribixSCM: IRibixSCMService;
 
 	constructor(
 		@IRibixCIService private readonly ciService: IRibixCIService,
@@ -339,7 +339,7 @@ export class RibixCIContribution extends Disposable implements IWorkbenchContrib
 		@IMainProcessService mainProcessService: IMainProcessService,
 	) {
 		super();
-		this.voidSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('void-channel-scm'));
+		this.ribixSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('ribix-channel-scm'));
 
 		this._register(ciService.onDidDetectFailure(failure => {
 			this.onFailure(failure);
@@ -363,7 +363,7 @@ export class RibixCIContribution extends Disposable implements IWorkbenchContrib
 		const workspacePath = this.getWorkspacePath();
 		if (!workspacePath) { return null; }
 		try {
-			return await this.voidSCM.gitBranch(workspacePath);
+			return await this.ribixSCM.gitBranch(workspacePath);
 		} catch {
 			return null;
 		}
@@ -480,10 +480,10 @@ registerAction2(class ConfigureCIIntegrationAction extends Action2 {
 			const workspacePath =
 				workspaceContextService.getWorkspace().folders[0]?.uri.fsPath ?? null;
 			if (workspacePath) {
-				const voidSCM = ProxyChannel.toService<IRibixSCMService>(
-					mainProcessService.getChannel('void-channel-scm'),
+				const ribixSCM = ProxyChannel.toService<IRibixSCMService>(
+					mainProcessService.getChannel('ribix-channel-scm'),
 				);
-				const remote = await voidSCM.gitRemoteUrl(workspacePath);
+				const remote = await ribixSCM.gitRemoteUrl(workspacePath);
 				// Accept both SSH ("git@github.com:owner/repo.git") and HTTPS forms.
 				const match =
 					remote.match(/github\.com[:/]([^/]+\/[^/.]+?)(?:\.git)?$/) ??

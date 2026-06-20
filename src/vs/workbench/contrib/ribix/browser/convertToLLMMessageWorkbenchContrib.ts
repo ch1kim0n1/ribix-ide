@@ -7,22 +7,22 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
-import { IVoidModelService } from '../common/ribixModelService.js';
+import { IRibixModelService } from '../common/ribixModelService.js';
 
 class ConvertContribWorkbenchContribution extends Disposable implements IWorkbenchContribution {
-	static readonly ID = 'workbench.contrib.void.convertcontrib'
+	static readonly ID = 'workbench.contrib.ribix.convertcontrib'
 	_serviceBrand: undefined;
 
 	constructor(
-		@IVoidModelService private readonly voidModelService: IVoidModelService,
+		@IRibixModelService private readonly ribixModelService: IRibixModelService,
 		@IWorkspaceContextService private readonly workspaceContext: IWorkspaceContextService,
 	) {
 		super()
 
 		const initializeURI = (uri: URI) => {
 			this.workspaceContext.getWorkspace()
-			const voidRulesURI = URI.joinPath(uri, '.voidrules')
-			this.voidModelService.initializeModel(voidRulesURI)
+			const ribixRulesURI = URI.joinPath(uri, '.voidrules')
+			this.ribixModelService.initializeModel(ribixRulesURI)
 		}
 
 		// call

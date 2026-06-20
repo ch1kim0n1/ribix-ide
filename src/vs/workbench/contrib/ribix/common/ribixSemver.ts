@@ -18,7 +18,7 @@ export function maxBump(a: SemverBump, b: SemverBump): SemverBump {
 	return RANK[a] >= RANK[b] ? a : b;
 }
 
-// gitLog format is `%h|%s|%ad` per line (see voidSCMMainService.gitLog).
+// gitLog format is `%h|%s|%ad` per line (see ribixSCMMainService.gitLog).
 // We also scan the whole text for BREAKING CHANGE footers.
 const CONVENTIONAL = /^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\([^)]*\))?(!)?:/i;
 

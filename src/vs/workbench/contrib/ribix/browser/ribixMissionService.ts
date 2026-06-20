@@ -100,7 +100,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 	private missions: Mission[] = [];
 	private maxConcurrentMissions: number = 3;
-	private voidSCM: IRibixSCMService;
+	private ribixSCM: IRibixSCMService;
 	private _loadPromise: Promise<void>;
 
 	constructor(
@@ -116,7 +116,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 	) {
 		super();
 		this._register(this._onDidChangeMissions);
-		this.voidSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('void-channel-scm'));
+		this.ribixSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('ribix-channel-scm'));
 		this._loadPromise = this.loadMissions();
 
 		// Flush queued findings when the user signs in (auth state transitions to signed_in)
@@ -408,10 +408,10 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.branchName = branchName;
 
 		try {
-			// Try to create branch via voidSCM
+			// Try to create branch via ribixSCM
 			const workspaceFolders = await this.getWorkspacePath();
 			if (workspaceFolders) {
-				await this.voidSCM.gitCreateBranch(workspaceFolders, branchName);
+				await this.ribixSCM.gitCreateBranch(workspaceFolders, branchName);
 			}
 		} catch (e) {
 			console.error('Failed to create git branch:', e);
@@ -542,7 +542,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 			// Resolve repoFullName from the git remote URL
 			try {
-				const remoteUrl = await this.voidSCM.gitRemoteUrl(workspacePath);
+				const remoteUrl = await this.ribixSCM.gitRemoteUrl(workspacePath);
 				repoFullName = this.parseRepoFullName(remoteUrl);
 			} catch {
 				// No git remote configured — skip submission
@@ -715,7 +715,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 		// Step 4: Create git tag
 		const tagName = `v${newVersion}`;
-		await this.voidSCM.gitCreateTag(workspacePath, tagName, `Release ${newVersion}: ${mission.outcome.substring(0, 70)}`);
+		await this.ribixSCM.gitCreateTag(workspacePath, tagName, `Release ${newVersion}: ${mission.outcome.substring(0, 70)}`);
 
 		// Step 5: Call ribixApiClient.createPR() with full context
 		const config = await this.authService.getRequiredConfig();
@@ -745,13 +745,13 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		// is `patch` — if SCM access fails we never over-bump.
 		let bump: SemverBump = 'patch';
 		try {
-			const gitLog = await this.voidSCM.gitLog(workspacePath);
+			const gitLog = await this.ribixSCM.gitLog(workspacePath);
 			bump = maxBump(bump, semverBumpFromConventionalCommits(gitLog));
 		} catch (e) {
 			console.warn('determineSemverBump: gitLog failed, ignoring:', e);
 		}
 		try {
-			const diff = await this.voidSCM.gitSampledDiffs(workspacePath);
+			const diff = await this.ribixSCM.gitSampledDiffs(workspacePath);
 			bump = maxBump(bump, semverBumpFromDiff(diff));
 		} catch (e) {
 			console.warn('determineSemverBump: gitSampledDiffs failed, ignoring:', e);

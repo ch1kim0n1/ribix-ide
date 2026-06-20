@@ -89,7 +89,7 @@ Phase numbering is notional. All Phase 16+ items are blocked on P0 (functioning 
 
 Cross-repo contracts (OAuth scopes, `/api/v1/*` memory + PR endpoints, and the shared **agent-run / finding** schema) are owned by `ribix` (backend). Any change to those shapes in this repo must be coordinated there. Items below that touch shared contracts are explicitly flagged **[cross-repo]**.
 
-**Fork-maintenance posture.** This is a *full* VSCode/Code-OSS fork: gulp build, Electron, pinned Node, ~8–10 min cold builds, and periodic upstream rebases. The cost is real and ongoing. The mitigating fact is that **all Ribix code is isolated under `contrib/void/ribix*`** with low conflict surface against upstream. The discipline that keeps the rebase cost bounded is: *never edit upstream files except at registration seams* (`void.contribution.ts`, `app.ts`/`mainProcessService` channel registration, settings pane). Every phase below respects that boundary, and P3 includes a rebase runbook.
+**Fork-maintenance posture.** This is a *full* VSCode/Code-OSS fork: gulp build, Electron, pinned Node, ~8–10 min cold builds, and periodic upstream rebases. The cost is real and ongoing. The mitigating fact is that **all Ribix code is isolated under `contrib/ribix/ribix*`** with low conflict surface against upstream. The discipline that keeps the rebase cost bounded is: *never edit upstream files except at registration seams* (`ribix.contribution.ts`, `app.ts`/`mainProcessService` channel registration, settings pane). Every phase below respects that boundary, and P3 includes a rebase runbook.
 
 ---
 
@@ -101,7 +101,7 @@ The end-to-end *demo* path closes in the UI: the React Command Center (`react/sr
 
 | Capability | Where | Status |
 |---|---|---|
-| Service DI registration | `browser/void.contribution.ts:69-124` | Real — all Ribix services `registerSingleton`'d |
+| Service DI registration | `browser/ribix.contribution.ts:69-124` | Real — all Ribix services `registerSingleton`'d |
 | Mission lifecycle state machine | `browser/ribixMissionService.ts` (421 LOC) | Real transitions; **persistence broken (see gaps)** |
 | Topological orchestration + cycle detection | `browser/ribixOrchestrationService.ts` (412), `ribixPlanningService.ts:309-363` | Real DAG sort, cycle + dangling-dep checks |
 | Agent spawn / tracking / abort | `browser/ribixAgentService.ts` (460) | Real lifecycle; **execution is one-shot (see gaps)** |
@@ -111,7 +111,7 @@ The end-to-end *demo* path closes in the UI: the React Command Center (`react/sr
 | MCP tool routing (fallthrough) | `ribixAgentService.ts:353-368` via `IMCPService` | Real |
 | OAuth PKCE | `browser/ribixAuthService.ts` (395), `ribixAuthActions.ts:43-66` (scope `ide:memory`) | Real PKCE flow |
 | Backend HTTP client | `common/ribixApiClient.ts` (178) — fetch to `/api/v1/*` | Real |
-| Checkpoint / rollback | `browser/ribixCheckpointService.ts` (173), reuses `VoidFileSnapshot` | Real |
+| Checkpoint / rollback | `browser/ribixCheckpointService.ts` (173), reuses `RibixFileSnapshot` | Real |
 | File locking | `common/ribixFileLockService.ts` (140) | Real acquire/release |
 | Task queue | `common/ribixTaskQueueService.ts` (115) | Real priority queue |
 | Diff annotation widget | `browser/ribixDiffAnnotationWidget.ts` (378) | Real decorations + code lens |
@@ -433,7 +433,7 @@ Gate everything behind `enabled` and the `ribix.autoTriggerMode` setting (P1-4).
 
 ### P1-4 — Auto/manual toggle, settings, and non-blocking notification UX
 
-**Files:** `common/voidSettingsService.ts` (+`voidSettingsTypes.ts`) for new keys; `browser/voidSettingsPane.ts` for the Ribix settings section; React `react/src/command-center-tsx/` for an in-Command-Center toggle + activity surfacing; use `INotificationService` for non-blocking toasts.
+**Files:** `common/ribixSettingsService.ts` (+`ribixSettingsTypes.ts`) for new keys; `browser/ribixSettingsPane.ts` for the Ribix settings section; React `react/src/command-center-tsx/` for an in-Command-Center toggle + activity surfacing; use `INotificationService` for non-blocking toasts.
 
 **What to implement.** New settings: `ribix.autoTriggerMode: 'off' | 'ask' | 'auto'` (default `ask`), `ribix.autoTriggerDebounceMs` (default 2500), `ribix.autoTriggerOn: ('save'|'commit')[]` (default `['commit']` — commits are higher-signal than every save). A toolbar toggle in the Command Center header flips `off`/`ask`/`auto` and calls `ribixChangeWatcherService.setEnabled`. When an auto mission starts, show a **non-blocking** notification (`INotificationService.notify({ severity: Info, ... })`) with "View" (focus Command Center) and "Dismiss" — never a modal, never stealing focus, since the engineer is mid-edit. When a finding is produced, escalate the notification to a clickable summary.
 

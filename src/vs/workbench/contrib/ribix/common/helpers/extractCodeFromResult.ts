@@ -172,7 +172,7 @@ export type ExtractedSearchReplaceBlock = {
 
 
 // JS substring swaps indices, so "ab".substr(1,0) will NOT be '', it will be 'a'!
-const voidSubstr = (str: string, start: number, end: number) => end < start ? '' : str.substring(start, end)
+const ribixSubstr = (str: string, start: number, end: number) => end < start ? '' : str.substring(start, end)
 
 export const endsWithAnyPrefixOf = (str: string, anyPrefix: string) => {
 	// for each prefix
@@ -204,13 +204,13 @@ export const extractSearchReplaceBlocks = (str: string) => {
 		if (dividerStart === -1) { // if didnt find DIVIDER_, either writing originalStr or DIVIDER_ right now
 			const writingDIVIDERlen = endsWithAnyPrefixOf(str, DIVIDER_)?.length ?? 0
 			blocks.push({
-				orig: voidSubstr(str, origStart, str.length - writingDIVIDERlen),
+				orig: ribixSubstr(str, origStart, str.length - writingDIVIDERlen),
 				final: '',
 				state: 'writingOriginal'
 			})
 			return blocks
 		}
-		const origStrDone = voidSubstr(str, origStart, dividerStart)
+		const origStrDone = ribixSubstr(str, origStart, dividerStart)
 		dividerStart += DIVIDER_.length
 		i = dividerStart
 		// wrote \n=====\n
@@ -226,13 +226,13 @@ export const extractSearchReplaceBlocks = (str: string) => {
 			const usingWritingFINALlen = Math.max(writingFINALlen, writingFINALlen_)
 			blocks.push({
 				orig: origStrDone,
-				final: voidSubstr(str, dividerStart, str.length - usingWritingFINALlen),
+				final: ribixSubstr(str, dividerStart, str.length - usingWritingFINALlen),
 				state: 'writingFinal'
 			})
 			return blocks
 		}
 		const usingFINAL = matchedFullFINAL_ ? '\n' + FINAL : FINAL
-		const finalStrDone = voidSubstr(str, dividerStart, finalStart)
+		const finalStrDone = ribixSubstr(str, dividerStart, finalStart)
 		finalStart += usingFINAL.length
 		i = finalStart
 		// wrote >>>>> FINAL

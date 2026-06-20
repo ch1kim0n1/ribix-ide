@@ -10,26 +10,26 @@ import '../styles.css'
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { ScrollType } from '../../../../../../../editor/common/editorCommon.js';
 import { acceptAllBg, acceptBorder, buttonFontSize, buttonTextColor, rejectAllBg, rejectBg, rejectBorder } from '../../../../common/helpers/colors.js';
-import { VoidCommandBarProps } from '../../../ribixCommandBarService.js';
+import { RibixCommandBarProps } from '../../../ribixCommandBarService.js';
 import { Check, EllipsisVertical, Menu, MoveDown, MoveLeft, MoveRight, MoveUp, X } from 'lucide-react';
 import {
-	VOID_GOTO_NEXT_DIFF_ACTION_ID,
-	VOID_GOTO_PREV_DIFF_ACTION_ID,
-	VOID_GOTO_NEXT_URI_ACTION_ID,
-	VOID_GOTO_PREV_URI_ACTION_ID,
-	VOID_ACCEPT_FILE_ACTION_ID,
-	VOID_REJECT_FILE_ACTION_ID,
-	VOID_ACCEPT_ALL_DIFFS_ACTION_ID,
-	VOID_REJECT_ALL_DIFFS_ACTION_ID
+	RIBIX_GOTO_NEXT_DIFF_ACTION_ID,
+	RIBIX_GOTO_PREV_DIFF_ACTION_ID,
+	RIBIX_GOTO_NEXT_URI_ACTION_ID,
+	RIBIX_GOTO_PREV_URI_ACTION_ID,
+	RIBIX_ACCEPT_FILE_ACTION_ID,
+	RIBIX_REJECT_FILE_ACTION_ID,
+	RIBIX_ACCEPT_ALL_DIFFS_ACTION_ID,
+	RIBIX_REJECT_ALL_DIFFS_ACTION_ID
 } from '../../../actionIDs.js';
 
-export const VoidCommandBarMain = ({ uri, editor }: VoidCommandBarProps) => {
+export const RibixCommandBarMain = ({ uri, editor }: RibixCommandBarProps) => {
 	const isDark = useIsDark()
 
 	return <div
-		className={`@@void-scope ${isDark ? 'dark' : ''}`}
+		className={`@@ribix-scope ${isDark ? 'dark' : ''}`}
 	>
-		<VoidCommandBar uri={uri} editor={editor} />
+		<RibixCommandBar uri={uri} editor={editor} />
 	</div>
 }
 
@@ -83,14 +83,14 @@ export const RejectAllButtonWrapper = ({ text, onClick, className, ...props }: {
 
 
 
-export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
+export const RibixCommandBar = ({ uri, editor }: RibixCommandBarProps) => {
 	const accessor = useAccessor()
 	const editCodeService = accessor.get('IEditCodeService')
 	const editorService = accessor.get('ICodeEditorService')
 	const metricsService = accessor.get('IMetricsService')
 	const commandService = accessor.get('ICommandService')
-	const commandBarService = accessor.get('IVoidCommandBarService')
-	const voidModelService = accessor.get('IVoidModelService')
+	const commandBarService = accessor.get('IRibixCommandBarService')
+	const ribixModelService = accessor.get('IRibixModelService')
 	const keybindingService = accessor.get('IKeybindingService')
 	const { stateOfURI: commandBarState, sortedURIs: sortedCommandBarURIs } = useCommandBarState()
 	const [showAcceptRejectAllButtons, setShowAcceptRejectAllButtons] = useState(false)
@@ -171,14 +171,14 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 
 
 
-	const _upKeybinding = keybindingService.lookupKeybinding(VOID_GOTO_PREV_DIFF_ACTION_ID);
-	const _downKeybinding = keybindingService.lookupKeybinding(VOID_GOTO_NEXT_DIFF_ACTION_ID);
-	const _leftKeybinding = keybindingService.lookupKeybinding(VOID_GOTO_PREV_URI_ACTION_ID);
-	const _rightKeybinding = keybindingService.lookupKeybinding(VOID_GOTO_NEXT_URI_ACTION_ID);
-	const _acceptFileKeybinding = keybindingService.lookupKeybinding(VOID_ACCEPT_FILE_ACTION_ID);
-	const _rejectFileKeybinding = keybindingService.lookupKeybinding(VOID_REJECT_FILE_ACTION_ID);
-	const _acceptAllKeybinding = keybindingService.lookupKeybinding(VOID_ACCEPT_ALL_DIFFS_ACTION_ID);
-	const _rejectAllKeybinding = keybindingService.lookupKeybinding(VOID_REJECT_ALL_DIFFS_ACTION_ID);
+	const _upKeybinding = keybindingService.lookupKeybinding(RIBIX_GOTO_PREV_DIFF_ACTION_ID);
+	const _downKeybinding = keybindingService.lookupKeybinding(RIBIX_GOTO_NEXT_DIFF_ACTION_ID);
+	const _leftKeybinding = keybindingService.lookupKeybinding(RIBIX_GOTO_PREV_URI_ACTION_ID);
+	const _rightKeybinding = keybindingService.lookupKeybinding(RIBIX_GOTO_NEXT_URI_ACTION_ID);
+	const _acceptFileKeybinding = keybindingService.lookupKeybinding(RIBIX_ACCEPT_FILE_ACTION_ID);
+	const _rejectFileKeybinding = keybindingService.lookupKeybinding(RIBIX_REJECT_FILE_ACTION_ID);
+	const _acceptAllKeybinding = keybindingService.lookupKeybinding(RIBIX_ACCEPT_ALL_DIFFS_ACTION_ID);
+	const _rejectAllKeybinding = keybindingService.lookupKeybinding(RIBIX_REJECT_ALL_DIFFS_ACTION_ID);
 
 	const upKeybindLabel = editCodeService.processRawKeybindingText(_upKeybinding?.getLabel() || '');
 	const downKeybindLabel = editCodeService.processRawKeybindingText(_downKeybinding?.getLabel() || '');
@@ -196,7 +196,7 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 	if (currFileIdx === null) {
 		return (
 			<div className="pointer-events-auto">
-				<div className="flex bg-void-bg-2 shadow-md border border-void-border-2 [&>*:first-child]:pl-3 [&>*:last-child]:pr-3 [&>*]:border-r [&>*]:border-void-border-2 [&>*:last-child]:border-r-0">
+				<div className="flex bg-ribix-bg-2 shadow-md border border-ribix-border-2 [&>*:first-child]:pl-3 [&>*:last-child]:pr-3 [&>*]:border-r [&>*]:border-ribix-border-2 [&>*:last-child]:border-r-0">
 					<div className="flex items-center px-3">
 						<span className="text-xs whitespace-nowrap">
 							{`${sortedCommandBarURIs.length} file${sortedCommandBarURIs.length === 1 ? '' : 's'} changed`}
@@ -226,12 +226,12 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 			{/* Accept All / Reject All buttons that appear when the vertical ellipsis is clicked */}
 			{showAcceptRejectAllButtons && showAcceptRejectAll && (
 				<div className="flex justify-end mb-1">
-					<div className="inline-flex bg-void-bg-2 rounded shadow-md border border-void-border-2 overflow-hidden">
-						<div className="flex items-center [&>*]:border-r [&>*]:border-void-border-2 [&>*:last-child]:border-r-0">
+					<div className="inline-flex bg-ribix-bg-2 rounded shadow-md border border-ribix-border-2 overflow-hidden">
+						<div className="flex items-center [&>*]:border-r [&>*]:border-ribix-border-2 [&>*:last-child]:border-r-0">
 							<AcceptAllButtonWrapper
 								// text={`Accept All${acceptAllKeybindLabel ? ` ${acceptAllKeybindLabel}` : ''}`}
 								text={`Accept All`}
-								data-tooltip-id='void-tooltip'
+								data-tooltip-id='ribix-tooltip'
 								data-tooltip-content={acceptAllKeybindLabel}
 								data-tooltip-delay-show={500}
 								onClick={onAcceptAll}
@@ -239,7 +239,7 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 							<RejectAllButtonWrapper
 								// text={`Reject All${rejectAllKeybindLabel ? ` ${rejectAllKeybindLabel}` : ''}`}
 								text={`Reject All`}
-								data-tooltip-id='void-tooltip'
+								data-tooltip-id='ribix-tooltip'
 								data-tooltip-content={rejectAllKeybindLabel}
 								data-tooltip-delay-show={500}
 								onClick={onRejectAll}
@@ -249,7 +249,7 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 				</div>
 			)}
 
-			<div className="flex items-center bg-void-bg-2 rounded shadow-md border border-void-border-2 [&>*:first-child]:pl-3 [&>*:last-child]:pr-3 [&>*]:px-3 [&>*]:border-r [&>*]:border-void-border-2 [&>*:last-child]:border-r-0">
+			<div className="flex items-center bg-ribix-bg-2 rounded shadow-md border border-ribix-border-2 [&>*:first-child]:pl-3 [&>*:last-child]:pr-3 [&>*]:px-3 [&>*]:border-r [&>*]:border-ribix-border-2 [&>*:last-child]:border-r-0">
 
 				{/* Diff Navigation Group */}
 				<div className="flex items-center py-0.5">
@@ -263,7 +263,7 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 								commandBarService.goToDiffIdx(prevDiffIdx);
 							}
 						}}
-						data-tooltip-id="void-tooltip"
+						data-tooltip-id="ribix-tooltip"
 						data-tooltip-content={`${upKeybindLabel ? `${upKeybindLabel}` : ''}`}
 						data-tooltip-delay-show={500}
 					>
@@ -288,7 +288,7 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 								commandBarService.goToDiffIdx(nextDiffIdx);
 							}
 						}}
-						data-tooltip-id="void-tooltip"
+						data-tooltip-id="ribix-tooltip"
 						data-tooltip-content={`${downKeybindLabel ? `${downKeybindLabel}` : ''}`}
 						data-tooltip-delay-show={500}
 					>
@@ -310,7 +310,7 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 								commandBarService.goToURIIdx(prevURIIdx);
 							}
 						}}
-						data-tooltip-id="void-tooltip"
+						data-tooltip-id="ribix-tooltip"
 						data-tooltip-content={`${leftKeybindLabel ? `${leftKeybindLabel}` : ''}`}
 						data-tooltip-delay-show={500}
 					>
@@ -332,7 +332,7 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 								commandBarService.goToURIIdx(nextURIIdx);
 							}
 						}}
-						data-tooltip-id="void-tooltip"
+						data-tooltip-id="ribix-tooltip"
 						data-tooltip-content={`${rightKeybindLabel ? `${rightKeybindLabel}` : ''}`}
 						data-tooltip-delay-show={500}
 					>
@@ -347,7 +347,7 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 						<AcceptAllButtonWrapper
 							// text={`Accept File${acceptFileKeybindLabel ? ` ${acceptFileKeybindLabel}` : ''}`}
 							text={`Accept File`}
-							data-tooltip-id='void-tooltip'
+							data-tooltip-id='ribix-tooltip'
 							data-tooltip-content={acceptFileKeybindLabel}
 							data-tooltip-delay-show={500}
 							onClick={onAcceptFile}
@@ -355,7 +355,7 @@ export const VoidCommandBar = ({ uri, editor }: VoidCommandBarProps) => {
 						<RejectAllButtonWrapper
 							// text={`Reject File${rejectFileKeybindLabel ? ` ${rejectFileKeybindLabel}` : ''}`}
 							text={`Reject File`}
-							data-tooltip-id='void-tooltip'
+							data-tooltip-id='ribix-tooltip'
 							data-tooltip-content={rejectFileKeybindLabel}
 							data-tooltip-delay-show={500}
 							onClick={onRejectFile}

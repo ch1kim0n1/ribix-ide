@@ -749,7 +749,7 @@ ${tripleTick[1]}`
 
 
 
-export const voidPrefixAndSuffix = ({ fullFileStr, startLine, endLine }: { fullFileStr: string, startLine: number, endLine: number }) => {
+export const ribixPrefixAndSuffix = ({ fullFileStr, startLine, endLine }: { fullFileStr: string, startLine: number, endLine: number }) => {
 
 	const fullFileLines = fullFileStr.split('\n')
 
@@ -893,12 +893,12 @@ For example, if the user is asking you to "make this variable a better name", ma
 
 
 
-// export const aiRegex_computeReplacementsForFile_userMessage = async ({ searchClause, replaceClause, fileURI, voidFileService }: { searchClause: string, replaceClause: string, fileURI: URI, voidFileService: IVoidFileService }) => {
+// export const aiRegex_computeReplacementsForFile_userMessage = async ({ searchClause, replaceClause, fileURI, ribixFileService }: { searchClause: string, replaceClause: string, fileURI: URI, ribixFileService: IRibixFileService }) => {
 
 // 	// we may want to do this in batches
 // 	const fileSelection: FileSelection = { type: 'File', fileURI, selectionStr: null, range: null, state: { isOpened: false } }
 
-// 	const file = await stringifyFileSelections([fileSelection], voidFileService)
+// 	const file = await stringifyFileSelections([fileSelection], ribixFileService)
 
 // 	return `\
 // ## FILE

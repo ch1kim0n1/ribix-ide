@@ -15,7 +15,7 @@ import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { LLMChatMessage } from '../common/sendLLMMessageTypes.js';
 import { ParsedToolCall } from '../common/ribixAgentLoopTypes.js';
 import { AgentTurnMessage } from '../common/ribixAgentLoopTypes.js';
-import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 import { aiProviderManager } from './aiProviderManager.js';
 
 /**
@@ -63,7 +63,7 @@ export async function callLlm(
 	messages: AgentTurnMessage[],
 	token: CancellationToken,
 	llmMessageService: ILLMMessageService,
-	settingsService: IVoidSettingsService,
+	settingsService: IRibixSettingsService,
 ): Promise<string> {
 	const systemMessage = messages.find(m => m.role === 'system');
 	const chatMessages: LLMChatMessage[] = [];

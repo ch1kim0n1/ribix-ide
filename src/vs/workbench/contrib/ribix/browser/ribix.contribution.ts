@@ -128,7 +128,7 @@ import './extensionCompatibilityCommands.js'
 // llmMessage
 import '../common/sendLLMMessageService.js'
 
-// voidSettings
+// ribixSettings
 import '../common/ribixSettingsService.js'
 
 // refreshModel

@@ -6,7 +6,7 @@
 
 import { defaultModelsOfProvider, defaultProviderSettings, ModelOverrides } from './modelCapabilities.js';
 import { ToolApprovalType } from './toolsServiceTypes.js';
-import { VoidSettingsState } from './ribixSettingsService.js'
+import { RibixSettingsState } from './ribixSettingsService.js'
 
 
 type UnionOfKeys<T> = T extends T ? keyof T : never;
@@ -29,7 +29,7 @@ export const customSettingNamesOfProvider = (providerName: ProviderName) => {
 
 
 
-export type VoidStatefulModelInfo = { // <-- STATEFUL
+export type RibixStatefulModelInfo = { // <-- STATEFUL
 	modelName: string,
 	type: 'default' | 'autodetected' | 'custom';
 	isHidden: boolean, // whether or not the user is hiding it (switched off)
@@ -39,7 +39,7 @@ export type VoidStatefulModelInfo = { // <-- STATEFUL
 
 type CommonProviderSettings = {
 	_didFillInProviderSettings: boolean | undefined, // undefined initially, computed when user types in all fields
-	models: VoidStatefulModelInfo[],
+	models: RibixStatefulModelInfo[],
 }
 
 export type SettingsAtProvider<providerName extends ProviderName> = CustomProviderSettings<providerName> & CommonProviderSettings
@@ -244,7 +244,7 @@ const defaultCustomSettings: Record<CustomSettingName, undefined> = {
 }
 
 
-const modelInfoOfDefaultModelNames = (defaultModelNames: string[]): { models: VoidStatefulModelInfo[] } => {
+const modelInfoOfDefaultModelNames = (defaultModelNames: string[]): { models: RibixStatefulModelInfo[] } => {
 	return {
 		models: defaultModelNames.map((modelName, i) => ({
 			modelName,
@@ -397,7 +397,7 @@ export const hasDownloadButtonsOnModelsProviderNames = ['ollama'] as const satis
 
 
 // use this in isFeatuerNameDissbled
-export const isProviderNameDisabled = (providerName: ProviderName, settingsState: VoidSettingsState) => {
+export const isProviderNameDisabled = (providerName: ProviderName, settingsState: RibixSettingsState) => {
 
 	const settingsAtProvider = settingsState.settingsOfProvider[providerName]
 	const isAutodetected = (refreshableProviderNames as string[]).includes(providerName)
@@ -409,7 +409,7 @@ export const isProviderNameDisabled = (providerName: ProviderName, settingsState
 	return false
 }
 
-export const isFeatureNameDisabled = (featureName: FeatureName, settingsState: VoidSettingsState) => {
+export const isFeatureNameDisabled = (featureName: FeatureName, settingsState: RibixSettingsState) => {
 	// if has a selected provider, check if it's enabled
 	const selectedProvider = settingsState.modelSelectionOfFeature[featureName]
 

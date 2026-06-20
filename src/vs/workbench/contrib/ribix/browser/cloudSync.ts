@@ -21,7 +21,7 @@ export interface CodebaseGraph {
 // ---------------------------------------------------------------------------
 // Backend endpoint paths (relative to apiUrl)
 //
-// TODO: Verify / create these routes in the backend (../Anu or ribix-backend):
+// TODO: Verify / create these routes in the backend (../Ribix or ribix-backend):
 //   POST /cli/workspace/mission-history
 //     Body:   { workspaceId: string; missions: MissionRecord[] }
 //     Result: 200 OK | 4xx/5xx on error

@@ -28,7 +28,7 @@ export const RibixCommandCenter = ({ className }: { className: string }) => {
 
 	return (
 		<div
-			className={`@@void-scope ${isDark ? 'dark' : ''}`}
+			className={`@@ribix-scope ${isDark ? 'dark' : ''}`}
 			style={{ width: '100%', height: '100%' }}
 		>
 			<div

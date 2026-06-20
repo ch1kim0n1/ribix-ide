@@ -52,16 +52,16 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 
 	/**
 	 * Read a value from the canonical `ribix.*` key. If it is missing but a
-	 * legacy `void.*` value exists (a Void user upgrading to Ribix), migrate
+	 * legacy `void.*` value exists (a Ribix user upgrading to Ribix), migrate
 	 * that value into the `ribix.*` key once and then treat `ribix.*` as
 	 * canonical from then on. Returns the migrated value, or undefined if no
 	 * value exists under either key.
 	 */
-	private _migrateKey(ribixKey: string, legacyVoidKey: string, target: StorageTarget): string | undefined {
+	private _migrateKey(ribixKey: string, legacyRibixKey: string, target: StorageTarget): string | undefined {
 		const ribixVal = this._appStorage.get(ribixKey, StorageScope.APPLICATION)
 		if (ribixVal !== undefined) return ribixVal
 
-		const legacyVal = this._appStorage.get(legacyVoidKey, StorageScope.APPLICATION)
+		const legacyVal = this._appStorage.get(legacyRibixKey, StorageScope.APPLICATION)
 		if (legacyVal !== undefined) {
 			this._appStorage.store(ribixKey, legacyVal, StorageScope.APPLICATION, target)
 			return legacyVal
@@ -77,7 +77,7 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 		const migrated = this._migrateKey('ribix.app.oldMachineId', 'void.app.oldMachineId', StorageTarget.MACHINE)
 		if (migrated) return migrated
 
-		// otherwise seed from the original Void machineId (the oldest legacy key, READ-only) and persist under ribix.*
+		// otherwise seed from the original Ribix machineId (the oldest legacy key, READ-only) and persist under ribix.*
 		const oldValue = this._appStorage.get('void.machineId', StorageScope.APPLICATION) ?? 'NULL'
 		this._appStorage.store('ribix.app.oldMachineId', oldValue, StorageScope.APPLICATION, StorageTarget.MACHINE)
 		return oldValue

@@ -246,14 +246,14 @@ The following 9 scenarios are the critical E2E tests defined in Phase 14 of the 
 
 ### Scenario 8: Quick Edit
 
-**Description:** Cmd+K works → autocomplete fires → existing Void behavior unaffected
+**Description:** Cmd+K works → autocomplete fires → existing Ribix behavior unaffected
 
 **Expected Behavior:**
 - Autocomplete appears within 2 seconds
 - Cmd+K opens Quick Edit input
 - Quick Edit rewrites selection with DiffZone
 - Approve/Reject controls work
-- No "Void" branding visible
+- No "Ribix" branding visible
 
 **Prerequisites:**
 - Phase 12 (Quick Edit mode) complete
@@ -268,7 +268,7 @@ The following 9 scenarios are the critical E2E tests defined in Phase 14 of the 
 6. Type "add null check" → submit
 7. Verify DiffZone appears
 8. Test Approve/Reject controls
-9. Verify no "Void" branding
+9. Verify no "Ribix" branding
 
 **Status:** ⏳ Pending — Requires Phase 12 completion
 

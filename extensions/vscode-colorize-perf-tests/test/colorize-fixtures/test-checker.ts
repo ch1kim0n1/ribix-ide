@@ -1105,7 +1105,7 @@ import {
     visitNodes,
     Visitor,
     VisitResult,
-    VoidExpression,
+    RibixExpression,
     walkUpBindingElementsAndPatterns,
     walkUpOuterExpressions,
     walkUpParenthesizedExpressions,
@@ -1264,7 +1264,7 @@ export const enum TypeFacts {
     ObjectFacts = ObjectStrictFacts | EQUndefined | EQNull | EQUndefinedOrNull | Falsy,
     FunctionStrictFacts = TypeofEQFunction | TypeofEQHostObject | TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | NEUndefined | NENull | NEUndefinedOrNull | Truthy,
     FunctionFacts = FunctionStrictFacts | EQUndefined | EQNull | EQUndefinedOrNull | Falsy,
-    VoidFacts = TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | TypeofNEFunction | TypeofNEHostObject | EQUndefined | EQUndefinedOrNull | NENull | Falsy,
+    RibixFacts = TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | TypeofNEFunction | TypeofNEHostObject | EQUndefined | EQUndefinedOrNull | NENull | Falsy,
     UndefinedFacts = TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | TypeofNEFunction | TypeofNEHostObject | EQUndefined | EQUndefinedOrNull | NENull | Falsy | IsUndefined,
     NullFacts = TypeofEQObject | TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEFunction | TypeofNEHostObject | EQNull | EQUndefinedOrNull | NEUndefined | Falsy | IsNull,
     EmptyObjectStrictFacts = All & ~(EQUndefined | EQNull | EQUndefinedOrNull | IsUndefinedOrNull),
@@ -1395,7 +1395,7 @@ const enum DeclarationSpaces {
 const enum MinArgumentCountFlags {
     None = 0,
     StrongArityForUntypedJS = 1 << 0,
-    VoidIsNonOptional = 1 << 1,
+    RibixIsNonOptional = 1 << 1,
 }
 
 const enum IntrinsicTypeKind {
@@ -1821,7 +1821,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         getBooleanType: () => booleanType,
         getFalseType: (fresh?) => fresh ? falseType : regularFalseType,
         getTrueType: (fresh?) => fresh ? trueType : regularTrueType,
-        getVoidType: () => voidType,
+        getRibixType: () => ribixType,
         getUndefinedType: () => undefinedType,
         getNullType: () => nullType,
         getESSymbolType: () => esSymbolType,
@@ -2071,7 +2071,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     regularFalseType.freshType = falseType;
     var booleanType = getUnionType([regularFalseType, regularTrueType]);
     var esSymbolType = createIntrinsicType(TypeFlags.ESSymbol, "symbol");
-    var voidType = createIntrinsicType(TypeFlags.Void, "void");
+    var ribixType = createIntrinsicType(TypeFlags.Ribix, "void");
     var neverType = createIntrinsicType(TypeFlags.Never, "never");
     var silentNeverType = createIntrinsicType(TypeFlags.Never, "never", ObjectFlags.NonInferrableType, "silent");
     var implicitNeverType = createIntrinsicType(TypeFlags.Never, "never", /*objectFlags*/ undefined, "implicit");
@@ -6316,9 +6316,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 context.approximateLength += 13;
                 return factory.createTypeOperatorNode(SyntaxKind.UniqueKeyword, factory.createKeywordTypeNode(SyntaxKind.SymbolKeyword));
             }
-            if (type.flags & TypeFlags.Void) {
+            if (type.flags & TypeFlags.Ribix) {
                 context.approximateLength += 4;
-                return factory.createKeywordTypeNode(SyntaxKind.VoidKeyword);
+                return factory.createKeywordTypeNode(SyntaxKind.RibixKeyword);
             }
             if (type.flags & TypeFlags.Undefined) {
                 context.approximateLength += 9;
@@ -13092,7 +13092,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             case SyntaxKind.BooleanKeyword:
             case SyntaxKind.SymbolKeyword:
             case SyntaxKind.ObjectKeyword:
-            case SyntaxKind.VoidKeyword:
+            case SyntaxKind.RibixKeyword:
             case SyntaxKind.UndefinedKeyword:
             case SyntaxKind.NeverKeyword:
             case SyntaxKind.LiteralType:
@@ -14283,7 +14283,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             // When creating an optional property in strictNullChecks mode, if 'undefined' isn't assignable to the
             // type, we include 'undefined' in the type. Similarly, when creating a non-optional property in strictNullChecks
             // mode, if the underlying property is optional we remove 'undefined' from the type.
-            let type = strictNullChecks && symbol.flags & SymbolFlags.Optional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Void) ? getOptionalType(propType, /*isProperty*/ true) :
+            let type = strictNullChecks && symbol.flags & SymbolFlags.Optional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Ribix) ? getOptionalType(propType, /*isProperty*/ true) :
                 symbol.links.checkFlags & CheckFlags.StripOptional ? removeMissingOrUndefinedType(propType) :
                 propType;
             if (!popTypeResolution()) {
@@ -15472,7 +15472,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             // Only consider syntactic or instantiated parameters as optional, not `void` parameters as this function is used
             // in grammar checks and checking for `void` too early results in parameter types widening too early
             // and causes some noImplicitAny errors to be lost.
-            return parameterIndex >= getMinArgumentCount(signature, MinArgumentCountFlags.StrongArityForUntypedJS | MinArgumentCountFlags.VoidIsNonOptional);
+            return parameterIndex >= getMinArgumentCount(signature, MinArgumentCountFlags.StrongArityForUntypedJS | MinArgumentCountFlags.RibixIsNonOptional);
         }
         const iife = getImmediatelyInvokedFunctionExpression(node.parent);
         if (iife) {
@@ -16664,9 +16664,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 case "Boolean":
                     checkNoTypeArguments(node);
                     return booleanType;
-                case "Void":
+                case "Ribix":
                     checkNoTypeArguments(node);
-                    return voidType;
+                    return ribixType;
                 case "Undefined":
                     checkNoTypeArguments(node);
                     return undefinedType;
@@ -17501,7 +17501,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return types;
     }
 
-    function removeRedundantLiteralTypes(types: Type[], includes: TypeFlags, reduceVoidUndefined: boolean) {
+    function removeRedundantLiteralTypes(types: Type[], includes: TypeFlags, reduceRibixUndefined: boolean) {
         let i = types.length;
         while (i > 0) {
             i--;
@@ -17511,7 +17511,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 flags & TypeFlags.NumberLiteral && includes & TypeFlags.Number ||
                 flags & TypeFlags.BigIntLiteral && includes & TypeFlags.BigInt ||
                 flags & TypeFlags.UniqueESSymbol && includes & TypeFlags.ESSymbol ||
-                reduceVoidUndefined && flags & TypeFlags.Undefined && includes & TypeFlags.Void ||
+                reduceRibixUndefined && flags & TypeFlags.Undefined && includes & TypeFlags.Ribix ||
                 isFreshLiteralType(t) && containsType(types, (t as LiteralType).regularType);
             if (remove) {
                 orderedRemoveItemAt(types, i);
@@ -17651,7 +17651,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     orderedRemoveItemAt(typeSet, 1);
                 }
             }
-            if (includes & (TypeFlags.Enum | TypeFlags.Literal | TypeFlags.UniqueESSymbol | TypeFlags.TemplateLiteral | TypeFlags.StringMapping) || includes & TypeFlags.Void && includes & TypeFlags.Undefined) {
+            if (includes & (TypeFlags.Enum | TypeFlags.Literal | TypeFlags.UniqueESSymbol | TypeFlags.TemplateLiteral | TypeFlags.StringMapping) || includes & TypeFlags.Ribix && includes & TypeFlags.Undefined) {
                 removeRedundantLiteralTypes(typeSet, includes, !!(unionReduction & UnionReduction.Subtype));
             }
             if (includes & TypeFlags.StringLiteral && includes & (TypeFlags.TemplateLiteral | TypeFlags.StringMapping)) {
@@ -17823,7 +17823,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 t.flags & TypeFlags.Number && includes & TypeFlags.NumberLiteral ||
                 t.flags & TypeFlags.BigInt && includes & TypeFlags.BigIntLiteral ||
                 t.flags & TypeFlags.ESSymbol && includes & TypeFlags.UniqueESSymbol ||
-                t.flags & TypeFlags.Void && includes & TypeFlags.Undefined ||
+                t.flags & TypeFlags.Ribix && includes & TypeFlags.Undefined ||
                 isEmptyAnonymousObjectType(t) && includes & TypeFlags.DefinitelyNonNullable;
             if (remove) {
                 orderedRemoveItemAt(types, i);
@@ -17957,7 +17957,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // a string-like type and a type known to be non-string-like, or
         // a number-like type and a type known to be non-number-like, or
         // a symbol-like type and a type known to be non-symbol-like, or
-        // a void-like type and a type known to be non-void-like, or
+        // a ribix-like type and a type known to be non-ribix-like, or
         // a non-primitive type and a type known to be primitive.
         if (includes & TypeFlags.Never) {
             return contains(typeSet, silentNeverType) ? silentNeverType : neverType;
@@ -17969,7 +17969,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             includes & TypeFlags.NumberLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.NumberLike) ||
             includes & TypeFlags.BigIntLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.BigIntLike) ||
             includes & TypeFlags.ESSymbolLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.ESSymbolLike) ||
-            includes & TypeFlags.VoidLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.VoidLike)
+            includes & TypeFlags.RibixLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.RibixLike)
         ) {
             return neverType;
         }
@@ -17987,7 +17987,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             includes & TypeFlags.Number && includes & TypeFlags.NumberLiteral ||
             includes & TypeFlags.BigInt && includes & TypeFlags.BigIntLiteral ||
             includes & TypeFlags.ESSymbol && includes & TypeFlags.UniqueESSymbol ||
-            includes & TypeFlags.Void && includes & TypeFlags.Undefined ||
+            includes & TypeFlags.Ribix && includes & TypeFlags.Undefined ||
             includes & TypeFlags.IncludesEmptyObject && includes & TypeFlags.DefinitelyNonNullable
         ) {
             if (!(flags & IntersectionFlags.NoSupertypeReduction)) removeRedundantSupertypes(typeSet, includes);
@@ -19747,8 +19747,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 return booleanType;
             case SyntaxKind.SymbolKeyword:
                 return esSymbolType;
-            case SyntaxKind.VoidKeyword:
-                return voidType;
+            case SyntaxKind.RibixKeyword:
+                return ribixType;
             case SyntaxKind.UndefinedKeyword:
                 return undefinedType;
             case SyntaxKind.NullKeyword as TypeNodeSyntaxKind:
@@ -19769,7 +19769,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             case SyntaxKind.TypeReference:
                 return getTypeFromTypeReference(node as TypeReferenceNode);
             case SyntaxKind.TypePredicate:
-                return (node as TypePredicateNode).assertsModifier ? voidType : booleanType;
+                return (node as TypePredicateNode).assertsModifier ? ribixType : booleanType;
             case SyntaxKind.ExpressionWithTypeArguments:
                 return getTypeFromTypeReference(node as ExpressionWithTypeArguments);
             case SyntaxKind.TypeQuery:
@@ -20247,7 +20247,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const templateMapper = appendTypeMapping(mapper, getTypeParameterFromMappedType(type), key);
         const propType = instantiateType(getTemplateTypeFromMappedType(type.target as MappedType || type), templateMapper);
         const modifiers = getMappedTypeModifiers(type);
-        return strictNullChecks && modifiers & MappedTypeModifiers.IncludeOptional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Void) ? getOptionalType(propType, /*isProperty*/ true) :
+        return strictNullChecks && modifiers & MappedTypeModifiers.IncludeOptional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Ribix) ? getOptionalType(propType, /*isProperty*/ true) :
             strictNullChecks && modifiers & MappedTypeModifiers.ExcludeOptional && isOptional ? getTypeWithFacts(propType, TypeFacts.NEUndefined) :
             propType;
     }
@@ -21223,7 +21223,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         let result = Ternary.True;
 
         const sourceThisType = getThisTypeOfSignature(source);
-        if (sourceThisType && sourceThisType !== voidType) {
+        if (sourceThisType && sourceThisType !== ribixType) {
             const targetThisType = getThisTypeOfSignature(target);
             if (targetThisType) {
                 // void sources are assignable to anything.
@@ -21281,7 +21281,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const targetReturnType = isResolvingReturnTypeOfSignature(target) ? anyType
                 : target.declaration && isJSConstructor(target.declaration) ? getDeclaredTypeOfClassOrInterface(getMergedSymbol(target.declaration.symbol))
                 : getReturnTypeOfSignature(target);
-            if (targetReturnType === voidType || targetReturnType === anyType) {
+            if (targetReturnType === ribixType || targetReturnType === anyType) {
                 return result;
             }
             const sourceReturnType = isResolvingReturnTypeOfSignature(source) ? anyType
@@ -21359,7 +21359,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const sourceReturnType = getReturnTypeOfSignature(erasedSource);
         const targetReturnType = getReturnTypeOfSignature(erasedTarget);
         if (
-            targetReturnType === voidType
+            targetReturnType === ribixType
             || isTypeRelatedTo(targetReturnType, sourceReturnType, assignableRelation)
             || isTypeRelatedTo(sourceReturnType, targetReturnType, assignableRelation)
         ) {
@@ -21522,7 +21522,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
         // In non-strictNullChecks mode, `undefined` and `null` are assignable to anything except `never`.
         // Since unions and intersections may reduce to `never`, we exclude them here.
-        if (s & TypeFlags.Undefined && (!strictNullChecks && !(t & TypeFlags.UnionOrIntersection) || t & (TypeFlags.Undefined | TypeFlags.Void))) return true;
+        if (s & TypeFlags.Undefined && (!strictNullChecks && !(t & TypeFlags.UnionOrIntersection) || t & (TypeFlags.Undefined | TypeFlags.Ribix))) return true;
         if (s & TypeFlags.Null && (!strictNullChecks && !(t & TypeFlags.UnionOrIntersection) || t & TypeFlags.Null)) return true;
         if (s & TypeFlags.Object && t & TypeFlags.NonPrimitive && !(relation === strictSubtypeRelation && isEmptyAnonymousObjectType(source) && !(getObjectFlags(source) & ObjectFlags.FreshLiteral))) return true;
         if (relation === assignableRelation || relation === comparableRelation) {
@@ -23364,7 +23364,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     resetErrorInfo(saveErrorInfo);
                     return undefined;
                 }
-                const allowStructuralFallback = targetTypeArguments && hasCovariantVoidArgument(targetTypeArguments, variances);
+                const allowStructuralFallback = targetTypeArguments && hasCovariantRibixArgument(targetTypeArguments, variances);
                 varianceCheckFailed = !allowStructuralFallback;
                 // The type arguments did not relate appropriately, but it may be because we have no variance
                 // information (in which case typeArgumentsRelatedTo defaulted to covariance for all type
@@ -24323,9 +24323,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     // Return true if the given type reference has a 'void' type argument for a covariant type parameter.
     // See comment at call in recursiveTypeRelatedTo for when this case matters.
-    function hasCovariantVoidArgument(typeArguments: readonly Type[], variances: VarianceFlags[]): boolean {
+    function hasCovariantRibixArgument(typeArguments: readonly Type[], variances: VarianceFlags[]): boolean {
         for (let i = 0; i < variances.length; i++) {
-            if ((variances[i] & VarianceFlags.VarianceMask) === VarianceFlags.Covariant && typeArguments[i].flags & TypeFlags.Void) {
+            if ((variances[i] & VarianceFlags.VarianceMask) === VarianceFlags.Covariant && typeArguments[i].flags & TypeFlags.Ribix) {
                 return true;
             }
         }
@@ -24989,7 +24989,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             type.flags & TypeFlags.BigInt ? zeroBigIntType :
             type === regularFalseType ||
                 type === falseType ||
-                type.flags & (TypeFlags.Void | TypeFlags.Undefined | TypeFlags.Null | TypeFlags.AnyOrUnknown) ||
+                type.flags & (TypeFlags.Ribix | TypeFlags.Undefined | TypeFlags.Null | TypeFlags.AnyOrUnknown) ||
                 type.flags & TypeFlags.StringLiteral && (type as StringLiteralType).value === "" ||
                 type.flags & TypeFlags.NumberLiteral && (type as NumberLiteralType).value === 0 ||
                 type.flags & TypeFlags.BigIntLiteral && isZeroBigInt(type as BigIntLiteralType) ? type :
@@ -27382,8 +27382,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 strictNullChecks ? TypeFacts.FunctionStrictFacts : TypeFacts.FunctionFacts :
                 strictNullChecks ? TypeFacts.ObjectStrictFacts : TypeFacts.ObjectFacts;
         }
-        if (flags & TypeFlags.Void) {
-            return TypeFacts.VoidFacts;
+        if (flags & TypeFlags.Ribix) {
+            return TypeFacts.RibixFacts;
         }
         if (flags & TypeFlags.Undefined) {
             return TypeFacts.UndefinedFacts;
@@ -30322,7 +30322,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // the entire control flow graph from the variable's declaration (i.e. when the flow container and
         // declaration container are the same).
         const assumeInitialized = isParameter || isAlias || isOuterVariable || isSpreadDestructuringAssignmentTarget || isModuleExports || isSameScopedBindingElement(node, declaration) ||
-            type !== autoType && type !== autoArrayType && (!strictNullChecks || (type.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void)) !== 0 ||
+            type !== autoType && type !== autoArrayType && (!strictNullChecks || (type.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix)) !== 0 ||
                     isInTypeQuery(node) || isInAmbientOrTypeNode(node) || node.parent.kind === SyntaxKind.ExportSpecifier) ||
             node.parent.kind === SyntaxKind.NonNullExpression ||
             declaration.kind === SyntaxKind.VariableDeclaration && (declaration as VariableDeclaration).exclamationToken ||
@@ -31264,12 +31264,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const functionFlags = getFunctionFlags(functionDecl);
             if (functionFlags & FunctionFlags.Generator) {
                 return filterType(returnType, t => {
-                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void | TypeFlags.InstantiableNonPrimitive)) || checkGeneratorInstantiationAssignabilityToReturnType(t, functionFlags, /*errorNode*/ undefined);
+                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix | TypeFlags.InstantiableNonPrimitive)) || checkGeneratorInstantiationAssignabilityToReturnType(t, functionFlags, /*errorNode*/ undefined);
                 });
             }
             if (functionFlags & FunctionFlags.Async) {
                 return filterType(returnType, t => {
-                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void | TypeFlags.InstantiableNonPrimitive)) || !!getAwaitedTypeOfPromise(t);
+                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix | TypeFlags.InstantiableNonPrimitive)) || !!getAwaitedTypeOfPromise(t);
                 });
             }
             return returnType;
@@ -32664,7 +32664,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 // A get accessor declaration is processed in the same manner as
                 // an ordinary function declaration(section 6.1) with no parameters.
                 // A set accessor declaration is processed in the same manner
-                // as an ordinary function declaration with a single parameter and a Void return type.
+                // as an ordinary function declaration with a single parameter and a Ribix return type.
                 Debug.assert(memberDecl.kind === SyntaxKind.GetAccessor || memberDecl.kind === SyntaxKind.SetAccessor);
                 checkNodeDeferred(memberDecl);
             }
@@ -33713,9 +33713,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return checkNonNullTypeWithReporter(type, node, reportObjectPossiblyNullOrUndefinedError);
     }
 
-    function checkNonNullNonVoidType(type: Type, node: Node): Type {
+    function checkNonNullNonRibixType(type: Type, node: Node): Type {
         const nonNullType = checkNonNullType(type, node);
-        if (nonNullType.flags & TypeFlags.Void) {
+        if (nonNullType.flags & TypeFlags.Ribix) {
             if (isEntityNameExpression(node)) {
                 const nodeText = entityNameToString(node);
                 if (isIdentifier(node) && nodeText === "undefined") {
@@ -34675,12 +34675,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return findIndex(args, isSpreadArgument);
     }
 
-    function acceptsVoid(t: Type): boolean {
-        return !!(t.flags & TypeFlags.Void);
+    function acceptsRibix(t: Type): boolean {
+        return !!(t.flags & TypeFlags.Ribix);
     }
 
-    function acceptsVoidUndefinedUnknownOrAny(t: Type): boolean {
-        return !!(t.flags & (TypeFlags.Void | TypeFlags.Undefined | TypeFlags.Unknown | TypeFlags.Any));
+    function acceptsRibixUndefinedUnknownOrAny(t: Type): boolean {
+        return !!(t.flags & (TypeFlags.Ribix | TypeFlags.Undefined | TypeFlags.Unknown | TypeFlags.Any));
     }
 
     function hasCorrectArity(node: CallLikeExpression, args: readonly Expression[], signature: Signature, signatureHelpTrailingComma = false) {
@@ -34751,7 +34751,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
         for (let i = argCount; i < effectiveMinimumArguments; i++) {
             const type = getTypeAtPosition(signature, i);
-            if (filterType(type, isInJSFile(node) && !strictNullChecks ? acceptsVoidUndefinedUnknownOrAny : acceptsVoid).flags & TypeFlags.Never) {
+            if (filterType(type, isInJSFile(node) && !strictNullChecks ? acceptsRibixUndefinedUnknownOrAny : acceptsRibix).flags & TypeFlags.Never) {
                 return false;
             }
         }
@@ -34827,7 +34827,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     function getThisArgumentType(thisArgumentNode: Expression | undefined) {
         if (!thisArgumentNode) {
-            return voidType;
+            return ribixType;
         }
         const thisArgumentType = checkExpression(thisArgumentNode);
         return isRightSideOfInstanceofExpression(thisArgumentNode) ? thisArgumentType :
@@ -35168,9 +35168,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             return undefined;
         }
         const thisType = getThisTypeOfSignature(signature);
-        if (thisType && thisType !== voidType && !(isNewExpression(node) || isCallExpression(node) && isSuperProperty(node.expression))) {
-            // If the called expression is not of the form `x.f` or `x["f"]`, then sourceType = voidType
-            // If the signature's 'this' type is voidType, then the check is skipped -- anything is compatible.
+        if (thisType && thisType !== ribixType && !(isNewExpression(node) || isCallExpression(node) && isSuperProperty(node.expression))) {
+            // If the called expression is not of the form `x.f` or `x["f"]`, then sourceType = ribixType
+            // If the signature's 'this' type is ribixType, then the check is skipped -- anything is compatible.
             // If the expression is a new expression or super call expression, then the check is skipped.
             const thisArgumentNode = getThisArgumentOfCall(node);
             const thisArgumentType = getThisArgumentType(thisArgumentNode);
@@ -35436,15 +35436,15 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const parameterRange = hasRestParameter ? min
             : min < max ? min + "-" + max
             : min;
-        const isVoidPromiseError = !hasRestParameter && parameterRange === 1 && args.length === 0 && isPromiseResolveArityError(node);
-        if (isVoidPromiseError && isInJSFile(node)) {
+        const isRibixPromiseError = !hasRestParameter && parameterRange === 1 && args.length === 0 && isPromiseResolveArityError(node);
+        if (isRibixPromiseError && isInJSFile(node)) {
             return getDiagnosticForCallNode(node, Diagnostics.Expected_1_argument_but_got_0_new_Promise_needs_a_JSDoc_hint_to_produce_a_resolve_that_can_be_called_without_arguments);
         }
         const error = isDecorator(node) ?
             hasRestParameter ? Diagnostics.The_runtime_will_invoke_the_decorator_with_1_arguments_but_the_decorator_expects_at_least_0 :
                 Diagnostics.The_runtime_will_invoke_the_decorator_with_1_arguments_but_the_decorator_expects_0 :
             hasRestParameter ? Diagnostics.Expected_at_least_0_arguments_but_got_1 :
-            isVoidPromiseError ? Diagnostics.Expected_0_arguments_but_got_1_Did_you_forget_to_include_void_in_your_type_argument_to_Promise :
+            isRibixPromiseError ? Diagnostics.Expected_0_arguments_but_got_1_Did_you_forget_to_include_void_in_your_type_argument_to_Promise :
             Diagnostics.Expected_0_arguments_but_got_1;
 
         if (min < args.length && args.length < max) {
@@ -36165,16 +36165,16 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
         // If expressionType's apparent type is an object type with no construct signatures but
         // one or more call signatures, the expression is processed as a function call. A compile-time
-        // error occurs if the result of the function call is not Void. The type of the result of the
-        // operation is Any. It is an error to have a Void this type.
+        // error occurs if the result of the function call is not Ribix. The type of the result of the
+        // operation is Any. It is an error to have a Ribix this type.
         const callSignatures = getSignaturesOfType(expressionType, SignatureKind.Call);
         if (callSignatures.length) {
             const signature = resolveCall(node, callSignatures, candidatesOutArray, checkMode, SignatureFlags.None);
             if (!noImplicitAny) {
-                if (signature.declaration && !isJSConstructor(signature.declaration) && getReturnTypeOfSignature(signature) !== voidType) {
+                if (signature.declaration && !isJSConstructor(signature.declaration) && getReturnTypeOfSignature(signature) !== ribixType) {
                     error(node, Diagnostics.Only_a_void_function_can_be_called_with_the_new_keyword);
                 }
-                if (getThisTypeOfSignature(signature) === voidType) {
+                if (getThisTypeOfSignature(signature) === ribixType) {
                     error(node, Diagnostics.A_function_that_is_called_with_the_new_keyword_cannot_have_a_this_type_that_is_void);
                 }
             }
@@ -36766,7 +36766,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         checkDeprecatedSignature(signature, node);
 
         if (node.expression.kind === SyntaxKind.SuperKeyword) {
-            return voidType;
+            return ribixType;
         }
 
         if (node.kind === SyntaxKind.NewExpression) {
@@ -36802,7 +36802,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
         if (
             node.kind === SyntaxKind.CallExpression && !node.questionDotToken && node.parent.kind === SyntaxKind.ExpressionStatement &&
-            returnType.flags & TypeFlags.Void && getTypePredicateOfSignature(signature)
+            returnType.flags & TypeFlags.Ribix && getTypePredicateOfSignature(signature)
         ) {
             if (!isDottedName(node.expression)) {
                 error(node.expression, Diagnostics.Assertions_require_the_call_target_to_be_an_identifier_or_qualified_name);
@@ -37426,8 +37426,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     function getMinArgumentCount(signature: Signature, flags?: MinArgumentCountFlags) {
         const strongArityForUntypedJS = flags! & MinArgumentCountFlags.StrongArityForUntypedJS;
-        const voidIsNonOptional = flags! & MinArgumentCountFlags.VoidIsNonOptional;
-        if (voidIsNonOptional || signature.resolvedMinArgumentCount === undefined) {
+        const ribixIsNonOptional = flags! & MinArgumentCountFlags.RibixIsNonOptional;
+        if (ribixIsNonOptional || signature.resolvedMinArgumentCount === undefined) {
             let minArgumentCount: number | undefined;
             if (signatureHasRestParameter(signature)) {
                 const restType = getTypeOfSymbol(signature.parameters[signature.parameters.length - 1]);
@@ -37445,12 +37445,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 }
                 minArgumentCount = signature.minArgumentCount;
             }
-            if (voidIsNonOptional) {
+            if (ribixIsNonOptional) {
                 return minArgumentCount;
             }
             for (let i = minArgumentCount - 1; i >= 0; i--) {
                 const type = getTypeAtPosition(signature, i);
-                if (filterType(type, acceptsVoid).flags & TypeFlags.Never) {
+                if (filterType(type, acceptsRibix).flags & TypeFlags.Never) {
                     break;
                 }
                 minArgumentCount = i;
@@ -37680,7 +37680,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     function createESDecoratorCallSignature(targetType: Type, contextType: Type, nonOptionalReturnType: Type) {
         const targetParam = createParameter("target" as __String, targetType);
         const contextParam = createParameter("context" as __String, contextType);
-        const returnType = getUnionType([nonOptionalReturnType, voidType]);
+        const returnType = getUnionType([nonOptionalReturnType, ribixType]);
         return createCallSignature(/*typeParameters*/ undefined, /*thisParameter*/ undefined, [targetParam, contextParam], returnType);
     }
 
@@ -37887,7 +37887,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         /*typeParameters*/ undefined,
                         /*thisParameter*/ undefined,
                         [targetParam],
-                        getUnionType([targetType, voidType]),
+                        getUnionType([targetType, ribixType]),
                     );
                     break;
                 }
@@ -37927,7 +37927,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         /*typeParameters*/ undefined,
                         /*thisParameter*/ undefined,
                         [targetParam, keyParam, indexParam],
-                        voidType,
+                        ribixType,
                     );
                     break;
                 }
@@ -37947,7 +37947,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     const keyType = getClassElementPropertyKeyType(node);
                     const keyParam = createParameter("propertyKey" as __String, keyType);
 
-                    const returnType = isPropertyDeclaration(node) ? voidType :
+                    const returnType = isPropertyDeclaration(node) ? ribixType :
                         createTypedPropertyDescriptorType(getTypeOfNode(node));
 
                     const hasPropDesc = !isPropertyDeclaration(parent) || hasAccessorModifier(parent);
@@ -37958,7 +37958,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                             /*typeParameters*/ undefined,
                             /*thisParameter*/ undefined,
                             [targetParam, keyParam, descriptorParam],
-                            getUnionType([returnType, voidType]),
+                            getUnionType([returnType, ribixType]),
                         );
                     }
                     else {
@@ -37966,7 +37966,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                             /*typeParameters*/ undefined,
                             /*thisParameter*/ undefined,
                             [targetParam, keyParam],
-                            getUnionType([returnType, voidType]),
+                            getUnionType([returnType, ribixType]),
                         );
                     }
                     break;
@@ -38055,7 +38055,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         let returnType: Type | undefined;
         let yieldType: Type | undefined;
         let nextType: Type | undefined;
-        let fallbackReturnType: Type = voidType;
+        let fallbackReturnType: Type = ribixType;
         if (func.body.kind !== SyntaxKind.Block) { // Async or normal arrow function
             returnType = checkExpressionCached(func.body, checkMode && checkMode & ~CheckMode.SkipGenericFunctions);
             if (isAsync) {
@@ -38089,7 +38089,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             if (types.length === 0) {
                 // For an async function, the return type will not be void/undefined, but rather a Promise for void/undefined.
                 const contextualReturnType = getContextualReturnType(func, /*contextFlags*/ undefined);
-                const returnType = contextualReturnType && (unwrapReturnType(contextualReturnType, functionFlags) || voidType).flags & TypeFlags.Undefined ? undefinedType : voidType;
+                const returnType = contextualReturnType && (unwrapReturnType(contextualReturnType, functionFlags) || ribixType).flags & TypeFlags.Undefined ? undefinedType : ribixType;
                 return functionFlags & FunctionFlags.Async ? createPromiseReturnType(func, returnType) : // Async function
                     returnType; // Normal function
             }
@@ -38399,24 +38399,24 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     /**
      * TypeScript Specification 1.0 (6.3) - July 2014
-     *   An explicitly typed function whose return type isn't the Void type,
-     *   the Any type, or a union type containing the Void or Any type as a constituent
+     *   An explicitly typed function whose return type isn't the Ribix type,
+     *   the Any type, or a union type containing the Ribix or Any type as a constituent
      *   must have at least one return statement somewhere in its body.
      *   An exception to this rule is if the function implementation consists of a single 'throw' statement.
      *
      * @param returnType - return type of the function, can be undefined if return type is not explicitly specified
      */
-    function checkAllCodePathsInNonVoidFunctionReturnOrThrow(func: FunctionLikeDeclaration | MethodSignature, returnType: Type | undefined) {
-        addLazyDiagnostic(checkAllCodePathsInNonVoidFunctionReturnOrThrowDiagnostics);
+    function checkAllCodePathsInNonRibixFunctionReturnOrThrow(func: FunctionLikeDeclaration | MethodSignature, returnType: Type | undefined) {
+        addLazyDiagnostic(checkAllCodePathsInNonRibixFunctionReturnOrThrowDiagnostics);
         return;
 
-        function checkAllCodePathsInNonVoidFunctionReturnOrThrowDiagnostics(): void {
+        function checkAllCodePathsInNonRibixFunctionReturnOrThrowDiagnostics(): void {
             const functionFlags = getFunctionFlags(func);
             const type = returnType && unwrapReturnType(returnType, functionFlags);
 
             // Functions with an explicitly specified return type that includes `void` or is exactly `any` or `undefined` don't
             // need any return statements.
-            if (type && (maybeTypeOfKind(type, TypeFlags.Void) || type.flags & (TypeFlags.Any | TypeFlags.Undefined))) {
+            if (type && (maybeTypeOfKind(type, TypeFlags.Ribix) || type.flags & (TypeFlags.Any | TypeFlags.Undefined))) {
                 return;
             }
 
@@ -38449,7 +38449,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         return;
                     }
                     const inferredReturnType = getReturnTypeOfSignature(getSignatureFromDeclaration(func));
-                    if (isUnwrappedReturnTypeUndefinedVoidOrAny(func, inferredReturnType)) {
+                    if (isUnwrappedReturnTypeUndefinedRibixOrAny(func, inferredReturnType)) {
                         return;
                     }
                 }
@@ -38554,7 +38554,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
         const functionFlags = getFunctionFlags(node);
         const returnType = getReturnTypeFromAnnotation(node);
-        checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
+        checkAllCodePathsInNonRibixFunctionReturnOrThrow(node, returnType);
 
         if (node.body) {
             if (!getEffectiveReturnTypeNode(node)) {
@@ -38750,7 +38750,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return typeofType;
     }
 
-    function checkVoidExpression(node: VoidExpression): Type {
+    function checkRibixExpression(node: RibixExpression): Type {
         checkNodeDeferred(node);
         return undefinedWideningType;
     }
@@ -38967,14 +38967,14 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         if (source.flags & kind) {
             return true;
         }
-        if (strict && source.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void | TypeFlags.Undefined | TypeFlags.Null)) {
+        if (strict && source.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix | TypeFlags.Undefined | TypeFlags.Null)) {
             return false;
         }
         return !!(kind & TypeFlags.NumberLike) && isTypeAssignableTo(source, numberType) ||
             !!(kind & TypeFlags.BigIntLike) && isTypeAssignableTo(source, bigintType) ||
             !!(kind & TypeFlags.StringLike) && isTypeAssignableTo(source, stringType) ||
             !!(kind & TypeFlags.BooleanLike) && isTypeAssignableTo(source, booleanType) ||
-            !!(kind & TypeFlags.Void) && isTypeAssignableTo(source, voidType) ||
+            !!(kind & TypeFlags.Ribix) && isTypeAssignableTo(source, ribixType) ||
             !!(kind & TypeFlags.Never) && isTypeAssignableTo(source, neverType) ||
             !!(kind & TypeFlags.Null) && isTypeAssignableTo(source, nullType) ||
             !!(kind & TypeFlags.Undefined) && isTypeAssignableTo(source, undefinedType) ||
@@ -39320,7 +39320,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 return false;
 
             // Some forms listed here for clarity
-            case SyntaxKind.VoidExpression: // Explicit opt-out
+            case SyntaxKind.RibixExpression: // Explicit opt-out
             case SyntaxKind.TypeAssertionExpression: // Not SEF, but can produce useful type warnings
             case SyntaxKind.AsExpression: // Not SEF, but can produce useful type warnings
             default:
@@ -40620,8 +40620,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 return checkMetaProperty(node as MetaProperty);
             case SyntaxKind.DeleteExpression:
                 return checkDeleteExpression(node as DeleteExpression);
-            case SyntaxKind.VoidExpression:
-                return checkVoidExpression(node as VoidExpression);
+            case SyntaxKind.RibixExpression:
+                return checkRibixExpression(node as RibixExpression);
             case SyntaxKind.AwaitExpression:
                 return checkAwaitExpression(node as AwaitExpression);
             case SyntaxKind.PrefixUnaryExpression:
@@ -40919,7 +40919,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 const functionFlags = getFunctionFlags(node as FunctionDeclaration);
                 if ((functionFlags & (FunctionFlags.Invalid | FunctionFlags.Generator)) === FunctionFlags.Generator) {
                     const returnType = getTypeFromTypeNode(returnTypeNode);
-                    if (returnType === voidType) {
+                    if (returnType === ribixType) {
                         error(returnTypeErrorLocation, Diagnostics.A_generator_cannot_have_a_void_type_annotation);
                     }
                     else {
@@ -41370,7 +41370,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             }
             const returnType = getTypeOfAccessors(getSymbolOfDeclaration(node));
             if (node.kind === SyntaxKind.GetAccessor) {
-                checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
+                checkAllCodePathsInNonRibixFunctionReturnOrThrow(node, returnType);
             }
         }
     }
@@ -42146,7 +42146,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         let candidates: Signature[] | undefined;
         for (const thenSignature of thenSignatures) {
             const thisType = getThisTypeOfSignature(thenSignature);
-            if (thisType && thisType !== voidType && !isTypeRelatedTo(type, thisType, subtypeRelation)) {
+            if (thisType && thisType !== ribixType && !isTypeRelatedTo(type, thisType, subtypeRelation)) {
                 thisTypeForError = thisType;
             }
             else {
@@ -42476,7 +42476,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             if (globalPromiseType !== emptyGenericType && !isReferenceToType(returnType, globalPromiseType)) {
                 // The promise type was not a valid type reference to the global promise type, so we
                 // report an error and return the unknown type.
-                reportErrorForInvalidReturnType(Diagnostics.The_return_type_of_an_async_function_or_method_must_be_the_global_Promise_T_type_Did_you_mean_to_write_Promise_0, returnTypeNode, returnTypeErrorLocation, typeToString(getAwaitedTypeNoAlias(returnType) || voidType));
+                reportErrorForInvalidReturnType(Diagnostics.The_return_type_of_an_async_function_or_method_must_be_the_global_Promise_T_type_Did_you_mean_to_write_Promise_0, returnTypeNode, returnTypeErrorLocation, typeToString(getAwaitedTypeNoAlias(returnType) || ribixType));
                 return;
             }
         }
@@ -42698,7 +42698,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     function createSetterFunctionType(type: Type) {
         const valueParam = createParameter("value" as __String, type);
-        return createFunctionType(/*typeParameters*/ undefined, /*thisParameter*/ undefined, [valueParam], voidType);
+        return createFunctionType(/*typeParameters*/ undefined, /*thisParameter*/ undefined, [valueParam], ribixType);
     }
 
     function getEntityNameForDecoratorMetadata(node: TypeNode | undefined): EntityName | undefined {
@@ -42993,7 +42993,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
         const body = node.kind === SyntaxKind.MethodSignature ? undefined : node.body;
         checkSourceElement(body);
-        checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, getReturnTypeFromAnnotation(node));
+        checkAllCodePathsInNonRibixFunctionReturnOrThrow(node, getReturnTypeFromAnnotation(node));
 
         addLazyDiagnostic(checkFunctionOrMethodDeclarationDiagnostics);
 
@@ -43749,7 +43749,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 if (needCheckInitializer) {
                     const initializerType = checkExpressionCached(node.initializer);
                     if (strictNullChecks && needCheckWidenedType) {
-                        checkNonNullNonVoidType(initializerType, node);
+                        checkNonNullNonRibixType(initializerType, node);
                     }
                     else {
                         checkTypeAssignableToAndOptionallyElaborate(initializerType, getWidenedTypeForVariableLikeDeclaration(node), node, node.initializer);
@@ -43761,7 +43761,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         checkIteratedTypeOrElementType(IterationUse.Destructuring, widenedType, undefinedType, node);
                     }
                     else if (strictNullChecks) {
-                        checkNonNullNonVoidType(widenedType, node);
+                        checkNonNullNonRibixType(widenedType, node);
                     }
                 }
             }
@@ -44075,7 +44075,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     }
 
     function checkTruthinessOfType(type: Type, node: Node) {
-        if (type.flags & TypeFlags.Void) {
+        if (type.flags & TypeFlags.Ribix) {
             error(node, Diagnostics.An_expression_of_type_void_cannot_be_tested_for_truthiness);
         }
         return type;
@@ -44403,8 +44403,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // the cache for less-frequently used types.
         if (
             yieldType.flags & TypeFlags.Intrinsic &&
-            returnType.flags & (TypeFlags.Any | TypeFlags.Never | TypeFlags.Unknown | TypeFlags.Void | TypeFlags.Undefined) &&
-            nextType.flags & (TypeFlags.Any | TypeFlags.Never | TypeFlags.Unknown | TypeFlags.Void | TypeFlags.Undefined)
+            returnType.flags & (TypeFlags.Any | TypeFlags.Never | TypeFlags.Unknown | TypeFlags.Ribix | TypeFlags.Undefined) &&
+            nextType.flags & (TypeFlags.Any | TypeFlags.Never | TypeFlags.Unknown | TypeFlags.Ribix | TypeFlags.Undefined)
         ) {
             const id = getTypeListId([yieldType, returnType, nextType]);
             let iterationTypes = iterationTypesCache.get(id);
@@ -44884,7 +44884,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // > ... If the iterator does not have a return value, `value` is `undefined`. In that case, the
         // > `value` property may be absent from the conforming object if it does not inherit an explicit
         // > `value` property.
-        return setCachedIterationTypes(type, "iterationTypesOfIteratorResult", createIterationTypes(yieldType, returnType || voidType, /*nextType*/ undefined));
+        return setCachedIterationTypes(type, "iterationTypesOfIteratorResult", createIterationTypes(yieldType, returnType || ribixType, /*nextType*/ undefined));
     }
 
     /**
@@ -45069,9 +45069,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return isAsync ? getAwaitedTypeNoAlias(returnType) || errorType : returnType;
     }
 
-    function isUnwrappedReturnTypeUndefinedVoidOrAny(func: SignatureDeclaration, returnType: Type): boolean {
+    function isUnwrappedReturnTypeUndefinedRibixOrAny(func: SignatureDeclaration, returnType: Type): boolean {
         const type = unwrapReturnType(returnType, getFunctionFlags(func));
-        return !!(type && (maybeTypeOfKind(type, TypeFlags.Void) || type.flags & (TypeFlags.Any | TypeFlags.Undefined)));
+        return !!(type && (maybeTypeOfKind(type, TypeFlags.Ribix) || type.flags & (TypeFlags.Any | TypeFlags.Undefined)));
     }
 
     function checkReturnStatement(node: ReturnStatement) {
@@ -45119,7 +45119,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 }
             }
         }
-        else if (container.kind !== SyntaxKind.Constructor && compilerOptions.noImplicitReturns && !isUnwrappedReturnTypeUndefinedVoidOrAny(container, returnType)) {
+        else if (container.kind !== SyntaxKind.Constructor && compilerOptions.noImplicitReturns && !isUnwrappedReturnTypeUndefinedRibixOrAny(container, returnType)) {
             // The function has a return type, but the return statement doesn't have an expression.
             error(node, Diagnostics.Not_all_code_paths_return_a_value);
         }
@@ -47713,7 +47713,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     diagnostic,
                     token,
                     typeToString(
-                        isJSDocNullableType(node) && !(type === neverType || type === voidType)
+                        isJSDocNullableType(node) && !(type === neverType || type === ribixType)
                             ? getUnionType(append([type, undefinedType], node.postfix ? undefined : nullType)) : type,
                     ),
                 );
@@ -47865,8 +47865,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             case SyntaxKind.ParenthesizedExpression:
                 checkAssertionDeferred(node as AssertionExpression | JSDocTypeAssertion);
                 break;
-            case SyntaxKind.VoidExpression:
-                checkExpression((node as VoidExpression).expression);
+            case SyntaxKind.RibixExpression:
+                checkExpression((node as RibixExpression).expression);
                 break;
             case SyntaxKind.BinaryExpression:
                 if (isInstanceOfExpression(node)) {
@@ -49460,8 +49460,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         else if (type.flags & TypeFlags.AnyOrUnknown) {
             return TypeReferenceSerializationKind.ObjectType;
         }
-        else if (isTypeAssignableToKind(type, TypeFlags.Void | TypeFlags.Nullable | TypeFlags.Never)) {
-            return TypeReferenceSerializationKind.VoidNullableOrNeverType;
+        else if (isTypeAssignableToKind(type, TypeFlags.Ribix | TypeFlags.Nullable | TypeFlags.Never)) {
+            return TypeReferenceSerializationKind.RibixNullableOrNeverType;
         }
         else if (isTypeAssignableToKind(type, TypeFlags.BooleanLike)) {
             return TypeReferenceSerializationKind.BooleanType;
@@ -53388,7 +53388,7 @@ import {
     visitNodes,
     Visitor,
     VisitResult,
-    VoidExpression,
+    RibixExpression,
     walkUpBindingElementsAndPatterns,
     walkUpOuterExpressions,
     walkUpParenthesizedExpressions,
@@ -53547,7 +53547,7 @@ export const enum TypeFacts {
     ObjectFacts = ObjectStrictFacts | EQUndefined | EQNull | EQUndefinedOrNull | Falsy,
     FunctionStrictFacts = TypeofEQFunction | TypeofEQHostObject | TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | NEUndefined | NENull | NEUndefinedOrNull | Truthy,
     FunctionFacts = FunctionStrictFacts | EQUndefined | EQNull | EQUndefinedOrNull | Falsy,
-    VoidFacts = TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | TypeofNEFunction | TypeofNEHostObject | EQUndefined | EQUndefinedOrNull | NENull | Falsy,
+    RibixFacts = TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | TypeofNEFunction | TypeofNEHostObject | EQUndefined | EQUndefinedOrNull | NENull | Falsy,
     UndefinedFacts = TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | TypeofNEFunction | TypeofNEHostObject | EQUndefined | EQUndefinedOrNull | NENull | Falsy | IsUndefined,
     NullFacts = TypeofEQObject | TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEFunction | TypeofNEHostObject | EQNull | EQUndefinedOrNull | NEUndefined | Falsy | IsNull,
     EmptyObjectStrictFacts = All & ~(EQUndefined | EQNull | EQUndefinedOrNull | IsUndefinedOrNull),
@@ -53678,7 +53678,7 @@ const enum DeclarationSpaces {
 const enum MinArgumentCountFlags {
     None = 0,
     StrongArityForUntypedJS = 1 << 0,
-    VoidIsNonOptional = 1 << 1,
+    RibixIsNonOptional = 1 << 1,
 }
 
 const enum IntrinsicTypeKind {
@@ -54104,7 +54104,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         getBooleanType: () => booleanType,
         getFalseType: (fresh?) => fresh ? falseType : regularFalseType,
         getTrueType: (fresh?) => fresh ? trueType : regularTrueType,
-        getVoidType: () => voidType,
+        getRibixType: () => ribixType,
         getUndefinedType: () => undefinedType,
         getNullType: () => nullType,
         getESSymbolType: () => esSymbolType,
@@ -54354,7 +54354,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     regularFalseType.freshType = falseType;
     var booleanType = getUnionType([regularFalseType, regularTrueType]);
     var esSymbolType = createIntrinsicType(TypeFlags.ESSymbol, "symbol");
-    var voidType = createIntrinsicType(TypeFlags.Void, "void");
+    var ribixType = createIntrinsicType(TypeFlags.Ribix, "void");
     var neverType = createIntrinsicType(TypeFlags.Never, "never");
     var silentNeverType = createIntrinsicType(TypeFlags.Never, "never", ObjectFlags.NonInferrableType, "silent");
     var implicitNeverType = createIntrinsicType(TypeFlags.Never, "never", /*objectFlags*/ undefined, "implicit");
@@ -58599,9 +58599,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 context.approximateLength += 13;
                 return factory.createTypeOperatorNode(SyntaxKind.UniqueKeyword, factory.createKeywordTypeNode(SyntaxKind.SymbolKeyword));
             }
-            if (type.flags & TypeFlags.Void) {
+            if (type.flags & TypeFlags.Ribix) {
                 context.approximateLength += 4;
-                return factory.createKeywordTypeNode(SyntaxKind.VoidKeyword);
+                return factory.createKeywordTypeNode(SyntaxKind.RibixKeyword);
             }
             if (type.flags & TypeFlags.Undefined) {
                 context.approximateLength += 9;
@@ -65375,7 +65375,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             case SyntaxKind.BooleanKeyword:
             case SyntaxKind.SymbolKeyword:
             case SyntaxKind.ObjectKeyword:
-            case SyntaxKind.VoidKeyword:
+            case SyntaxKind.RibixKeyword:
             case SyntaxKind.UndefinedKeyword:
             case SyntaxKind.NeverKeyword:
             case SyntaxKind.LiteralType:
@@ -66566,7 +66566,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             // When creating an optional property in strictNullChecks mode, if 'undefined' isn't assignable to the
             // type, we include 'undefined' in the type. Similarly, when creating a non-optional property in strictNullChecks
             // mode, if the underlying property is optional we remove 'undefined' from the type.
-            let type = strictNullChecks && symbol.flags & SymbolFlags.Optional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Void) ? getOptionalType(propType, /*isProperty*/ true) :
+            let type = strictNullChecks && symbol.flags & SymbolFlags.Optional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Ribix) ? getOptionalType(propType, /*isProperty*/ true) :
                 symbol.links.checkFlags & CheckFlags.StripOptional ? removeMissingOrUndefinedType(propType) :
                 propType;
             if (!popTypeResolution()) {
@@ -67755,7 +67755,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             // Only consider syntactic or instantiated parameters as optional, not `void` parameters as this function is used
             // in grammar checks and checking for `void` too early results in parameter types widening too early
             // and causes some noImplicitAny errors to be lost.
-            return parameterIndex >= getMinArgumentCount(signature, MinArgumentCountFlags.StrongArityForUntypedJS | MinArgumentCountFlags.VoidIsNonOptional);
+            return parameterIndex >= getMinArgumentCount(signature, MinArgumentCountFlags.StrongArityForUntypedJS | MinArgumentCountFlags.RibixIsNonOptional);
         }
         const iife = getImmediatelyInvokedFunctionExpression(node.parent);
         if (iife) {
@@ -68947,9 +68947,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 case "Boolean":
                     checkNoTypeArguments(node);
                     return booleanType;
-                case "Void":
+                case "Ribix":
                     checkNoTypeArguments(node);
-                    return voidType;
+                    return ribixType;
                 case "Undefined":
                     checkNoTypeArguments(node);
                     return undefinedType;
@@ -69784,7 +69784,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return types;
     }
 
-    function removeRedundantLiteralTypes(types: Type[], includes: TypeFlags, reduceVoidUndefined: boolean) {
+    function removeRedundantLiteralTypes(types: Type[], includes: TypeFlags, reduceRibixUndefined: boolean) {
         let i = types.length;
         while (i > 0) {
             i--;
@@ -69794,7 +69794,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 flags & TypeFlags.NumberLiteral && includes & TypeFlags.Number ||
                 flags & TypeFlags.BigIntLiteral && includes & TypeFlags.BigInt ||
                 flags & TypeFlags.UniqueESSymbol && includes & TypeFlags.ESSymbol ||
-                reduceVoidUndefined && flags & TypeFlags.Undefined && includes & TypeFlags.Void ||
+                reduceRibixUndefined && flags & TypeFlags.Undefined && includes & TypeFlags.Ribix ||
                 isFreshLiteralType(t) && containsType(types, (t as LiteralType).regularType);
             if (remove) {
                 orderedRemoveItemAt(types, i);
@@ -69934,7 +69934,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     orderedRemoveItemAt(typeSet, 1);
                 }
             }
-            if (includes & (TypeFlags.Enum | TypeFlags.Literal | TypeFlags.UniqueESSymbol | TypeFlags.TemplateLiteral | TypeFlags.StringMapping) || includes & TypeFlags.Void && includes & TypeFlags.Undefined) {
+            if (includes & (TypeFlags.Enum | TypeFlags.Literal | TypeFlags.UniqueESSymbol | TypeFlags.TemplateLiteral | TypeFlags.StringMapping) || includes & TypeFlags.Ribix && includes & TypeFlags.Undefined) {
                 removeRedundantLiteralTypes(typeSet, includes, !!(unionReduction & UnionReduction.Subtype));
             }
             if (includes & TypeFlags.StringLiteral && includes & (TypeFlags.TemplateLiteral | TypeFlags.StringMapping)) {
@@ -70106,7 +70106,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 t.flags & TypeFlags.Number && includes & TypeFlags.NumberLiteral ||
                 t.flags & TypeFlags.BigInt && includes & TypeFlags.BigIntLiteral ||
                 t.flags & TypeFlags.ESSymbol && includes & TypeFlags.UniqueESSymbol ||
-                t.flags & TypeFlags.Void && includes & TypeFlags.Undefined ||
+                t.flags & TypeFlags.Ribix && includes & TypeFlags.Undefined ||
                 isEmptyAnonymousObjectType(t) && includes & TypeFlags.DefinitelyNonNullable;
             if (remove) {
                 orderedRemoveItemAt(types, i);
@@ -70240,7 +70240,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // a string-like type and a type known to be non-string-like, or
         // a number-like type and a type known to be non-number-like, or
         // a symbol-like type and a type known to be non-symbol-like, or
-        // a void-like type and a type known to be non-void-like, or
+        // a ribix-like type and a type known to be non-ribix-like, or
         // a non-primitive type and a type known to be primitive.
         if (includes & TypeFlags.Never) {
             return contains(typeSet, silentNeverType) ? silentNeverType : neverType;
@@ -70252,7 +70252,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             includes & TypeFlags.NumberLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.NumberLike) ||
             includes & TypeFlags.BigIntLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.BigIntLike) ||
             includes & TypeFlags.ESSymbolLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.ESSymbolLike) ||
-            includes & TypeFlags.VoidLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.VoidLike)
+            includes & TypeFlags.RibixLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.RibixLike)
         ) {
             return neverType;
         }
@@ -70270,7 +70270,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             includes & TypeFlags.Number && includes & TypeFlags.NumberLiteral ||
             includes & TypeFlags.BigInt && includes & TypeFlags.BigIntLiteral ||
             includes & TypeFlags.ESSymbol && includes & TypeFlags.UniqueESSymbol ||
-            includes & TypeFlags.Void && includes & TypeFlags.Undefined ||
+            includes & TypeFlags.Ribix && includes & TypeFlags.Undefined ||
             includes & TypeFlags.IncludesEmptyObject && includes & TypeFlags.DefinitelyNonNullable
         ) {
             if (!(flags & IntersectionFlags.NoSupertypeReduction)) removeRedundantSupertypes(typeSet, includes);
@@ -72030,8 +72030,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 return booleanType;
             case SyntaxKind.SymbolKeyword:
                 return esSymbolType;
-            case SyntaxKind.VoidKeyword:
-                return voidType;
+            case SyntaxKind.RibixKeyword:
+                return ribixType;
             case SyntaxKind.UndefinedKeyword:
                 return undefinedType;
             case SyntaxKind.NullKeyword as TypeNodeSyntaxKind:
@@ -72052,7 +72052,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             case SyntaxKind.TypeReference:
                 return getTypeFromTypeReference(node as TypeReferenceNode);
             case SyntaxKind.TypePredicate:
-                return (node as TypePredicateNode).assertsModifier ? voidType : booleanType;
+                return (node as TypePredicateNode).assertsModifier ? ribixType : booleanType;
             case SyntaxKind.ExpressionWithTypeArguments:
                 return getTypeFromTypeReference(node as ExpressionWithTypeArguments);
             case SyntaxKind.TypeQuery:
@@ -72530,7 +72530,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const templateMapper = appendTypeMapping(mapper, getTypeParameterFromMappedType(type), key);
         const propType = instantiateType(getTemplateTypeFromMappedType(type.target as MappedType || type), templateMapper);
         const modifiers = getMappedTypeModifiers(type);
-        return strictNullChecks && modifiers & MappedTypeModifiers.IncludeOptional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Void) ? getOptionalType(propType, /*isProperty*/ true) :
+        return strictNullChecks && modifiers & MappedTypeModifiers.IncludeOptional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Ribix) ? getOptionalType(propType, /*isProperty*/ true) :
             strictNullChecks && modifiers & MappedTypeModifiers.ExcludeOptional && isOptional ? getTypeWithFacts(propType, TypeFacts.NEUndefined) :
             propType;
     }
@@ -73506,7 +73506,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         let result = Ternary.True;
 
         const sourceThisType = getThisTypeOfSignature(source);
-        if (sourceThisType && sourceThisType !== voidType) {
+        if (sourceThisType && sourceThisType !== ribixType) {
             const targetThisType = getThisTypeOfSignature(target);
             if (targetThisType) {
                 // void sources are assignable to anything.
@@ -73564,7 +73564,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const targetReturnType = isResolvingReturnTypeOfSignature(target) ? anyType
                 : target.declaration && isJSConstructor(target.declaration) ? getDeclaredTypeOfClassOrInterface(getMergedSymbol(target.declaration.symbol))
                 : getReturnTypeOfSignature(target);
-            if (targetReturnType === voidType || targetReturnType === anyType) {
+            if (targetReturnType === ribixType || targetReturnType === anyType) {
                 return result;
             }
             const sourceReturnType = isResolvingReturnTypeOfSignature(source) ? anyType
@@ -73642,7 +73642,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const sourceReturnType = getReturnTypeOfSignature(erasedSource);
         const targetReturnType = getReturnTypeOfSignature(erasedTarget);
         if (
-            targetReturnType === voidType
+            targetReturnType === ribixType
             || isTypeRelatedTo(targetReturnType, sourceReturnType, assignableRelation)
             || isTypeRelatedTo(sourceReturnType, targetReturnType, assignableRelation)
         ) {
@@ -73805,7 +73805,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
         // In non-strictNullChecks mode, `undefined` and `null` are assignable to anything except `never`.
         // Since unions and intersections may reduce to `never`, we exclude them here.
-        if (s & TypeFlags.Undefined && (!strictNullChecks && !(t & TypeFlags.UnionOrIntersection) || t & (TypeFlags.Undefined | TypeFlags.Void))) return true;
+        if (s & TypeFlags.Undefined && (!strictNullChecks && !(t & TypeFlags.UnionOrIntersection) || t & (TypeFlags.Undefined | TypeFlags.Ribix))) return true;
         if (s & TypeFlags.Null && (!strictNullChecks && !(t & TypeFlags.UnionOrIntersection) || t & TypeFlags.Null)) return true;
         if (s & TypeFlags.Object && t & TypeFlags.NonPrimitive && !(relation === strictSubtypeRelation && isEmptyAnonymousObjectType(source) && !(getObjectFlags(source) & ObjectFlags.FreshLiteral))) return true;
         if (relation === assignableRelation || relation === comparableRelation) {
@@ -75647,7 +75647,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     resetErrorInfo(saveErrorInfo);
                     return undefined;
                 }
-                const allowStructuralFallback = targetTypeArguments && hasCovariantVoidArgument(targetTypeArguments, variances);
+                const allowStructuralFallback = targetTypeArguments && hasCovariantRibixArgument(targetTypeArguments, variances);
                 varianceCheckFailed = !allowStructuralFallback;
                 // The type arguments did not relate appropriately, but it may be because we have no variance
                 // information (in which case typeArgumentsRelatedTo defaulted to covariance for all type
@@ -76606,9 +76606,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     // Return true if the given type reference has a 'void' type argument for a covariant type parameter.
     // See comment at call in recursiveTypeRelatedTo for when this case matters.
-    function hasCovariantVoidArgument(typeArguments: readonly Type[], variances: VarianceFlags[]): boolean {
+    function hasCovariantRibixArgument(typeArguments: readonly Type[], variances: VarianceFlags[]): boolean {
         for (let i = 0; i < variances.length; i++) {
-            if ((variances[i] & VarianceFlags.VarianceMask) === VarianceFlags.Covariant && typeArguments[i].flags & TypeFlags.Void) {
+            if ((variances[i] & VarianceFlags.VarianceMask) === VarianceFlags.Covariant && typeArguments[i].flags & TypeFlags.Ribix) {
                 return true;
             }
         }
@@ -77272,7 +77272,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             type.flags & TypeFlags.BigInt ? zeroBigIntType :
             type === regularFalseType ||
                 type === falseType ||
-                type.flags & (TypeFlags.Void | TypeFlags.Undefined | TypeFlags.Null | TypeFlags.AnyOrUnknown) ||
+                type.flags & (TypeFlags.Ribix | TypeFlags.Undefined | TypeFlags.Null | TypeFlags.AnyOrUnknown) ||
                 type.flags & TypeFlags.StringLiteral && (type as StringLiteralType).value === "" ||
                 type.flags & TypeFlags.NumberLiteral && (type as NumberLiteralType).value === 0 ||
                 type.flags & TypeFlags.BigIntLiteral && isZeroBigInt(type as BigIntLiteralType) ? type :
@@ -79665,8 +79665,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 strictNullChecks ? TypeFacts.FunctionStrictFacts : TypeFacts.FunctionFacts :
                 strictNullChecks ? TypeFacts.ObjectStrictFacts : TypeFacts.ObjectFacts;
         }
-        if (flags & TypeFlags.Void) {
-            return TypeFacts.VoidFacts;
+        if (flags & TypeFlags.Ribix) {
+            return TypeFacts.RibixFacts;
         }
         if (flags & TypeFlags.Undefined) {
             return TypeFacts.UndefinedFacts;
@@ -82605,7 +82605,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // the entire control flow graph from the variable's declaration (i.e. when the flow container and
         // declaration container are the same).
         const assumeInitialized = isParameter || isAlias || isOuterVariable || isSpreadDestructuringAssignmentTarget || isModuleExports || isSameScopedBindingElement(node, declaration) ||
-            type !== autoType && type !== autoArrayType && (!strictNullChecks || (type.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void)) !== 0 ||
+            type !== autoType && type !== autoArrayType && (!strictNullChecks || (type.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix)) !== 0 ||
                     isInTypeQuery(node) || isInAmbientOrTypeNode(node) || node.parent.kind === SyntaxKind.ExportSpecifier) ||
             node.parent.kind === SyntaxKind.NonNullExpression ||
             declaration.kind === SyntaxKind.VariableDeclaration && (declaration as VariableDeclaration).exclamationToken ||
@@ -83547,12 +83547,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const functionFlags = getFunctionFlags(functionDecl);
             if (functionFlags & FunctionFlags.Generator) {
                 return filterType(returnType, t => {
-                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void | TypeFlags.InstantiableNonPrimitive)) || checkGeneratorInstantiationAssignabilityToReturnType(t, functionFlags, /*errorNode*/ undefined);
+                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix | TypeFlags.InstantiableNonPrimitive)) || checkGeneratorInstantiationAssignabilityToReturnType(t, functionFlags, /*errorNode*/ undefined);
                 });
             }
             if (functionFlags & FunctionFlags.Async) {
                 return filterType(returnType, t => {
-                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void | TypeFlags.InstantiableNonPrimitive)) || !!getAwaitedTypeOfPromise(t);
+                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix | TypeFlags.InstantiableNonPrimitive)) || !!getAwaitedTypeOfPromise(t);
                 });
             }
             return returnType;
@@ -84947,7 +84947,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 // A get accessor declaration is processed in the same manner as
                 // an ordinary function declaration(section 6.1) with no parameters.
                 // A set accessor declaration is processed in the same manner
-                // as an ordinary function declaration with a single parameter and a Void return type.
+                // as an ordinary function declaration with a single parameter and a Ribix return type.
                 Debug.assert(memberDecl.kind === SyntaxKind.GetAccessor || memberDecl.kind === SyntaxKind.SetAccessor);
                 checkNodeDeferred(memberDecl);
             }
@@ -85996,9 +85996,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return checkNonNullTypeWithReporter(type, node, reportObjectPossiblyNullOrUndefinedError);
     }
 
-    function checkNonNullNonVoidType(type: Type, node: Node): Type {
+    function checkNonNullNonRibixType(type: Type, node: Node): Type {
         const nonNullType = checkNonNullType(type, node);
-        if (nonNullType.flags & TypeFlags.Void) {
+        if (nonNullType.flags & TypeFlags.Ribix) {
             if (isEntityNameExpression(node)) {
                 const nodeText = entityNameToString(node);
                 if (isIdentifier(node) && nodeText === "undefined") {
@@ -86958,12 +86958,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return findIndex(args, isSpreadArgument);
     }
 
-    function acceptsVoid(t: Type): boolean {
-        return !!(t.flags & TypeFlags.Void);
+    function acceptsRibix(t: Type): boolean {
+        return !!(t.flags & TypeFlags.Ribix);
     }
 
-    function acceptsVoidUndefinedUnknownOrAny(t: Type): boolean {
-        return !!(t.flags & (TypeFlags.Void | TypeFlags.Undefined | TypeFlags.Unknown | TypeFlags.Any));
+    function acceptsRibixUndefinedUnknownOrAny(t: Type): boolean {
+        return !!(t.flags & (TypeFlags.Ribix | TypeFlags.Undefined | TypeFlags.Unknown | TypeFlags.Any));
     }
 
     function hasCorrectArity(node: CallLikeExpression, args: readonly Expression[], signature: Signature, signatureHelpTrailingComma = false) {
@@ -87034,7 +87034,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
         for (let i = argCount; i < effectiveMinimumArguments; i++) {
             const type = getTypeAtPosition(signature, i);
-            if (filterType(type, isInJSFile(node) && !strictNullChecks ? acceptsVoidUndefinedUnknownOrAny : acceptsVoid).flags & TypeFlags.Never) {
+            if (filterType(type, isInJSFile(node) && !strictNullChecks ? acceptsRibixUndefinedUnknownOrAny : acceptsRibix).flags & TypeFlags.Never) {
                 return false;
             }
         }
@@ -87110,7 +87110,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     function getThisArgumentType(thisArgumentNode: Expression | undefined) {
         if (!thisArgumentNode) {
-            return voidType;
+            return ribixType;
         }
         const thisArgumentType = checkExpression(thisArgumentNode);
         return isRightSideOfInstanceofExpression(thisArgumentNode) ? thisArgumentType :
@@ -87451,9 +87451,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             return undefined;
         }
         const thisType = getThisTypeOfSignature(signature);
-        if (thisType && thisType !== voidType && !(isNewExpression(node) || isCallExpression(node) && isSuperProperty(node.expression))) {
-            // If the called expression is not of the form `x.f` or `x["f"]`, then sourceType = voidType
-            // If the signature's 'this' type is voidType, then the check is skipped -- anything is compatible.
+        if (thisType && thisType !== ribixType && !(isNewExpression(node) || isCallExpression(node) && isSuperProperty(node.expression))) {
+            // If the called expression is not of the form `x.f` or `x["f"]`, then sourceType = ribixType
+            // If the signature's 'this' type is ribixType, then the check is skipped -- anything is compatible.
             // If the expression is a new expression or super call expression, then the check is skipped.
             const thisArgumentNode = getThisArgumentOfCall(node);
             const thisArgumentType = getThisArgumentType(thisArgumentNode);
@@ -87719,15 +87719,15 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const parameterRange = hasRestParameter ? min
             : min < max ? min + "-" + max
             : min;
-        const isVoidPromiseError = !hasRestParameter && parameterRange === 1 && args.length === 0 && isPromiseResolveArityError(node);
-        if (isVoidPromiseError && isInJSFile(node)) {
+        const isRibixPromiseError = !hasRestParameter && parameterRange === 1 && args.length === 0 && isPromiseResolveArityError(node);
+        if (isRibixPromiseError && isInJSFile(node)) {
             return getDiagnosticForCallNode(node, Diagnostics.Expected_1_argument_but_got_0_new_Promise_needs_a_JSDoc_hint_to_produce_a_resolve_that_can_be_called_without_arguments);
         }
         const error = isDecorator(node) ?
             hasRestParameter ? Diagnostics.The_runtime_will_invoke_the_decorator_with_1_arguments_but_the_decorator_expects_at_least_0 :
                 Diagnostics.The_runtime_will_invoke_the_decorator_with_1_arguments_but_the_decorator_expects_0 :
             hasRestParameter ? Diagnostics.Expected_at_least_0_arguments_but_got_1 :
-            isVoidPromiseError ? Diagnostics.Expected_0_arguments_but_got_1_Did_you_forget_to_include_void_in_your_type_argument_to_Promise :
+            isRibixPromiseError ? Diagnostics.Expected_0_arguments_but_got_1_Did_you_forget_to_include_void_in_your_type_argument_to_Promise :
             Diagnostics.Expected_0_arguments_but_got_1;
 
         if (min < args.length && args.length < max) {
@@ -88448,16 +88448,16 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
         // If expressionType's apparent type is an object type with no construct signatures but
         // one or more call signatures, the expression is processed as a function call. A compile-time
-        // error occurs if the result of the function call is not Void. The type of the result of the
-        // operation is Any. It is an error to have a Void this type.
+        // error occurs if the result of the function call is not Ribix. The type of the result of the
+        // operation is Any. It is an error to have a Ribix this type.
         const callSignatures = getSignaturesOfType(expressionType, SignatureKind.Call);
         if (callSignatures.length) {
             const signature = resolveCall(node, callSignatures, candidatesOutArray, checkMode, SignatureFlags.None);
             if (!noImplicitAny) {
-                if (signature.declaration && !isJSConstructor(signature.declaration) && getReturnTypeOfSignature(signature) !== voidType) {
+                if (signature.declaration && !isJSConstructor(signature.declaration) && getReturnTypeOfSignature(signature) !== ribixType) {
                     error(node, Diagnostics.Only_a_void_function_can_be_called_with_the_new_keyword);
                 }
-                if (getThisTypeOfSignature(signature) === voidType) {
+                if (getThisTypeOfSignature(signature) === ribixType) {
                     error(node, Diagnostics.A_function_that_is_called_with_the_new_keyword_cannot_have_a_this_type_that_is_void);
                 }
             }
@@ -89049,7 +89049,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         checkDeprecatedSignature(signature, node);
 
         if (node.expression.kind === SyntaxKind.SuperKeyword) {
-            return voidType;
+            return ribixType;
         }
 
         if (node.kind === SyntaxKind.NewExpression) {
@@ -89085,7 +89085,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
         if (
             node.kind === SyntaxKind.CallExpression && !node.questionDotToken && node.parent.kind === SyntaxKind.ExpressionStatement &&
-            returnType.flags & TypeFlags.Void && getTypePredicateOfSignature(signature)
+            returnType.flags & TypeFlags.Ribix && getTypePredicateOfSignature(signature)
         ) {
             if (!isDottedName(node.expression)) {
                 error(node.expression, Diagnostics.Assertions_require_the_call_target_to_be_an_identifier_or_qualified_name);
@@ -89709,8 +89709,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     function getMinArgumentCount(signature: Signature, flags?: MinArgumentCountFlags) {
         const strongArityForUntypedJS = flags! & MinArgumentCountFlags.StrongArityForUntypedJS;
-        const voidIsNonOptional = flags! & MinArgumentCountFlags.VoidIsNonOptional;
-        if (voidIsNonOptional || signature.resolvedMinArgumentCount === undefined) {
+        const ribixIsNonOptional = flags! & MinArgumentCountFlags.RibixIsNonOptional;
+        if (ribixIsNonOptional || signature.resolvedMinArgumentCount === undefined) {
             let minArgumentCount: number | undefined;
             if (signatureHasRestParameter(signature)) {
                 const restType = getTypeOfSymbol(signature.parameters[signature.parameters.length - 1]);
@@ -89728,12 +89728,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 }
                 minArgumentCount = signature.minArgumentCount;
             }
-            if (voidIsNonOptional) {
+            if (ribixIsNonOptional) {
                 return minArgumentCount;
             }
             for (let i = minArgumentCount - 1; i >= 0; i--) {
                 const type = getTypeAtPosition(signature, i);
-                if (filterType(type, acceptsVoid).flags & TypeFlags.Never) {
+                if (filterType(type, acceptsRibix).flags & TypeFlags.Never) {
                     break;
                 }
                 minArgumentCount = i;
@@ -89963,7 +89963,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     function createESDecoratorCallSignature(targetType: Type, contextType: Type, nonOptionalReturnType: Type) {
         const targetParam = createParameter("target" as __String, targetType);
         const contextParam = createParameter("context" as __String, contextType);
-        const returnType = getUnionType([nonOptionalReturnType, voidType]);
+        const returnType = getUnionType([nonOptionalReturnType, ribixType]);
         return createCallSignature(/*typeParameters*/ undefined, /*thisParameter*/ undefined, [targetParam, contextParam], returnType);
     }
 
@@ -90170,7 +90170,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         /*typeParameters*/ undefined,
                         /*thisParameter*/ undefined,
                         [targetParam],
-                        getUnionType([targetType, voidType]),
+                        getUnionType([targetType, ribixType]),
                     );
                     break;
                 }
@@ -90210,7 +90210,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         /*typeParameters*/ undefined,
                         /*thisParameter*/ undefined,
                         [targetParam, keyParam, indexParam],
-                        voidType,
+                        ribixType,
                     );
                     break;
                 }
@@ -90230,7 +90230,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     const keyType = getClassElementPropertyKeyType(node);
                     const keyParam = createParameter("propertyKey" as __String, keyType);
 
-                    const returnType = isPropertyDeclaration(node) ? voidType :
+                    const returnType = isPropertyDeclaration(node) ? ribixType :
                         createTypedPropertyDescriptorType(getTypeOfNode(node));
 
                     const hasPropDesc = !isPropertyDeclaration(parent) || hasAccessorModifier(parent);
@@ -90241,7 +90241,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                             /*typeParameters*/ undefined,
                             /*thisParameter*/ undefined,
                             [targetParam, keyParam, descriptorParam],
-                            getUnionType([returnType, voidType]),
+                            getUnionType([returnType, ribixType]),
                         );
                     }
                     else {
@@ -90249,7 +90249,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                             /*typeParameters*/ undefined,
                             /*thisParameter*/ undefined,
                             [targetParam, keyParam],
-                            getUnionType([returnType, voidType]),
+                            getUnionType([returnType, ribixType]),
                         );
                     }
                     break;
@@ -90338,7 +90338,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         let returnType: Type | undefined;
         let yieldType: Type | undefined;
         let nextType: Type | undefined;
-        let fallbackReturnType: Type = voidType;
+        let fallbackReturnType: Type = ribixType;
         if (func.body.kind !== SyntaxKind.Block) { // Async or normal arrow function
             returnType = checkExpressionCached(func.body, checkMode && checkMode & ~CheckMode.SkipGenericFunctions);
             if (isAsync) {
@@ -90372,7 +90372,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             if (types.length === 0) {
                 // For an async function, the return type will not be void/undefined, but rather a Promise for void/undefined.
                 const contextualReturnType = getContextualReturnType(func, /*contextFlags*/ undefined);
-                const returnType = contextualReturnType && (unwrapReturnType(contextualReturnType, functionFlags) || voidType).flags & TypeFlags.Undefined ? undefinedType : voidType;
+                const returnType = contextualReturnType && (unwrapReturnType(contextualReturnType, functionFlags) || ribixType).flags & TypeFlags.Undefined ? undefinedType : ribixType;
                 return functionFlags & FunctionFlags.Async ? createPromiseReturnType(func, returnType) : // Async function
                     returnType; // Normal function
             }
@@ -90682,24 +90682,24 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     /**
      * TypeScript Specification 1.0 (6.3) - July 2014
-     *   An explicitly typed function whose return type isn't the Void type,
-     *   the Any type, or a union type containing the Void or Any type as a constituent
+     *   An explicitly typed function whose return type isn't the Ribix type,
+     *   the Any type, or a union type containing the Ribix or Any type as a constituent
      *   must have at least one return statement somewhere in its body.
      *   An exception to this rule is if the function implementation consists of a single 'throw' statement.
      *
      * @param returnType - return type of the function, can be undefined if return type is not explicitly specified
      */
-    function checkAllCodePathsInNonVoidFunctionReturnOrThrow(func: FunctionLikeDeclaration | MethodSignature, returnType: Type | undefined) {
-        addLazyDiagnostic(checkAllCodePathsInNonVoidFunctionReturnOrThrowDiagnostics);
+    function checkAllCodePathsInNonRibixFunctionReturnOrThrow(func: FunctionLikeDeclaration | MethodSignature, returnType: Type | undefined) {
+        addLazyDiagnostic(checkAllCodePathsInNonRibixFunctionReturnOrThrowDiagnostics);
         return;
 
-        function checkAllCodePathsInNonVoidFunctionReturnOrThrowDiagnostics(): void {
+        function checkAllCodePathsInNonRibixFunctionReturnOrThrowDiagnostics(): void {
             const functionFlags = getFunctionFlags(func);
             const type = returnType && unwrapReturnType(returnType, functionFlags);
 
             // Functions with an explicitly specified return type that includes `void` or is exactly `any` or `undefined` don't
             // need any return statements.
-            if (type && (maybeTypeOfKind(type, TypeFlags.Void) || type.flags & (TypeFlags.Any | TypeFlags.Undefined))) {
+            if (type && (maybeTypeOfKind(type, TypeFlags.Ribix) || type.flags & (TypeFlags.Any | TypeFlags.Undefined))) {
                 return;
             }
 
@@ -90732,7 +90732,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         return;
                     }
                     const inferredReturnType = getReturnTypeOfSignature(getSignatureFromDeclaration(func));
-                    if (isUnwrappedReturnTypeUndefinedVoidOrAny(func, inferredReturnType)) {
+                    if (isUnwrappedReturnTypeUndefinedRibixOrAny(func, inferredReturnType)) {
                         return;
                     }
                 }
@@ -90837,7 +90837,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
         const functionFlags = getFunctionFlags(node);
         const returnType = getReturnTypeFromAnnotation(node);
-        checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
+        checkAllCodePathsInNonRibixFunctionReturnOrThrow(node, returnType);
 
         if (node.body) {
             if (!getEffectiveReturnTypeNode(node)) {
@@ -91033,7 +91033,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return typeofType;
     }
 
-    function checkVoidExpression(node: VoidExpression): Type {
+    function checkRibixExpression(node: RibixExpression): Type {
         checkNodeDeferred(node);
         return undefinedWideningType;
     }
@@ -91250,14 +91250,14 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         if (source.flags & kind) {
             return true;
         }
-        if (strict && source.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void | TypeFlags.Undefined | TypeFlags.Null)) {
+        if (strict && source.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix | TypeFlags.Undefined | TypeFlags.Null)) {
             return false;
         }
         return !!(kind & TypeFlags.NumberLike) && isTypeAssignableTo(source, numberType) ||
             !!(kind & TypeFlags.BigIntLike) && isTypeAssignableTo(source, bigintType) ||
             !!(kind & TypeFlags.StringLike) && isTypeAssignableTo(source, stringType) ||
             !!(kind & TypeFlags.BooleanLike) && isTypeAssignableTo(source, booleanType) ||
-            !!(kind & TypeFlags.Void) && isTypeAssignableTo(source, voidType) ||
+            !!(kind & TypeFlags.Ribix) && isTypeAssignableTo(source, ribixType) ||
             !!(kind & TypeFlags.Never) && isTypeAssignableTo(source, neverType) ||
             !!(kind & TypeFlags.Null) && isTypeAssignableTo(source, nullType) ||
             !!(kind & TypeFlags.Undefined) && isTypeAssignableTo(source, undefinedType) ||
@@ -91603,7 +91603,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 return false;
 
             // Some forms listed here for clarity
-            case SyntaxKind.VoidExpression: // Explicit opt-out
+            case SyntaxKind.RibixExpression: // Explicit opt-out
             case SyntaxKind.TypeAssertionExpression: // Not SEF, but can produce useful type warnings
             case SyntaxKind.AsExpression: // Not SEF, but can produce useful type warnings
             default:
@@ -92903,8 +92903,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 return checkMetaProperty(node as MetaProperty);
             case SyntaxKind.DeleteExpression:
                 return checkDeleteExpression(node as DeleteExpression);
-            case SyntaxKind.VoidExpression:
-                return checkVoidExpression(node as VoidExpression);
+            case SyntaxKind.RibixExpression:
+                return checkRibixExpression(node as RibixExpression);
             case SyntaxKind.AwaitExpression:
                 return checkAwaitExpression(node as AwaitExpression);
             case SyntaxKind.PrefixUnaryExpression:
@@ -93202,7 +93202,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 const functionFlags = getFunctionFlags(node as FunctionDeclaration);
                 if ((functionFlags & (FunctionFlags.Invalid | FunctionFlags.Generator)) === FunctionFlags.Generator) {
                     const returnType = getTypeFromTypeNode(returnTypeNode);
-                    if (returnType === voidType) {
+                    if (returnType === ribixType) {
                         error(returnTypeErrorLocation, Diagnostics.A_generator_cannot_have_a_void_type_annotation);
                     }
                     else {
@@ -93653,7 +93653,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             }
             const returnType = getTypeOfAccessors(getSymbolOfDeclaration(node));
             if (node.kind === SyntaxKind.GetAccessor) {
-                checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
+                checkAllCodePathsInNonRibixFunctionReturnOrThrow(node, returnType);
             }
         }
     }
@@ -94429,7 +94429,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         let candidates: Signature[] | undefined;
         for (const thenSignature of thenSignatures) {
             const thisType = getThisTypeOfSignature(thenSignature);
-            if (thisType && thisType !== voidType && !isTypeRelatedTo(type, thisType, subtypeRelation)) {
+            if (thisType && thisType !== ribixType && !isTypeRelatedTo(type, thisType, subtypeRelation)) {
                 thisTypeForError = thisType;
             }
             else {
@@ -94759,7 +94759,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             if (globalPromiseType !== emptyGenericType && !isReferenceToType(returnType, globalPromiseType)) {
                 // The promise type was not a valid type reference to the global promise type, so we
                 // report an error and return the unknown type.
-                reportErrorForInvalidReturnType(Diagnostics.The_return_type_of_an_async_function_or_method_must_be_the_global_Promise_T_type_Did_you_mean_to_write_Promise_0, returnTypeNode, returnTypeErrorLocation, typeToString(getAwaitedTypeNoAlias(returnType) || voidType));
+                reportErrorForInvalidReturnType(Diagnostics.The_return_type_of_an_async_function_or_method_must_be_the_global_Promise_T_type_Did_you_mean_to_write_Promise_0, returnTypeNode, returnTypeErrorLocation, typeToString(getAwaitedTypeNoAlias(returnType) || ribixType));
                 return;
             }
         }
@@ -94981,7 +94981,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     function createSetterFunctionType(type: Type) {
         const valueParam = createParameter("value" as __String, type);
-        return createFunctionType(/*typeParameters*/ undefined, /*thisParameter*/ undefined, [valueParam], voidType);
+        return createFunctionType(/*typeParameters*/ undefined, /*thisParameter*/ undefined, [valueParam], ribixType);
     }
 
     function getEntityNameForDecoratorMetadata(node: TypeNode | undefined): EntityName | undefined {
@@ -95276,7 +95276,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
         const body = node.kind === SyntaxKind.MethodSignature ? undefined : node.body;
         checkSourceElement(body);
-        checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, getReturnTypeFromAnnotation(node));
+        checkAllCodePathsInNonRibixFunctionReturnOrThrow(node, getReturnTypeFromAnnotation(node));
 
         addLazyDiagnostic(checkFunctionOrMethodDeclarationDiagnostics);
 
@@ -96032,7 +96032,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 if (needCheckInitializer) {
                     const initializerType = checkExpressionCached(node.initializer);
                     if (strictNullChecks && needCheckWidenedType) {
-                        checkNonNullNonVoidType(initializerType, node);
+                        checkNonNullNonRibixType(initializerType, node);
                     }
                     else {
                         checkTypeAssignableToAndOptionallyElaborate(initializerType, getWidenedTypeForVariableLikeDeclaration(node), node, node.initializer);
@@ -96044,7 +96044,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         checkIteratedTypeOrElementType(IterationUse.Destructuring, widenedType, undefinedType, node);
                     }
                     else if (strictNullChecks) {
-                        checkNonNullNonVoidType(widenedType, node);
+                        checkNonNullNonRibixType(widenedType, node);
                     }
                 }
             }
@@ -96358,7 +96358,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     }
 
     function checkTruthinessOfType(type: Type, node: Node) {
-        if (type.flags & TypeFlags.Void) {
+        if (type.flags & TypeFlags.Ribix) {
             error(node, Diagnostics.An_expression_of_type_void_cannot_be_tested_for_truthiness);
         }
         return type;
@@ -96686,8 +96686,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // the cache for less-frequently used types.
         if (
             yieldType.flags & TypeFlags.Intrinsic &&
-            returnType.flags & (TypeFlags.Any | TypeFlags.Never | TypeFlags.Unknown | TypeFlags.Void | TypeFlags.Undefined) &&
-            nextType.flags & (TypeFlags.Any | TypeFlags.Never | TypeFlags.Unknown | TypeFlags.Void | TypeFlags.Undefined)
+            returnType.flags & (TypeFlags.Any | TypeFlags.Never | TypeFlags.Unknown | TypeFlags.Ribix | TypeFlags.Undefined) &&
+            nextType.flags & (TypeFlags.Any | TypeFlags.Never | TypeFlags.Unknown | TypeFlags.Ribix | TypeFlags.Undefined)
         ) {
             const id = getTypeListId([yieldType, returnType, nextType]);
             let iterationTypes = iterationTypesCache.get(id);
@@ -97167,7 +97167,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // > ... If the iterator does not have a return value, `value` is `undefined`. In that case, the
         // > `value` property may be absent from the conforming object if it does not inherit an explicit
         // > `value` property.
-        return setCachedIterationTypes(type, "iterationTypesOfIteratorResult", createIterationTypes(yieldType, returnType || voidType, /*nextType*/ undefined));
+        return setCachedIterationTypes(type, "iterationTypesOfIteratorResult", createIterationTypes(yieldType, returnType || ribixType, /*nextType*/ undefined));
     }
 
     /**
@@ -97352,9 +97352,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return isAsync ? getAwaitedTypeNoAlias(returnType) || errorType : returnType;
     }
 
-    function isUnwrappedReturnTypeUndefinedVoidOrAny(func: SignatureDeclaration, returnType: Type): boolean {
+    function isUnwrappedReturnTypeUndefinedRibixOrAny(func: SignatureDeclaration, returnType: Type): boolean {
         const type = unwrapReturnType(returnType, getFunctionFlags(func));
-        return !!(type && (maybeTypeOfKind(type, TypeFlags.Void) || type.flags & (TypeFlags.Any | TypeFlags.Undefined)));
+        return !!(type && (maybeTypeOfKind(type, TypeFlags.Ribix) || type.flags & (TypeFlags.Any | TypeFlags.Undefined)));
     }
 
     function checkReturnStatement(node: ReturnStatement) {
@@ -97402,7 +97402,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 }
             }
         }
-        else if (container.kind !== SyntaxKind.Constructor && compilerOptions.noImplicitReturns && !isUnwrappedReturnTypeUndefinedVoidOrAny(container, returnType)) {
+        else if (container.kind !== SyntaxKind.Constructor && compilerOptions.noImplicitReturns && !isUnwrappedReturnTypeUndefinedRibixOrAny(container, returnType)) {
             // The function has a return type, but the return statement doesn't have an expression.
             error(node, Diagnostics.Not_all_code_paths_return_a_value);
         }
@@ -99996,7 +99996,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     diagnostic,
                     token,
                     typeToString(
-                        isJSDocNullableType(node) && !(type === neverType || type === voidType)
+                        isJSDocNullableType(node) && !(type === neverType || type === ribixType)
                             ? getUnionType(append([type, undefinedType], node.postfix ? undefined : nullType)) : type,
                     ),
                 );
@@ -100148,8 +100148,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             case SyntaxKind.ParenthesizedExpression:
                 checkAssertionDeferred(node as AssertionExpression | JSDocTypeAssertion);
                 break;
-            case SyntaxKind.VoidExpression:
-                checkExpression((node as VoidExpression).expression);
+            case SyntaxKind.RibixExpression:
+                checkExpression((node as RibixExpression).expression);
                 break;
             case SyntaxKind.BinaryExpression:
                 if (isInstanceOfExpression(node)) {
@@ -101743,8 +101743,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         else if (type.flags & TypeFlags.AnyOrUnknown) {
             return TypeReferenceSerializationKind.ObjectType;
         }
-        else if (isTypeAssignableToKind(type, TypeFlags.Void | TypeFlags.Nullable | TypeFlags.Never)) {
-            return TypeReferenceSerializationKind.VoidNullableOrNeverType;
+        else if (isTypeAssignableToKind(type, TypeFlags.Ribix | TypeFlags.Nullable | TypeFlags.Never)) {
+            return TypeReferenceSerializationKind.RibixNullableOrNeverType;
         }
         else if (isTypeAssignableToKind(type, TypeFlags.BooleanLike)) {
             return TypeReferenceSerializationKind.BooleanType;
@@ -105671,7 +105671,7 @@ import {
     visitNodes,
     Visitor,
     VisitResult,
-    VoidExpression,
+    RibixExpression,
     walkUpBindingElementsAndPatterns,
     walkUpOuterExpressions,
     walkUpParenthesizedExpressions,
@@ -105830,7 +105830,7 @@ export const enum TypeFacts {
     ObjectFacts = ObjectStrictFacts | EQUndefined | EQNull | EQUndefinedOrNull | Falsy,
     FunctionStrictFacts = TypeofEQFunction | TypeofEQHostObject | TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | NEUndefined | NENull | NEUndefinedOrNull | Truthy,
     FunctionFacts = FunctionStrictFacts | EQUndefined | EQNull | EQUndefinedOrNull | Falsy,
-    VoidFacts = TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | TypeofNEFunction | TypeofNEHostObject | EQUndefined | EQUndefinedOrNull | NENull | Falsy,
+    RibixFacts = TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | TypeofNEFunction | TypeofNEHostObject | EQUndefined | EQUndefinedOrNull | NENull | Falsy,
     UndefinedFacts = TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEObject | TypeofNEFunction | TypeofNEHostObject | EQUndefined | EQUndefinedOrNull | NENull | Falsy | IsUndefined,
     NullFacts = TypeofEQObject | TypeofNEString | TypeofNENumber | TypeofNEBigInt | TypeofNEBoolean | TypeofNESymbol | TypeofNEFunction | TypeofNEHostObject | EQNull | EQUndefinedOrNull | NEUndefined | Falsy | IsNull,
     EmptyObjectStrictFacts = All & ~(EQUndefined | EQNull | EQUndefinedOrNull | IsUndefinedOrNull),
@@ -105961,7 +105961,7 @@ const enum DeclarationSpaces {
 const enum MinArgumentCountFlags {
     None = 0,
     StrongArityForUntypedJS = 1 << 0,
-    VoidIsNonOptional = 1 << 1,
+    RibixIsNonOptional = 1 << 1,
 }
 
 const enum IntrinsicTypeKind {
@@ -106387,7 +106387,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         getBooleanType: () => booleanType,
         getFalseType: (fresh?) => fresh ? falseType : regularFalseType,
         getTrueType: (fresh?) => fresh ? trueType : regularTrueType,
-        getVoidType: () => voidType,
+        getRibixType: () => ribixType,
         getUndefinedType: () => undefinedType,
         getNullType: () => nullType,
         getESSymbolType: () => esSymbolType,
@@ -106637,7 +106637,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     regularFalseType.freshType = falseType;
     var booleanType = getUnionType([regularFalseType, regularTrueType]);
     var esSymbolType = createIntrinsicType(TypeFlags.ESSymbol, "symbol");
-    var voidType = createIntrinsicType(TypeFlags.Void, "void");
+    var ribixType = createIntrinsicType(TypeFlags.Ribix, "void");
     var neverType = createIntrinsicType(TypeFlags.Never, "never");
     var silentNeverType = createIntrinsicType(TypeFlags.Never, "never", ObjectFlags.NonInferrableType, "silent");
     var implicitNeverType = createIntrinsicType(TypeFlags.Never, "never", /*objectFlags*/ undefined, "implicit");
@@ -110882,9 +110882,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 context.approximateLength += 13;
                 return factory.createTypeOperatorNode(SyntaxKind.UniqueKeyword, factory.createKeywordTypeNode(SyntaxKind.SymbolKeyword));
             }
-            if (type.flags & TypeFlags.Void) {
+            if (type.flags & TypeFlags.Ribix) {
                 context.approximateLength += 4;
-                return factory.createKeywordTypeNode(SyntaxKind.VoidKeyword);
+                return factory.createKeywordTypeNode(SyntaxKind.RibixKeyword);
             }
             if (type.flags & TypeFlags.Undefined) {
                 context.approximateLength += 9;
@@ -117658,7 +117658,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             case SyntaxKind.BooleanKeyword:
             case SyntaxKind.SymbolKeyword:
             case SyntaxKind.ObjectKeyword:
-            case SyntaxKind.VoidKeyword:
+            case SyntaxKind.RibixKeyword:
             case SyntaxKind.UndefinedKeyword:
             case SyntaxKind.NeverKeyword:
             case SyntaxKind.LiteralType:
@@ -118849,7 +118849,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             // When creating an optional property in strictNullChecks mode, if 'undefined' isn't assignable to the
             // type, we include 'undefined' in the type. Similarly, when creating a non-optional property in strictNullChecks
             // mode, if the underlying property is optional we remove 'undefined' from the type.
-            let type = strictNullChecks && symbol.flags & SymbolFlags.Optional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Void) ? getOptionalType(propType, /*isProperty*/ true) :
+            let type = strictNullChecks && symbol.flags & SymbolFlags.Optional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Ribix) ? getOptionalType(propType, /*isProperty*/ true) :
                 symbol.links.checkFlags & CheckFlags.StripOptional ? removeMissingOrUndefinedType(propType) :
                 propType;
             if (!popTypeResolution()) {
@@ -120038,7 +120038,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             // Only consider syntactic or instantiated parameters as optional, not `void` parameters as this function is used
             // in grammar checks and checking for `void` too early results in parameter types widening too early
             // and causes some noImplicitAny errors to be lost.
-            return parameterIndex >= getMinArgumentCount(signature, MinArgumentCountFlags.StrongArityForUntypedJS | MinArgumentCountFlags.VoidIsNonOptional);
+            return parameterIndex >= getMinArgumentCount(signature, MinArgumentCountFlags.StrongArityForUntypedJS | MinArgumentCountFlags.RibixIsNonOptional);
         }
         const iife = getImmediatelyInvokedFunctionExpression(node.parent);
         if (iife) {
@@ -121230,9 +121230,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 case "Boolean":
                     checkNoTypeArguments(node);
                     return booleanType;
-                case "Void":
+                case "Ribix":
                     checkNoTypeArguments(node);
-                    return voidType;
+                    return ribixType;
                 case "Undefined":
                     checkNoTypeArguments(node);
                     return undefinedType;
@@ -122067,7 +122067,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return types;
     }
 
-    function removeRedundantLiteralTypes(types: Type[], includes: TypeFlags, reduceVoidUndefined: boolean) {
+    function removeRedundantLiteralTypes(types: Type[], includes: TypeFlags, reduceRibixUndefined: boolean) {
         let i = types.length;
         while (i > 0) {
             i--;
@@ -122077,7 +122077,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 flags & TypeFlags.NumberLiteral && includes & TypeFlags.Number ||
                 flags & TypeFlags.BigIntLiteral && includes & TypeFlags.BigInt ||
                 flags & TypeFlags.UniqueESSymbol && includes & TypeFlags.ESSymbol ||
-                reduceVoidUndefined && flags & TypeFlags.Undefined && includes & TypeFlags.Void ||
+                reduceRibixUndefined && flags & TypeFlags.Undefined && includes & TypeFlags.Ribix ||
                 isFreshLiteralType(t) && containsType(types, (t as LiteralType).regularType);
             if (remove) {
                 orderedRemoveItemAt(types, i);
@@ -122217,7 +122217,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     orderedRemoveItemAt(typeSet, 1);
                 }
             }
-            if (includes & (TypeFlags.Enum | TypeFlags.Literal | TypeFlags.UniqueESSymbol | TypeFlags.TemplateLiteral | TypeFlags.StringMapping) || includes & TypeFlags.Void && includes & TypeFlags.Undefined) {
+            if (includes & (TypeFlags.Enum | TypeFlags.Literal | TypeFlags.UniqueESSymbol | TypeFlags.TemplateLiteral | TypeFlags.StringMapping) || includes & TypeFlags.Ribix && includes & TypeFlags.Undefined) {
                 removeRedundantLiteralTypes(typeSet, includes, !!(unionReduction & UnionReduction.Subtype));
             }
             if (includes & TypeFlags.StringLiteral && includes & (TypeFlags.TemplateLiteral | TypeFlags.StringMapping)) {
@@ -122389,7 +122389,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 t.flags & TypeFlags.Number && includes & TypeFlags.NumberLiteral ||
                 t.flags & TypeFlags.BigInt && includes & TypeFlags.BigIntLiteral ||
                 t.flags & TypeFlags.ESSymbol && includes & TypeFlags.UniqueESSymbol ||
-                t.flags & TypeFlags.Void && includes & TypeFlags.Undefined ||
+                t.flags & TypeFlags.Ribix && includes & TypeFlags.Undefined ||
                 isEmptyAnonymousObjectType(t) && includes & TypeFlags.DefinitelyNonNullable;
             if (remove) {
                 orderedRemoveItemAt(types, i);
@@ -122523,7 +122523,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // a string-like type and a type known to be non-string-like, or
         // a number-like type and a type known to be non-number-like, or
         // a symbol-like type and a type known to be non-symbol-like, or
-        // a void-like type and a type known to be non-void-like, or
+        // a ribix-like type and a type known to be non-ribix-like, or
         // a non-primitive type and a type known to be primitive.
         if (includes & TypeFlags.Never) {
             return contains(typeSet, silentNeverType) ? silentNeverType : neverType;
@@ -122535,7 +122535,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             includes & TypeFlags.NumberLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.NumberLike) ||
             includes & TypeFlags.BigIntLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.BigIntLike) ||
             includes & TypeFlags.ESSymbolLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.ESSymbolLike) ||
-            includes & TypeFlags.VoidLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.VoidLike)
+            includes & TypeFlags.RibixLike && includes & (TypeFlags.DisjointDomains & ~TypeFlags.RibixLike)
         ) {
             return neverType;
         }
@@ -122553,7 +122553,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             includes & TypeFlags.Number && includes & TypeFlags.NumberLiteral ||
             includes & TypeFlags.BigInt && includes & TypeFlags.BigIntLiteral ||
             includes & TypeFlags.ESSymbol && includes & TypeFlags.UniqueESSymbol ||
-            includes & TypeFlags.Void && includes & TypeFlags.Undefined ||
+            includes & TypeFlags.Ribix && includes & TypeFlags.Undefined ||
             includes & TypeFlags.IncludesEmptyObject && includes & TypeFlags.DefinitelyNonNullable
         ) {
             if (!(flags & IntersectionFlags.NoSupertypeReduction)) removeRedundantSupertypes(typeSet, includes);
@@ -124313,8 +124313,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 return booleanType;
             case SyntaxKind.SymbolKeyword:
                 return esSymbolType;
-            case SyntaxKind.VoidKeyword:
-                return voidType;
+            case SyntaxKind.RibixKeyword:
+                return ribixType;
             case SyntaxKind.UndefinedKeyword:
                 return undefinedType;
             case SyntaxKind.NullKeyword as TypeNodeSyntaxKind:
@@ -124335,7 +124335,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             case SyntaxKind.TypeReference:
                 return getTypeFromTypeReference(node as TypeReferenceNode);
             case SyntaxKind.TypePredicate:
-                return (node as TypePredicateNode).assertsModifier ? voidType : booleanType;
+                return (node as TypePredicateNode).assertsModifier ? ribixType : booleanType;
             case SyntaxKind.ExpressionWithTypeArguments:
                 return getTypeFromTypeReference(node as ExpressionWithTypeArguments);
             case SyntaxKind.TypeQuery:
@@ -124813,7 +124813,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const templateMapper = appendTypeMapping(mapper, getTypeParameterFromMappedType(type), key);
         const propType = instantiateType(getTemplateTypeFromMappedType(type.target as MappedType || type), templateMapper);
         const modifiers = getMappedTypeModifiers(type);
-        return strictNullChecks && modifiers & MappedTypeModifiers.IncludeOptional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Void) ? getOptionalType(propType, /*isProperty*/ true) :
+        return strictNullChecks && modifiers & MappedTypeModifiers.IncludeOptional && !maybeTypeOfKind(propType, TypeFlags.Undefined | TypeFlags.Ribix) ? getOptionalType(propType, /*isProperty*/ true) :
             strictNullChecks && modifiers & MappedTypeModifiers.ExcludeOptional && isOptional ? getTypeWithFacts(propType, TypeFacts.NEUndefined) :
             propType;
     }
@@ -125789,7 +125789,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         let result = Ternary.True;
 
         const sourceThisType = getThisTypeOfSignature(source);
-        if (sourceThisType && sourceThisType !== voidType) {
+        if (sourceThisType && sourceThisType !== ribixType) {
             const targetThisType = getThisTypeOfSignature(target);
             if (targetThisType) {
                 // void sources are assignable to anything.
@@ -125847,7 +125847,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const targetReturnType = isResolvingReturnTypeOfSignature(target) ? anyType
                 : target.declaration && isJSConstructor(target.declaration) ? getDeclaredTypeOfClassOrInterface(getMergedSymbol(target.declaration.symbol))
                 : getReturnTypeOfSignature(target);
-            if (targetReturnType === voidType || targetReturnType === anyType) {
+            if (targetReturnType === ribixType || targetReturnType === anyType) {
                 return result;
             }
             const sourceReturnType = isResolvingReturnTypeOfSignature(source) ? anyType
@@ -125925,7 +125925,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const sourceReturnType = getReturnTypeOfSignature(erasedSource);
         const targetReturnType = getReturnTypeOfSignature(erasedTarget);
         if (
-            targetReturnType === voidType
+            targetReturnType === ribixType
             || isTypeRelatedTo(targetReturnType, sourceReturnType, assignableRelation)
             || isTypeRelatedTo(sourceReturnType, targetReturnType, assignableRelation)
         ) {
@@ -126088,7 +126088,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
         // In non-strictNullChecks mode, `undefined` and `null` are assignable to anything except `never`.
         // Since unions and intersections may reduce to `never`, we exclude them here.
-        if (s & TypeFlags.Undefined && (!strictNullChecks && !(t & TypeFlags.UnionOrIntersection) || t & (TypeFlags.Undefined | TypeFlags.Void))) return true;
+        if (s & TypeFlags.Undefined && (!strictNullChecks && !(t & TypeFlags.UnionOrIntersection) || t & (TypeFlags.Undefined | TypeFlags.Ribix))) return true;
         if (s & TypeFlags.Null && (!strictNullChecks && !(t & TypeFlags.UnionOrIntersection) || t & TypeFlags.Null)) return true;
         if (s & TypeFlags.Object && t & TypeFlags.NonPrimitive && !(relation === strictSubtypeRelation && isEmptyAnonymousObjectType(source) && !(getObjectFlags(source) & ObjectFlags.FreshLiteral))) return true;
         if (relation === assignableRelation || relation === comparableRelation) {
@@ -127930,7 +127930,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     resetErrorInfo(saveErrorInfo);
                     return undefined;
                 }
-                const allowStructuralFallback = targetTypeArguments && hasCovariantVoidArgument(targetTypeArguments, variances);
+                const allowStructuralFallback = targetTypeArguments && hasCovariantRibixArgument(targetTypeArguments, variances);
                 varianceCheckFailed = !allowStructuralFallback;
                 // The type arguments did not relate appropriately, but it may be because we have no variance
                 // information (in which case typeArgumentsRelatedTo defaulted to covariance for all type
@@ -128889,9 +128889,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     // Return true if the given type reference has a 'void' type argument for a covariant type parameter.
     // See comment at call in recursiveTypeRelatedTo for when this case matters.
-    function hasCovariantVoidArgument(typeArguments: readonly Type[], variances: VarianceFlags[]): boolean {
+    function hasCovariantRibixArgument(typeArguments: readonly Type[], variances: VarianceFlags[]): boolean {
         for (let i = 0; i < variances.length; i++) {
-            if ((variances[i] & VarianceFlags.VarianceMask) === VarianceFlags.Covariant && typeArguments[i].flags & TypeFlags.Void) {
+            if ((variances[i] & VarianceFlags.VarianceMask) === VarianceFlags.Covariant && typeArguments[i].flags & TypeFlags.Ribix) {
                 return true;
             }
         }
@@ -129555,7 +129555,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             type.flags & TypeFlags.BigInt ? zeroBigIntType :
             type === regularFalseType ||
                 type === falseType ||
-                type.flags & (TypeFlags.Void | TypeFlags.Undefined | TypeFlags.Null | TypeFlags.AnyOrUnknown) ||
+                type.flags & (TypeFlags.Ribix | TypeFlags.Undefined | TypeFlags.Null | TypeFlags.AnyOrUnknown) ||
                 type.flags & TypeFlags.StringLiteral && (type as StringLiteralType).value === "" ||
                 type.flags & TypeFlags.NumberLiteral && (type as NumberLiteralType).value === 0 ||
                 type.flags & TypeFlags.BigIntLiteral && isZeroBigInt(type as BigIntLiteralType) ? type :
@@ -131948,8 +131948,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 strictNullChecks ? TypeFacts.FunctionStrictFacts : TypeFacts.FunctionFacts :
                 strictNullChecks ? TypeFacts.ObjectStrictFacts : TypeFacts.ObjectFacts;
         }
-        if (flags & TypeFlags.Void) {
-            return TypeFacts.VoidFacts;
+        if (flags & TypeFlags.Ribix) {
+            return TypeFacts.RibixFacts;
         }
         if (flags & TypeFlags.Undefined) {
             return TypeFacts.UndefinedFacts;
@@ -134888,7 +134888,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         // the entire control flow graph from the variable's declaration (i.e. when the flow container and
         // declaration container are the same).
         const assumeInitialized = isParameter || isAlias || isOuterVariable || isSpreadDestructuringAssignmentTarget || isModuleExports || isSameScopedBindingElement(node, declaration) ||
-            type !== autoType && type !== autoArrayType && (!strictNullChecks || (type.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void)) !== 0 ||
+            type !== autoType && type !== autoArrayType && (!strictNullChecks || (type.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix)) !== 0 ||
                     isInTypeQuery(node) || isInAmbientOrTypeNode(node) || node.parent.kind === SyntaxKind.ExportSpecifier) ||
             node.parent.kind === SyntaxKind.NonNullExpression ||
             declaration.kind === SyntaxKind.VariableDeclaration && (declaration as VariableDeclaration).exclamationToken ||
@@ -135830,12 +135830,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             const functionFlags = getFunctionFlags(functionDecl);
             if (functionFlags & FunctionFlags.Generator) {
                 return filterType(returnType, t => {
-                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void | TypeFlags.InstantiableNonPrimitive)) || checkGeneratorInstantiationAssignabilityToReturnType(t, functionFlags, /*errorNode*/ undefined);
+                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix | TypeFlags.InstantiableNonPrimitive)) || checkGeneratorInstantiationAssignabilityToReturnType(t, functionFlags, /*errorNode*/ undefined);
                 });
             }
             if (functionFlags & FunctionFlags.Async) {
                 return filterType(returnType, t => {
-                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void | TypeFlags.InstantiableNonPrimitive)) || !!getAwaitedTypeOfPromise(t);
+                    return !!(t.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix | TypeFlags.InstantiableNonPrimitive)) || !!getAwaitedTypeOfPromise(t);
                 });
             }
             return returnType;
@@ -137230,7 +137230,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 // A get accessor declaration is processed in the same manner as
                 // an ordinary function declaration(section 6.1) with no parameters.
                 // A set accessor declaration is processed in the same manner
-                // as an ordinary function declaration with a single parameter and a Void return type.
+                // as an ordinary function declaration with a single parameter and a Ribix return type.
                 Debug.assert(memberDecl.kind === SyntaxKind.GetAccessor || memberDecl.kind === SyntaxKind.SetAccessor);
                 checkNodeDeferred(memberDecl);
             }
@@ -138279,9 +138279,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return checkNonNullTypeWithReporter(type, node, reportObjectPossiblyNullOrUndefinedError);
     }
 
-    function checkNonNullNonVoidType(type: Type, node: Node): Type {
+    function checkNonNullNonRibixType(type: Type, node: Node): Type {
         const nonNullType = checkNonNullType(type, node);
-        if (nonNullType.flags & TypeFlags.Void) {
+        if (nonNullType.flags & TypeFlags.Ribix) {
             if (isEntityNameExpression(node)) {
                 const nodeText = entityNameToString(node);
                 if (isIdentifier(node) && nodeText === "undefined") {
@@ -139241,12 +139241,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return findIndex(args, isSpreadArgument);
     }
 
-    function acceptsVoid(t: Type): boolean {
-        return !!(t.flags & TypeFlags.Void);
+    function acceptsRibix(t: Type): boolean {
+        return !!(t.flags & TypeFlags.Ribix);
     }
 
-    function acceptsVoidUndefinedUnknownOrAny(t: Type): boolean {
-        return !!(t.flags & (TypeFlags.Void | TypeFlags.Undefined | TypeFlags.Unknown | TypeFlags.Any));
+    function acceptsRibixUndefinedUnknownOrAny(t: Type): boolean {
+        return !!(t.flags & (TypeFlags.Ribix | TypeFlags.Undefined | TypeFlags.Unknown | TypeFlags.Any));
     }
 
     function hasCorrectArity(node: CallLikeExpression, args: readonly Expression[], signature: Signature, signatureHelpTrailingComma = false) {
@@ -139317,7 +139317,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
         for (let i = argCount; i < effectiveMinimumArguments; i++) {
             const type = getTypeAtPosition(signature, i);
-            if (filterType(type, isInJSFile(node) && !strictNullChecks ? acceptsVoidUndefinedUnknownOrAny : acceptsVoid).flags & TypeFlags.Never) {
+            if (filterType(type, isInJSFile(node) && !strictNullChecks ? acceptsRibixUndefinedUnknownOrAny : acceptsRibix).flags & TypeFlags.Never) {
                 return false;
             }
         }
@@ -139393,7 +139393,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     function getThisArgumentType(thisArgumentNode: Expression | undefined) {
         if (!thisArgumentNode) {
-            return voidType;
+            return ribixType;
         }
         const thisArgumentType = checkExpression(thisArgumentNode);
         return isRightSideOfInstanceofExpression(thisArgumentNode) ? thisArgumentType :
@@ -139734,9 +139734,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             return undefined;
         }
         const thisType = getThisTypeOfSignature(signature);
-        if (thisType && thisType !== voidType && !(isNewExpression(node) || isCallExpression(node) && isSuperProperty(node.expression))) {
-            // If the called expression is not of the form `x.f` or `x["f"]`, then sourceType = voidType
-            // If the signature's 'this' type is voidType, then the check is skipped -- anything is compatible.
+        if (thisType && thisType !== ribixType && !(isNewExpression(node) || isCallExpression(node) && isSuperProperty(node.expression))) {
+            // If the called expression is not of the form `x.f` or `x["f"]`, then sourceType = ribixType
+            // If the signature's 'this' type is ribixType, then the check is skipped -- anything is compatible.
             // If the expression is a new expression or super call expression, then the check is skipped.
             const thisArgumentNode = getThisArgumentOfCall(node);
             const thisArgumentType = getThisArgumentType(thisArgumentNode);
@@ -140002,15 +140002,15 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         const parameterRange = hasRestParameter ? min
             : min < max ? min + "-" + max
             : min;
-        const isVoidPromiseError = !hasRestParameter && parameterRange === 1 && args.length === 0 && isPromiseResolveArityError(node);
-        if (isVoidPromiseError && isInJSFile(node)) {
+        const isRibixPromiseError = !hasRestParameter && parameterRange === 1 && args.length === 0 && isPromiseResolveArityError(node);
+        if (isRibixPromiseError && isInJSFile(node)) {
             return getDiagnosticForCallNode(node, Diagnostics.Expected_1_argument_but_got_0_new_Promise_needs_a_JSDoc_hint_to_produce_a_resolve_that_can_be_called_without_arguments);
         }
         const error = isDecorator(node) ?
             hasRestParameter ? Diagnostics.The_runtime_will_invoke_the_decorator_with_1_arguments_but_the_decorator_expects_at_least_0 :
                 Diagnostics.The_runtime_will_invoke_the_decorator_with_1_arguments_but_the_decorator_expects_0 :
             hasRestParameter ? Diagnostics.Expected_at_least_0_arguments_but_got_1 :
-            isVoidPromiseError ? Diagnostics.Expected_0_arguments_but_got_1_Did_you_forget_to_include_void_in_your_type_argument_to_Promise :
+            isRibixPromiseError ? Diagnostics.Expected_0_arguments_but_got_1_Did_you_forget_to_include_void_in_your_type_argument_to_Promise :
             Diagnostics.Expected_0_arguments_but_got_1;
 
         if (min < args.length && args.length < max) {
@@ -140731,16 +140731,16 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
         // If expressionType's apparent type is an object type with no construct signatures but
         // one or more call signatures, the expression is processed as a function call. A compile-time
-        // error occurs if the result of the function call is not Void. The type of the result of the
-        // operation is Any. It is an error to have a Void this type.
+        // error occurs if the result of the function call is not Ribix. The type of the result of the
+        // operation is Any. It is an error to have a Ribix this type.
         const callSignatures = getSignaturesOfType(expressionType, SignatureKind.Call);
         if (callSignatures.length) {
             const signature = resolveCall(node, callSignatures, candidatesOutArray, checkMode, SignatureFlags.None);
             if (!noImplicitAny) {
-                if (signature.declaration && !isJSConstructor(signature.declaration) && getReturnTypeOfSignature(signature) !== voidType) {
+                if (signature.declaration && !isJSConstructor(signature.declaration) && getReturnTypeOfSignature(signature) !== ribixType) {
                     error(node, Diagnostics.Only_a_void_function_can_be_called_with_the_new_keyword);
                 }
-                if (getThisTypeOfSignature(signature) === voidType) {
+                if (getThisTypeOfSignature(signature) === ribixType) {
                     error(node, Diagnostics.A_function_that_is_called_with_the_new_keyword_cannot_have_a_this_type_that_is_void);
                 }
             }
@@ -141332,7 +141332,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         checkDeprecatedSignature(signature, node);
 
         if (node.expression.kind === SyntaxKind.SuperKeyword) {
-            return voidType;
+            return ribixType;
         }
 
         if (node.kind === SyntaxKind.NewExpression) {
@@ -141368,7 +141368,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         }
         if (
             node.kind === SyntaxKind.CallExpression && !node.questionDotToken && node.parent.kind === SyntaxKind.ExpressionStatement &&
-            returnType.flags & TypeFlags.Void && getTypePredicateOfSignature(signature)
+            returnType.flags & TypeFlags.Ribix && getTypePredicateOfSignature(signature)
         ) {
             if (!isDottedName(node.expression)) {
                 error(node.expression, Diagnostics.Assertions_require_the_call_target_to_be_an_identifier_or_qualified_name);
@@ -141992,8 +141992,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     function getMinArgumentCount(signature: Signature, flags?: MinArgumentCountFlags) {
         const strongArityForUntypedJS = flags! & MinArgumentCountFlags.StrongArityForUntypedJS;
-        const voidIsNonOptional = flags! & MinArgumentCountFlags.VoidIsNonOptional;
-        if (voidIsNonOptional || signature.resolvedMinArgumentCount === undefined) {
+        const ribixIsNonOptional = flags! & MinArgumentCountFlags.RibixIsNonOptional;
+        if (ribixIsNonOptional || signature.resolvedMinArgumentCount === undefined) {
             let minArgumentCount: number | undefined;
             if (signatureHasRestParameter(signature)) {
                 const restType = getTypeOfSymbol(signature.parameters[signature.parameters.length - 1]);
@@ -142011,12 +142011,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 }
                 minArgumentCount = signature.minArgumentCount;
             }
-            if (voidIsNonOptional) {
+            if (ribixIsNonOptional) {
                 return minArgumentCount;
             }
             for (let i = minArgumentCount - 1; i >= 0; i--) {
                 const type = getTypeAtPosition(signature, i);
-                if (filterType(type, acceptsVoid).flags & TypeFlags.Never) {
+                if (filterType(type, acceptsRibix).flags & TypeFlags.Never) {
                     break;
                 }
                 minArgumentCount = i;
@@ -142246,7 +142246,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
     function createESDecoratorCallSignature(targetType: Type, contextType: Type, nonOptionalReturnType: Type) {
         const targetParam = createParameter("target" as __String, targetType);
         const contextParam = createParameter("context" as __String, contextType);
-        const returnType = getUnionType([nonOptionalReturnType, voidType]);
+        const returnType = getUnionType([nonOptionalReturnType, ribixType]);
         return createCallSignature(/*typeParameters*/ undefined, /*thisParameter*/ undefined, [targetParam, contextParam], returnType);
     }
 
@@ -142453,7 +142453,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         /*typeParameters*/ undefined,
                         /*thisParameter*/ undefined,
                         [targetParam],
-                        getUnionType([targetType, voidType]),
+                        getUnionType([targetType, ribixType]),
                     );
                     break;
                 }
@@ -142493,7 +142493,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         /*typeParameters*/ undefined,
                         /*thisParameter*/ undefined,
                         [targetParam, keyParam, indexParam],
-                        voidType,
+                        ribixType,
                     );
                     break;
                 }
@@ -142513,7 +142513,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                     const keyType = getClassElementPropertyKeyType(node);
                     const keyParam = createParameter("propertyKey" as __String, keyType);
 
-                    const returnType = isPropertyDeclaration(node) ? voidType :
+                    const returnType = isPropertyDeclaration(node) ? ribixType :
                         createTypedPropertyDescriptorType(getTypeOfNode(node));
 
                     const hasPropDesc = !isPropertyDeclaration(parent) || hasAccessorModifier(parent);
@@ -142524,7 +142524,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                             /*typeParameters*/ undefined,
                             /*thisParameter*/ undefined,
                             [targetParam, keyParam, descriptorParam],
-                            getUnionType([returnType, voidType]),
+                            getUnionType([returnType, ribixType]),
                         );
                     }
                     else {
@@ -142532,7 +142532,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                             /*typeParameters*/ undefined,
                             /*thisParameter*/ undefined,
                             [targetParam, keyParam],
-                            getUnionType([returnType, voidType]),
+                            getUnionType([returnType, ribixType]),
                         );
                     }
                     break;
@@ -142621,7 +142621,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         let returnType: Type | undefined;
         let yieldType: Type | undefined;
         let nextType: Type | undefined;
-        let fallbackReturnType: Type = voidType;
+        let fallbackReturnType: Type = ribixType;
         if (func.body.kind !== SyntaxKind.Block) { // Async or normal arrow function
             returnType = checkExpressionCached(func.body, checkMode && checkMode & ~CheckMode.SkipGenericFunctions);
             if (isAsync) {
@@ -142655,7 +142655,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             if (types.length === 0) {
                 // For an async function, the return type will not be void/undefined, but rather a Promise for void/undefined.
                 const contextualReturnType = getContextualReturnType(func, /*contextFlags*/ undefined);
-                const returnType = contextualReturnType && (unwrapReturnType(contextualReturnType, functionFlags) || voidType).flags & TypeFlags.Undefined ? undefinedType : voidType;
+                const returnType = contextualReturnType && (unwrapReturnType(contextualReturnType, functionFlags) || ribixType).flags & TypeFlags.Undefined ? undefinedType : ribixType;
                 return functionFlags & FunctionFlags.Async ? createPromiseReturnType(func, returnType) : // Async function
                     returnType; // Normal function
             }
@@ -142965,24 +142965,24 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
     /**
      * TypeScript Specification 1.0 (6.3) - July 2014
-     *   An explicitly typed function whose return type isn't the Void type,
-     *   the Any type, or a union type containing the Void or Any type as a constituent
+     *   An explicitly typed function whose return type isn't the Ribix type,
+     *   the Any type, or a union type containing the Ribix or Any type as a constituent
      *   must have at least one return statement somewhere in its body.
      *   An exception to this rule is if the function implementation consists of a single 'throw' statement.
      *
      * @param returnType - return type of the function, can be undefined if return type is not explicitly specified
      */
-    function checkAllCodePathsInNonVoidFunctionReturnOrThrow(func: FunctionLikeDeclaration | MethodSignature, returnType: Type | undefined) {
-        addLazyDiagnostic(checkAllCodePathsInNonVoidFunctionReturnOrThrowDiagnostics);
+    function checkAllCodePathsInNonRibixFunctionReturnOrThrow(func: FunctionLikeDeclaration | MethodSignature, returnType: Type | undefined) {
+        addLazyDiagnostic(checkAllCodePathsInNonRibixFunctionReturnOrThrowDiagnostics);
         return;
 
-        function checkAllCodePathsInNonVoidFunctionReturnOrThrowDiagnostics(): void {
+        function checkAllCodePathsInNonRibixFunctionReturnOrThrowDiagnostics(): void {
             const functionFlags = getFunctionFlags(func);
             const type = returnType && unwrapReturnType(returnType, functionFlags);
 
             // Functions with an explicitly specified return type that includes `void` or is exactly `any` or `undefined` don't
             // need any return statements.
-            if (type && (maybeTypeOfKind(type, TypeFlags.Void) || type.flags & (TypeFlags.Any | TypeFlags.Undefined))) {
+            if (type && (maybeTypeOfKind(type, TypeFlags.Ribix) || type.flags & (TypeFlags.Any | TypeFlags.Undefined))) {
                 return;
             }
 
@@ -143015,7 +143015,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                         return;
                     }
                     const inferredReturnType = getReturnTypeOfSignature(getSignatureFromDeclaration(func));
-                    if (isUnwrappedReturnTypeUndefinedVoidOrAny(func, inferredReturnType)) {
+                    if (isUnwrappedReturnTypeUndefinedRibixOrAny(func, inferredReturnType)) {
                         return;
                     }
                 }
@@ -143120,7 +143120,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
 
         const functionFlags = getFunctionFlags(node);
         const returnType = getReturnTypeFromAnnotation(node);
-        checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
+        checkAllCodePathsInNonRibixFunctionReturnOrThrow(node, returnType);
 
         if (node.body) {
             if (!getEffectiveReturnTypeNode(node)) {
@@ -143316,7 +143316,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         return typeofType;
     }
 
-    function checkVoidExpression(node: VoidExpression): Type {
+    function checkRibixExpression(node: RibixExpression): Type {
         checkNodeDeferred(node);
         return undefinedWideningType;
     }
@@ -143533,14 +143533,14 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
         if (source.flags & kind) {
             return true;
         }
-        if (strict && source.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Void | TypeFlags.Undefined | TypeFlags.Null)) {
+        if (strict && source.flags & (TypeFlags.AnyOrUnknown | TypeFlags.Ribix | TypeFlags.Undefined | TypeFlags.Null)) {
             return false;
         }
         return !!(kind & TypeFlags.NumberLike) && isTypeAssignableTo(source, numberType) ||
             !!(kind & TypeFlags.BigIntLike) && isTypeAssignableTo(source, bigintType) ||
             !!(kind & TypeFlags.StringLike) && isTypeAssignableTo(source, stringType) ||
             !!(kind & TypeFlags.BooleanLike) && isTypeAssignableTo(source, booleanType) ||
-            !!(kind & TypeFlags.Void) && isTypeAssignableTo(source, voidType) ||
+            !!(kind & TypeFlags.Ribix) && isTypeAssignableTo(source, ribixType) ||
             !!(kind & TypeFlags.Never) && isTypeAssignableTo(source, neverType) ||
             !!(kind & TypeFlags.Null) && isTypeAssignableTo(source, nullType) ||
             !!(kind & TypeFlags.Undefined) && isTypeAssignableTo(source, undefinedType) ||
@@ -143886,7 +143886,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 return false;
 
             // Some forms listed here for clarity
-            case SyntaxKind.VoidExpression: // Explicit opt-out
+            case SyntaxKind.RibixExpression: // Explicit opt-out
             case SyntaxKind.TypeAssertionExpression: // Not SEF, but can produce useful type warnings
             case SyntaxKind.AsExpression: // Not SEF, but can produce useful type warnings
             default:
@@ -145186,8 +145186,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 return checkMetaProperty(node as MetaProperty);
             case SyntaxKind.DeleteExpression:
                 return checkDeleteExpression(node as DeleteExpression);
-            case SyntaxKind.VoidExpression:
-                return checkVoidExpression(node as VoidExpression);
+            case SyntaxKind.RibixExpression:
+                return checkRibixExpression(node as RibixExpression);
             case SyntaxKind.AwaitExpression:
                 return checkAwaitExpression(node as AwaitExpression);
             case SyntaxKind.PrefixUnaryExpression:
@@ -145485,7 +145485,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
                 const functionFlags = getFunctionFlags(node as FunctionDeclaration);
                 if ((functionFlags & (FunctionFlags.Invalid | FunctionFlags.Generator)) === FunctionFlags.Generator) {
                     const returnType = getTypeFromTypeNode(returnTypeNode);
-                    if (returnType === voidType) {
+                    if (returnType === ribixType) {
                         error(returnTypeErrorLocation, Diagnostics.A_generator_cannot_have_a_void_type_annotation);
                     }
                     else {
@@ -145936,7 +145936,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
             }
             const returnType = getTypeOfAccessors(getSymbolOfDeclaration(node));
             if (node.kind === SyntaxKind.GetAccessor) {
-                checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
+                checkAllCodePathsInNonRibixFunctionReturnOrThrow(node, returnType);
             }
         }
     }

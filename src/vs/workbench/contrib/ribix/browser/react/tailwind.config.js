@@ -12,22 +12,22 @@ module.exports = {
 			typography: theme => ({
 				DEFAULT: {
 					css: {
-						'--tw-prose-body': 'var(--void-fg-1)',
-						'--tw-prose-headings': 'var(--void-fg-1)',
-						'--tw-prose-lead': 'var(--void-fg-2)',
-						'--tw-prose-links': 'var(--void-link-color)',
-						'--tw-prose-bold': 'var(--void-fg-1)',
-						'--tw-prose-counters': 'var(--void-fg-3)',
-						'--tw-prose-bullets': 'var(--void-fg-3)',
-						'--tw-prose-hr': 'var(--void-border-4)',
-						'--tw-prose-quotes': 'var(--void-fg-1)',
-						'--tw-prose-quote-borders': 'var(--void-border-2)',
-						'--tw-prose-captions': 'var(--void-fg-3)',
-						'--tw-prose-code': 'var(--void-fg-0)',
-						'--tw-prose-pre-code': 'var(--void-fg-0)',
-						'--tw-prose-pre-bg': 'var(--void-bg-1)',
-						'--tw-prose-th-borders': 'var(--void-border-4)',
-						'--tw-prose-td-borders': 'var(--void-border-4)',
+						'--tw-prose-body': 'var(--ribix-fg-1)',
+						'--tw-prose-headings': 'var(--ribix-fg-1)',
+						'--tw-prose-lead': 'var(--ribix-fg-2)',
+						'--tw-prose-links': 'var(--ribix-link-color)',
+						'--tw-prose-bold': 'var(--ribix-fg-1)',
+						'--tw-prose-counters': 'var(--ribix-fg-3)',
+						'--tw-prose-bullets': 'var(--ribix-fg-3)',
+						'--tw-prose-hr': 'var(--ribix-border-4)',
+						'--tw-prose-quotes': 'var(--ribix-fg-1)',
+						'--tw-prose-quote-borders': 'var(--ribix-border-2)',
+						'--tw-prose-captions': 'var(--ribix-fg-3)',
+						'--tw-prose-code': 'var(--ribix-fg-0)',
+						'--tw-prose-pre-code': 'var(--ribix-fg-0)',
+						'--tw-prose-pre-bg': 'var(--ribix-bg-1)',
+						'--tw-prose-th-borders': 'var(--ribix-border-4)',
+						'--tw-prose-td-borders': 'var(--ribix-border-4)',
 					},
 				},
 			}),
@@ -49,30 +49,30 @@ module.exports = {
 			// common colors to use, ordered light to dark
 
 			colors: {
-				'void-bg-1': 'var(--void-bg-1)',
-				'void-bg-1-alt': 'var(--void-bg-1-alt)',
-				'void-bg-2': 'var(--void-bg-2)',
-				'void-bg-2-alt': 'var(--void-bg-2-alt)',
-				'void-bg-2-hover': 'var(--void-bg-2-hover)',
-				'void-bg-3': 'var(--void-bg-3)',
+				'ribix-bg-1': 'var(--ribix-bg-1)',
+				'ribix-bg-1-alt': 'var(--ribix-bg-1-alt)',
+				'ribix-bg-2': 'var(--ribix-bg-2)',
+				'ribix-bg-2-alt': 'var(--ribix-bg-2-alt)',
+				'ribix-bg-2-hover': 'var(--ribix-bg-2-hover)',
+				'ribix-bg-3': 'var(--ribix-bg-3)',
 
 
-				'void-fg-0': 'var(--void-fg-0)',
-				'void-fg-1': 'var(--void-fg-1)',
-				'void-fg-2': 'var(--void-fg-2)',
-				'void-fg-3': 'var(--void-fg-3)',
-				// 'void-fg-4': 'var(--vscode-tab-inactiveForeground)',
-				'void-fg-4': 'var(--void-fg-4)',
+				'ribix-fg-0': 'var(--ribix-fg-0)',
+				'ribix-fg-1': 'var(--ribix-fg-1)',
+				'ribix-fg-2': 'var(--ribix-fg-2)',
+				'ribix-fg-3': 'var(--ribix-fg-3)',
+				// 'ribix-fg-4': 'var(--vscode-tab-inactiveForeground)',
+				'ribix-fg-4': 'var(--ribix-fg-4)',
 
-				'void-warning': 'var(--void-warning)',
+				'ribix-warning': 'var(--ribix-warning)',
 
-				'void-border-1': 'var(--void-border-1)',
-				'void-border-2': 'var(--void-border-2)',
-				'void-border-3': 'var(--void-border-3)',
-				'void-border-4': 'var(--void-border-4)',
+				'ribix-border-1': 'var(--ribix-border-1)',
+				'ribix-border-2': 'var(--ribix-border-2)',
+				'ribix-border-3': 'var(--ribix-border-3)',
+				'ribix-border-4': 'var(--ribix-border-4)',
 
-				'void-ring-color': 'var(--void-ring-color)',
-				'void-link-color': 'var(--void-link-color)',
+				'ribix-ring-color': 'var(--ribix-ring-color)',
+				'ribix-link-color': 'var(--ribix-link-color)',
 
 				vscode: {
 					// see: https://code.visualstudio.com/api/extension-guides/webview#theming-webview-content
@@ -194,6 +194,6 @@ module.exports = {
 	plugins: [
 		require('@tailwindcss/typography')
 	],
-	prefix: 'void-'
+	prefix: 'ribix-'
 }
 

@@ -22,7 +22,7 @@ fi
 # Enable BuildKit
 export DOCKER_BUILDKIT=1
 
-BUILD_IMAGE_NAME="void-appimage-builder"
+BUILD_IMAGE_NAME="ribix-appimage-builder"
 
 # Check if Docker is running
 if ! docker info >/dev/null 2>&1; then
@@ -46,7 +46,7 @@ if [ ! -f "appimagetool" ]; then
 fi
 
 # Delete any existing AppImage to avoid bloating the build
-rm -f Void-x86_64.AppImage
+rm -f Ribix-x86_64.AppImage
 
 # Create build Dockerfile
 echo "Creating build Dockerfile..."
@@ -101,7 +101,7 @@ docker build --no-cache -t "$BUILD_IMAGE_NAME" -f Dockerfile.build .
 echo "Creating AppImage..."
 docker run --rm --privileged -v "$(pwd):/app" "$BUILD_IMAGE_NAME" bash -c '
 cd /app && \
-rm -rf VoidApp.AppDir && \
+rm -rf RibixApp.AppDir && \
 mkdir -p RibixApp.AppDir/usr/bin RibixApp.AppDir/usr/lib RibixApp.AppDir/usr/share/applications && \
 find . -maxdepth 1 ! -name RibixApp.AppDir ! -name "." ! -name ".." -exec cp -r {} RibixApp.AppDir/usr/bin/ \; && \
 cp ribix.png RibixApp.AppDir/ && \

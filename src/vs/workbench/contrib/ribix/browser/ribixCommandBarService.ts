@@ -11,7 +11,7 @@ import { Widget } from '../../../../base/browser/ui/widget.js';
 import { IOverlayWidget, ICodeEditor, OverlayWidgetPositionPreference } from '../../../../editor/browser/editorBrowser.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
-import { mountVoidCommandBar } from './react/out/ribix-editor-widgets-tsx/index.js'
+import { mountRibixCommandBar } from './react/out/ribix-editor-widgets-tsx/index.js'
 import { deepClone } from '../../../../base/common/objects.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IEditCodeService } from './editCodeServiceInterface.js';
@@ -19,7 +19,7 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { VOID_ACCEPT_DIFF_ACTION_ID, VOID_REJECT_DIFF_ACTION_ID, VOID_GOTO_NEXT_DIFF_ACTION_ID, VOID_GOTO_PREV_DIFF_ACTION_ID, VOID_GOTO_NEXT_URI_ACTION_ID, VOID_GOTO_PREV_URI_ACTION_ID, VOID_ACCEPT_FILE_ACTION_ID, VOID_REJECT_FILE_ACTION_ID, VOID_ACCEPT_ALL_DIFFS_ACTION_ID, VOID_REJECT_ALL_DIFFS_ACTION_ID } from './actionIDs.js';
+import { RIBIX_ACCEPT_DIFF_ACTION_ID, RIBIX_REJECT_DIFF_ACTION_ID, RIBIX_GOTO_NEXT_DIFF_ACTION_ID, RIBIX_GOTO_PREV_DIFF_ACTION_ID, RIBIX_GOTO_NEXT_URI_ACTION_ID, RIBIX_GOTO_PREV_URI_ACTION_ID, RIBIX_ACCEPT_FILE_ACTION_ID, RIBIX_REJECT_FILE_ACTION_ID, RIBIX_ACCEPT_ALL_DIFFS_ACTION_ID, RIBIX_REJECT_ALL_DIFFS_ACTION_ID } from './actionIDs.js';
 import { localize2 } from '../../../../nls.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
@@ -27,11 +27,11 @@ import { IMetricsService } from '../common/metricsService.js';
 import { KeyMod } from '../../../../editor/common/services/editorBaseApi.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { ScrollType } from '../../../../editor/common/editorCommon.js';
-import { IVoidModelService } from '../common/ribixModelService.js';
+import { IRibixModelService } from '../common/ribixModelService.js';
 
 
 
-export interface IVoidCommandBarService {
+export interface IRibixCommandBarService {
 	readonly _serviceBrand: undefined;
 	stateOfURI: { [uri: string]: CommandBarStateType };
 	sortedURIs: URI[];
@@ -54,7 +54,7 @@ export interface IVoidCommandBarService {
 }
 
 
-export const IVoidCommandBarService = createDecorator<IVoidCommandBarService>('VoidCommandBarService');
+export const IRibixCommandBarService = createDecorator<IRibixCommandBarService>('RibixCommandBarService');
 
 
 export type CommandBarStateType = undefined | {
@@ -75,10 +75,10 @@ const defaultState: NonNullable<CommandBarStateType> = {
 }
 
 
-export class VoidCommandBarService extends Disposable implements IVoidCommandBarService {
+export class RibixCommandBarService extends Disposable implements IRibixCommandBarService {
 	_serviceBrand: undefined;
 
-	static readonly ID: 'void.VoidCommandBarService'
+	static readonly ID: 'void.RibixCommandBarService'
 
 	// depends on uri -> diffZone -> {streaming, diffs}
 	public stateOfURI: { [uri: string]: CommandBarStateType } = {}
@@ -100,7 +100,7 @@ export class VoidCommandBarService extends Disposable implements IVoidCommandBar
 		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
 		@IModelService private readonly _modelService: IModelService,
 		@IEditCodeService private readonly _editCodeService: IEditCodeService,
-		@IVoidModelService private readonly _voidModelService: IVoidModelService,
+		@IRibixModelService private readonly _ribixModelService: IRibixModelService,
 	) {
 		super();
 
@@ -460,7 +460,7 @@ export class VoidCommandBarService extends Disposable implements IVoidCommandBar
 		if (!nextURI) return;
 
 		// Get the model for this URI
-		const { model } = await this._voidModelService.getModelSafe(nextURI);
+		const { model } = await this._ribixModelService.getModelSafe(nextURI);
 		if (!model) return;
 
 		// Find an editor to use
@@ -488,10 +488,10 @@ export class VoidCommandBarService extends Disposable implements IVoidCommandBar
 
 }
 
-registerSingleton(IVoidCommandBarService, VoidCommandBarService, InstantiationType.Delayed); // delayed is needed here :(
+registerSingleton(IRibixCommandBarService, RibixCommandBarService, InstantiationType.Delayed); // delayed is needed here :(
 
 
-export type VoidCommandBarProps = {
+export type RibixCommandBarProps = {
 	uri: URI | null;
 	editor: ICodeEditor;
 }
@@ -535,12 +535,12 @@ class AcceptRejectAllFloatingWidget extends Widget implements IOverlayWidget {
 
 		this.instantiationService.invokeFunction(accessor => {
 			const uri = editor.getModel()?.uri || null
-			const res = mountVoidCommandBar(root, accessor, { uri, editor } satisfies VoidCommandBarProps)
+			const res = mountRibixCommandBar(root, accessor, { uri, editor } satisfies RibixCommandBarProps)
 			if (!res) return
 			this._register(toDisposable(() => res.dispose?.()))
 			this._register(editor.onWillChangeModel((model) => {
 				const uri = model.newModelUrl
-				res.rerender({ uri, editor } satisfies VoidCommandBarProps)
+				res.rerender({ uri, editor } satisfies RibixCommandBarProps)
 			}))
 		})
 	}
@@ -570,20 +570,20 @@ class AcceptRejectAllFloatingWidget extends Widget implements IOverlayWidget {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_ACCEPT_DIFF_ACTION_ID,
+			id: RIBIX_ACCEPT_DIFF_ACTION_ID,
 			f1: true,
-			title: localize2('voidAcceptDiffAction', 'Ribix IDE: Accept Diff'),
+			title: localize2('ribixAcceptDiffAction', 'Ribix IDE: Accept Diff'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyMod.Shift | KeyCode.Enter,
 				mac: { primary: KeyMod.WinCtrl | KeyMod.Alt | KeyCode.Enter },
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const editCodeService = accessor.get(IEditCodeService);
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const metricsService = accessor.get(IMetricsService);
 
 
@@ -613,20 +613,20 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_REJECT_DIFF_ACTION_ID,
+			id: RIBIX_REJECT_DIFF_ACTION_ID,
 			f1: true,
-			title: localize2('voidRejectDiffAction', 'Ribix IDE: Reject Diff'),
+			title: localize2('ribixRejectDiffAction', 'Ribix IDE: Reject Diff'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyMod.Shift | KeyCode.Backspace,
 				mac: { primary: KeyMod.WinCtrl | KeyMod.Alt | KeyCode.Backspace },
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const editCodeService = accessor.get(IEditCodeService);
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const metricsService = accessor.get(IMetricsService);
 
 		const activeURI = commandBarService.activeURI;
@@ -654,19 +654,19 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_GOTO_NEXT_DIFF_ACTION_ID,
+			id: RIBIX_GOTO_NEXT_DIFF_ACTION_ID,
 			f1: true,
-			title: localize2('voidGoToNextDiffAction', 'Ribix IDE: Go to Next Diff'),
+			title: localize2('ribixGoToNextDiffAction', 'Ribix IDE: Go to Next Diff'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyMod.Shift | KeyCode.DownArrow,
 				mac: { primary: KeyMod.WinCtrl | KeyMod.Alt | KeyCode.DownArrow },
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const metricsService = accessor.get(IMetricsService);
 
 		const nextDiffIdx = commandBarService.getNextDiffIdx(1);
@@ -681,19 +681,19 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_GOTO_PREV_DIFF_ACTION_ID,
+			id: RIBIX_GOTO_PREV_DIFF_ACTION_ID,
 			f1: true,
-			title: localize2('voidGoToPrevDiffAction', 'Ribix IDE: Go to Previous Diff'),
+			title: localize2('ribixGoToPrevDiffAction', 'Ribix IDE: Go to Previous Diff'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyMod.Shift | KeyCode.UpArrow,
 				mac: { primary: KeyMod.WinCtrl | KeyMod.Alt | KeyCode.UpArrow },
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const metricsService = accessor.get(IMetricsService);
 
 		const prevDiffIdx = commandBarService.getNextDiffIdx(-1);
@@ -708,19 +708,19 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_GOTO_NEXT_URI_ACTION_ID,
+			id: RIBIX_GOTO_NEXT_URI_ACTION_ID,
 			f1: true,
-			title: localize2('voidGoToNextUriAction', 'Ribix IDE: Go to Next File with Diffs'),
+			title: localize2('ribixGoToNextUriAction', 'Ribix IDE: Go to Next File with Diffs'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyMod.Shift | KeyCode.RightArrow,
 				mac: { primary: KeyMod.WinCtrl | KeyMod.Alt | KeyCode.RightArrow },
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const metricsService = accessor.get(IMetricsService);
 
 		const nextUriIdx = commandBarService.getNextUriIdx(1);
@@ -735,19 +735,19 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_GOTO_PREV_URI_ACTION_ID,
+			id: RIBIX_GOTO_PREV_URI_ACTION_ID,
 			f1: true,
-			title: localize2('voidGoToPrevUriAction', 'Ribix IDE: Go to Previous File with Diffs'),
+			title: localize2('ribixGoToPrevUriAction', 'Ribix IDE: Go to Previous File with Diffs'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyMod.Shift | KeyCode.LeftArrow,
 				mac: { primary: KeyMod.WinCtrl | KeyMod.Alt | KeyCode.LeftArrow },
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const metricsService = accessor.get(IMetricsService);
 
 		const prevUriIdx = commandBarService.getNextUriIdx(-1);
@@ -762,18 +762,18 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_ACCEPT_FILE_ACTION_ID,
+			id: RIBIX_ACCEPT_FILE_ACTION_ID,
 			f1: true,
-			title: localize2('voidAcceptFileAction', 'Ribix IDE: Accept All Diffs in Current File'),
+			title: localize2('ribixAcceptFileAction', 'Ribix IDE: Accept All Diffs in Current File'),
 			keybinding: {
 				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Enter,
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const editCodeService = accessor.get(IEditCodeService);
 		const metricsService = accessor.get(IMetricsService);
 
@@ -793,18 +793,18 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_REJECT_FILE_ACTION_ID,
+			id: RIBIX_REJECT_FILE_ACTION_ID,
 			f1: true,
-			title: localize2('voidRejectFileAction', 'Ribix IDE: Reject All Diffs in Current File'),
+			title: localize2('ribixRejectFileAction', 'Ribix IDE: Reject All Diffs in Current File'),
 			keybinding: {
 				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Backspace,
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const editCodeService = accessor.get(IEditCodeService);
 		const metricsService = accessor.get(IMetricsService);
 
@@ -824,18 +824,18 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_ACCEPT_ALL_DIFFS_ACTION_ID,
+			id: RIBIX_ACCEPT_ALL_DIFFS_ACTION_ID,
 			f1: true,
-			title: localize2('voidAcceptAllDiffsAction', 'Ribix IDE: Accept All Diffs in All Files'),
+			title: localize2('ribixAcceptAllDiffsAction', 'Ribix IDE: Accept All Diffs in All Files'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter,
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const metricsService = accessor.get(IMetricsService);
 
 		if (commandBarService.anyFileIsStreaming()) return;
@@ -849,18 +849,18 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: VOID_REJECT_ALL_DIFFS_ACTION_ID,
+			id: RIBIX_REJECT_ALL_DIFFS_ACTION_ID,
 			f1: true,
-			title: localize2('voidRejectAllDiffsAction', 'Ribix IDE: Reject All Diffs in All Files'),
+			title: localize2('ribixRejectAllDiffsAction', 'Ribix IDE: Reject All Diffs in All Files'),
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Backspace,
-				weight: KeybindingWeight.VoidExtension,
+				weight: KeybindingWeight.RibixExtension,
 			}
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		const commandBarService = accessor.get(IVoidCommandBarService);
+		const commandBarService = accessor.get(IRibixCommandBarService);
 		const metricsService = accessor.get(IMetricsService);
 
 		if (commandBarService.anyFileIsStreaming()) return;

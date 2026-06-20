@@ -73,7 +73,7 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 	) {
 		super();
 		// Use electron-main channel for PKCE token exchange (needs Node.js crypto)
-		this.authChannel = mainProcessService.getChannel('void-channel-ribixAuth');
+		this.authChannel = mainProcessService.getChannel('ribix-channel-ribixAuth');
 	}
 
 	async getAuthSummary(): Promise<RibixAuthSummary> {

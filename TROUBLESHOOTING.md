@@ -99,7 +99,7 @@ brew install python
 **Solution:**
 ```bash
 # Navigate to React directory
-cd src/vs/workbench/contrib/void/browser/react/
+cd src/vs/workbench/contrib/ribix/browser/react/
 
 # Build React components manually
 node build.js
@@ -160,10 +160,10 @@ node build/lib/preLaunch.js
 **Solution:**
 ```bash
 # Verify Ribix-specific files exist
-ls src/vs/workbench/contrib/void/browser/ribix*
+ls src/vs/workbench/contrib/ribix/browser/ribix*
 
 # Check if extension is properly loaded
-# Look for "void" and "ribix" in logs
+# Look for "ribix" in logs
 
 # Ensure build completed successfully
 npm run compile
@@ -175,7 +175,7 @@ node build/lib/preLaunch.js
 **Solution:**
 ```bash
 # Check agent service files exist
-ls src/vs/workbench/contrib/void/browser/ribixAgentService*
+ls src/vs/workbench/contrib/ribix/browser/ribixAgentService*
 
 # Verify agent configuration
 # Check LLM API key is set in Command Center

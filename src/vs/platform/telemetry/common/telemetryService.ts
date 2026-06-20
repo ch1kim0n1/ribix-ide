@@ -170,7 +170,7 @@ function getTelemetryLevelSettingDescription(): string {
 	const restartString = !isWeb ? localize('telemetry.restart', 'Microsoft says \"Some third party extensions might not respect this setting. Consult the specific extension\'s documentation to be sure. A full restart of the application is necessary for crash reporting changes to take effect.\"') : '';
 
 
-	// Void removed these
+	// Ribix removed these
 	// const crashReportsHeader = localize('telemetry.crashReports', "Crash Reports");
 	// const errorsHeader = localize('telemetry.errors', "Error Telemetry");
 	// const usageHeader = localize('telemetry.usage', "Usage Data");

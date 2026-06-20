@@ -10,7 +10,7 @@ import { isFeatureNameDisabled } from '../../../../common/ribixSettingsTypes.js'
 import { URI } from '../../../../../../../base/common/uri.js'
 import { FileSymlink, LucideIcon, RotateCw, Terminal } from 'lucide-react'
 import { Check, X, Square, Copy, Play, } from 'lucide-react'
-import { getBasename, ListableToolItem, voidOpenFileFn, ToolChildrenWrapper } from '../sidebar-tsx/SidebarChat.js'
+import { getBasename, ListableToolItem, ribixOpenFileFn, ToolChildrenWrapper } from '../sidebar-tsx/SidebarChat.js'
 import { PlacesType, VariantType } from 'react-tooltip'
 
 enum CopyButtonText {
@@ -33,12 +33,12 @@ export const IconShell1 = ({ onClick, Icon, disabled, className, ...props }: Ico
 			e.stopPropagation();
 			onClick?.(e);
 		}}
-		// border border-void-border-1 rounded
+		// border border-ribix-border-1 rounded
 		className={`
 		size-[18px]
 		p-[2px]
 		flex items-center justify-center
-		text-sm text-void-fg-3
+		text-sm text-ribix-fg-3
 		hover:brightness-110
 		disabled:opacity-50 disabled:cursor-not-allowed
 		${className}
@@ -109,7 +109,7 @@ export const JumpToFileButton = ({ uri, ...props }: { uri: URI | 'current' } & R
 		<IconShell1
 			Icon={FileSymlink}
 			onClick={() => {
-				voidOpenFileFn(uri, accessor)
+				ribixOpenFileFn(uri, accessor)
 			}}
 			{...tooltipPropsForApplyBlock({ tooltipName: 'Go to file' })}
 			{...props}
@@ -141,13 +141,13 @@ const getUriBeingApplied = (applyBoxId: string) => {
 
 export const useApplyStreamState = ({ applyBoxId }: { applyBoxId: string }) => {
 	const accessor = useAccessor()
-	const voidCommandBarService = accessor.get('IVoidCommandBarService')
+	const ribixCommandBarService = accessor.get('IRibixCommandBarService')
 
 	const getStreamState = useCallback(() => {
 		const uri = getUriBeingApplied(applyBoxId)
 		if (!uri) return 'idle-no-changes'
-		return voidCommandBarService.getStreamState(uri)
-	}, [voidCommandBarService, applyBoxId])
+		return ribixCommandBarService.getStreamState(uri)
+	}, [ribixCommandBarService, applyBoxId])
 
 
 	const [currStreamStateRef, setStreamState] = useRefState(getStreamState())
@@ -173,15 +173,15 @@ export const useApplyStreamState = ({ applyBoxId }: { applyBoxId: string }) => {
 type IndicatorColor = 'green' | 'orange' | 'dark' | 'yellow' | null
 export const StatusIndicator = ({ indicatorColor, title, className, ...props }: { indicatorColor: IndicatorColor, title?: React.ReactNode, className?: string } & React.HTMLAttributes<HTMLDivElement>) => {
 	return (
-		<div className={`flex flex-row text-void-fg-3 text-xs items-center gap-1.5 ${className}`} {...props}>
+		<div className={`flex flex-row text-ribix-fg-3 text-xs items-center gap-1.5 ${className}`} {...props}>
 			{title && <span className='opacity-80'>{title}</span>}
 			<div
 				className={` size-1.5 rounded-full border
-					${indicatorColor === 'dark' ? 'bg-[rgba(0,0,0,0)] border-void-border-1' :
+					${indicatorColor === 'dark' ? 'bg-[rgba(0,0,0,0)] border-ribix-border-1' :
 						indicatorColor === 'orange' ? 'bg-orange-500 border-orange-500 shadow-[0_0_4px_0px_rgba(234,88,12,0.6)]' :
 							indicatorColor === 'green' ? 'bg-green-500 border-green-500 shadow-[0_0_4px_0px_rgba(22,163,74,0.6)]' :
 								indicatorColor === 'yellow' ? 'bg-yellow-500 border-yellow-500 shadow-[0_0_4px_0px_rgba(22,163,74,0.6)]' :
-									'bg-void-border-1 border-void-border-1'
+									'bg-ribix-border-1 border-ribix-border-1'
 					}
 				`}
 			/>
@@ -190,7 +190,7 @@ export const StatusIndicator = ({ indicatorColor, title, className, ...props }: 
 };
 
 const tooltipPropsForApplyBlock = ({ tooltipName, color = undefined, position = 'top', offset = undefined }: { tooltipName: string, color?: IndicatorColor, position?: PlacesType, offset?: number }) => ({
-	'data-tooltip-id': color === 'orange' ? `void-tooltip-orange` : color === 'green' ? 'void-tooltip-green' : 'void-tooltip',
+	'data-tooltip-id': color === 'orange' ? `ribix-tooltip-orange` : color === 'green' ? 'ribix-tooltip-green' : 'ribix-tooltip',
 	'data-tooltip-place': position as PlacesType,
 	'data-tooltip-content': `${tooltipName}`,
 	'data-tooltip-offset': offset,
@@ -198,13 +198,13 @@ const tooltipPropsForApplyBlock = ({ tooltipName, color = undefined, position = 
 
 export const useEditToolStreamState = ({ applyBoxId, uri }: { applyBoxId: string, uri: URI }) => {
 	const accessor = useAccessor()
-	const voidCommandBarService = accessor.get('IVoidCommandBarService')
-	const [streamState, setStreamState] = useState(voidCommandBarService.getStreamState(uri))
+	const ribixCommandBarService = accessor.get('IRibixCommandBarService')
+	const [streamState, setStreamState] = useState(ribixCommandBarService.getStreamState(uri))
 	// listen for stream updates on this box
 	useCommandBarURIListener(useCallback((uri_) => {
 		const shouldUpdate = uri.fsPath === uri_.fsPath
-		if (shouldUpdate) { setStreamState(voidCommandBarService.getStreamState(uri)) }
-	}, [voidCommandBarService, applyBoxId, uri]))
+		if (shouldUpdate) { setStreamState(ribixCommandBarService.getStreamState(uri)) }
+	}, [ribixCommandBarService, applyBoxId, uri]))
 
 	return { streamState, }
 }
@@ -530,17 +530,17 @@ export const BlockCodeApplyWrapper = ({
 			name={<span className='not-italic'>{getBasename(uri.fsPath)}</span>}
 			isSmall={true}
 			showDot={false}
-			onClick={() => { voidOpenFileFn(uri, accessor) }}
+			onClick={() => { ribixOpenFileFn(uri, accessor) }}
 		/>
 		: <span>{language}</span>
 
 
-	return <div className='border border-void-border-3 rounded overflow-hidden bg-void-bg-3 my-1'>
+	return <div className='border border-ribix-border-3 rounded overflow-hidden bg-ribix-bg-3 my-1'>
 		{/* header */}
-		<div className=" select-none flex justify-between items-center py-1 px-2 border-b border-void-border-3 cursor-default">
+		<div className=" select-none flex justify-between items-center py-1 px-2 border-b border-ribix-border-3 cursor-default">
 			<div className="flex items-center">
 				<StatusIndicatorForApplyButton uri={uri} applyBoxId={applyBoxId} />
-				<span className="text-[13px] font-light text-void-fg-3">
+				<span className="text-[13px] font-light text-ribix-fg-3">
 					{name}
 				</span>
 			</div>

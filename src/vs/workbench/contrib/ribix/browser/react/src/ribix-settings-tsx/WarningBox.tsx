@@ -5,7 +5,7 @@ export const WarningBox = ({ text, onClick, className }: { text: string; onClick
 
 	return <div
 		className={`
-			text-void-warning brightness-90 opacity-90 w-fit
+			text-ribix-warning brightness-90 opacity-90 w-fit
 			text-xs text-ellipsis
 			${onClick ? `hover:brightness-75 transition-all duration-200 cursor-pointer` : ''}
 			flex items-center flex-nowrap
@@ -19,7 +19,7 @@ export const WarningBox = ({ text, onClick, className }: { text: string; onClick
 		/>
 		<span>{text}</span>
 	</div>
-	// return <VoidSelectBox
+	// return <RibixSelectBox
 	// 	options={[{ text: 'Please add a model!', value: null }]}
 	// 	onChangeSelection={() => { }}
 	// />

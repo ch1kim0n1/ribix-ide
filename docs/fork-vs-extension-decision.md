@@ -10,7 +10,7 @@
 
 ## Context
 
-Ribix IDE is a **QA-first, agent-first IDE** whose headline features — autonomous Playwright QA agents, multi-agent orchestration, inline edit-code diffs, a Command Center panel, persistent codebase memory, and a browser tool channel — cannot be delivered by stock VS Code. To achieve this, the project was built as a **fork of VS Code** (originally derived from the Void fork lineage, as evidenced by `marketplaceCompat.ts` which references "the Void fork's extension host").
+Ribix IDE is a **QA-first, agent-first IDE** whose headline features — autonomous Playwright QA agents, multi-agent orchestration, inline edit-code diffs, a Command Center panel, persistent codebase memory, and a browser tool channel — cannot be delivered by stock VS Code. To achieve this, the project was built as a **fork of VS Code** (originally derived from the Ribix fork lineage, as evidenced by `marketplaceCompat.ts` which references "the Ribix fork's extension host").
 
 ### Evidence from the codebase
 
@@ -73,7 +73,7 @@ Keep a minimal fork (shell branding, Electron-main channels for Playwright/LLM, 
 | **Multi-agent loop requirements** | **Fully met.** The agent loop (`ribixAgentService.ts`, `ribixOrchestrationService.ts`, `agentSandbox.ts`, `fileLockManager.ts`) runs in-process with full access to workbench services, the editor, the terminal tool service, and the Electron-main browser channel. No IPC boundary imposed by an extension host. |
 | **Web IDE support** | The fork *can* build a web variant (`minify-vscode-reh-web` script exists in `package.json`), but the team has instead built a **separate** `web-ide/` React app. This duplication is itself a fork-cost symptom: maintaining web parity inside the fork was hard enough that a parallel stack was started. |
 | **Marketplace compatibility** | **Ongoing problem.** The compatibility layer exists *because* the fork's extension host can drift from the Marketplace's `engines.vscode` contract. Each upstream release risks marking popular extensions incompatible, eroding user trust. |
-| **Long-term sustainability** | **Risky.** Forks of VS Code have a well-documented attrition rate (VSCodium, Theia-on-fork, Onivim, the Void fork this project descends from). Without a large full-time team, the rebase treadmill tends to win. The 223-file custom surface is large relative to typical successful forks. |
+| **Long-term sustainability** | **Risky.** Forks of VS Code have a well-documented attrition rate (VSCodium, Theia-on-fork, Onivim, the Ribix fork this project descends from). Without a large full-time team, the rebase treadmill tends to win. The 223-file custom surface is large relative to typical successful forks. |
 
 ### Option B — Pure extension pack
 

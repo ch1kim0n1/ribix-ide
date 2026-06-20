@@ -14,7 +14,7 @@ import { isAbsolute } from '../../../../../../../base/common/path.js'
 import { separateOutFirstLine } from '../../../../common/helpers/util.js'
 import { BlockCode } from '../util/inputs.js'
 import { CodespanLocationLink } from '../../../../common/chatThreadServiceTypes.js'
-import { getBasename, getRelative, voidOpenFileFn } from '../sidebar-tsx/SidebarChat.js'
+import { getBasename, getRelative, ribixOpenFileFn } from '../sidebar-tsx/SidebarChat.js'
 
 
 export type ChatMessageLocation = {
@@ -94,10 +94,10 @@ const Codespan = ({ text, className, onClick, tooltip }: { text: string, classNa
 	// TODO compute this once for efficiency. we should use `labels.ts/shorten` to display duplicates properly
 
 	return <code
-		className={`font-mono font-medium rounded-sm bg-void-bg-1 px-1 ${className}`}
+		className={`font-mono font-medium rounded-sm bg-ribix-bg-1 px-1 ${className}`}
 		onClick={onClick}
 		{...tooltip ? {
-			'data-tooltip-id': 'void-tooltip',
+			'data-tooltip-id': 'ribix-tooltip',
 			'data-tooltip-content': tooltip,
 			'data-tooltip-place': 'top',
 		} : {}}
@@ -150,11 +150,11 @@ const CodespanWithLink = ({ text, rawText, chatMessageLocation }: { text: string
 
 	const onClick = () => {
 		if (!link) return;
-		// Use the updated voidOpenFileFn to open the file and handle selection
+		// Use the updated ribixOpenFileFn to open the file and handle selection
 		if (link.selection)
-			voidOpenFileFn(link.uri, accessor, [link.selection.startLineNumber, link.selection.endLineNumber]);
+			ribixOpenFileFn(link.uri, accessor, [link.selection.startLineNumber, link.selection.endLineNumber]);
 		else
-			voidOpenFileFn(link.uri, accessor);
+			ribixOpenFileFn(link.uri, accessor);
 	}
 
 	return <Codespan
@@ -375,13 +375,13 @@ const RenderToken = ({ token, inPTag, codeURI, chatMessageLocation, tokenIdx, ..
 		)
 		// return (
 		// 	<div>
-		// 		<table className={'min-w-full border border-void-bg-2'}>
+		// 		<table className={'min-w-full border border-ribix-bg-2'}>
 		// 			<thead>
-		// 				<tr className='bg-void-bg-1'>
+		// 				<tr className='bg-ribix-bg-1'>
 		// 					{t.header.map((cell: any, index: number) => (
 		// 						<th
 		// 							key={index}
-		// 							className='px-4 py-2 border border-void-bg-2 font-semibold'
+		// 							className='px-4 py-2 border border-ribix-bg-2 font-semibold'
 		// 							style={{ textAlign: t.align[index] || 'left' }}
 		// 						>
 		// 							{cell.raw}
@@ -391,11 +391,11 @@ const RenderToken = ({ token, inPTag, codeURI, chatMessageLocation, tokenIdx, ..
 		// 			</thead>
 		// 			<tbody>
 		// 				{t.rows.map((row: any[], rowIndex: number) => (
-		// 					<tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-void-bg-1'}>
+		// 					<tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-ribix-bg-1'}>
 		// 						{row.map((cell: any, cellIndex: number) => (
 		// 							<td
 		// 								key={cellIndex}
-		// 								className={'px-4 py-2 border border-void-bg-2'}
+		// 								className={'px-4 py-2 border border-ribix-bg-2'}
 		// 								style={{ textAlign: t.align[cellIndex] || 'left' }}
 		// 							>
 		// 								{cell.raw}
@@ -487,7 +487,7 @@ const RenderToken = ({ token, inPTag, codeURI, chatMessageLocation, tokenIdx, ..
 				onClick={() => { window.open(t.href) }}
 				href={t.href}
 				title={t.title ?? undefined}
-				className='underline cursor-pointer hover:brightness-90 transition-all duration-200 text-void-fg-2'
+				className='underline cursor-pointer hover:brightness-90 transition-all duration-200 text-ribix-fg-2'
 			>
 				{t.text}
 			</a>

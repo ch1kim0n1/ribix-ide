@@ -11,9 +11,9 @@ import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
 import { Selection } from '../../../../editor/common/core/selection.js';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
 import * as dom from '../../../../base/browser/dom.js';
-import { mountVoidSelectionHelper } from './react/out/ribix-editor-widgets-tsx/index.js';
+import { mountRibixSelectionHelper } from './react/out/ribix-editor-widgets-tsx/index.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IVoidSettingsService } from '../common/ribixSettingsService.js';
+import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { getLengthOfTextPx } from './editCodeService.js';
 
@@ -22,13 +22,13 @@ const minDistanceFromRightPx = 400;
 const minLeftPx = 60;
 
 
-export type VoidSelectionHelperProps = {
+export type RibixSelectionHelperProps = {
 	rerenderKey: number // alternates between 0 and 1
 }
 
 
 export class SelectionHelperContribution extends Disposable implements IEditorContribution, IOverlayWidget {
-	public static readonly ID = 'editor.contrib.voidSelectionHelper';
+	public static readonly ID = 'editor.contrib.ribixSelectionHelper';
 	// react
 	private _rootHTML: HTMLElement;
 	private _rerender: (props?: any) => void = () => { };
@@ -43,7 +43,7 @@ export class SelectionHelperContribution extends Disposable implements IEditorCo
 	constructor(
 		private readonly _editor: ICodeEditor,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IVoidSettingsService private readonly _voidSettingsService: IVoidSettingsService
+		@IRibixSettingsService private readonly _ribixSettingsService: IRibixSettingsService
 	) {
 		super();
 
@@ -63,7 +63,7 @@ export class SelectionHelperContribution extends Disposable implements IEditorCo
 			if (this._reactComponentDisposable) {
 				this._reactComponentDisposable.dispose();
 			}
-			const res = mountVoidSelectionHelper(content, accessor);
+			const res = mountRibixSelectionHelper(content, accessor);
 			if (!res) return;
 
 			this._reactComponentDisposable = res;
@@ -244,11 +244,11 @@ export class SelectionHelperContribution extends Disposable implements IEditorCo
 		this._isVisible = true;
 
 		// rerender
-		const enabled = this._voidSettingsService.state.globalSettings.showInlineSuggestions
+		const enabled = this._ribixSettingsService.state.globalSettings.showInlineSuggestions
 			&& this._editor.hasTextFocus() // needed since VS Code counts unfocused selections as selections, which causes this to rerender when it shouldnt (bad ux)
 
 		if (enabled) {
-			this._rerender({ rerenderKey: this._rerenderKey } satisfies VoidSelectionHelperProps)
+			this._rerender({ rerenderKey: this._rerenderKey } satisfies RibixSelectionHelperProps)
 			this._rerenderKey = (this._rerenderKey + 1) % 2;
 			// this._reactComponentRerender();
 		}
