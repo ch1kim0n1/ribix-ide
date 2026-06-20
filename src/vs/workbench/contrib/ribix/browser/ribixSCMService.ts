@@ -7,7 +7,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js'
 import { localize2 } from '../../../../nls.js'
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js'
 import { ContextKeyExpr, IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js'
-import { ISCMService } from '../../scm/common/scm.js'
+import { ISCMService, ISCMRepository } from '../../scm/common/scm.js'
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js'
 import { IRibixSCMService } from '../common/ribixSCMTypes.js'
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js'
@@ -127,7 +127,7 @@ class GenerateCommitMessageService extends Disposable implements IGenerateCommit
 	}
 
 	private gitRepoInfo() {
-		const repo = Array.from(this.scmService.repositories || []).find((r: any) => r.provider.contextValue === 'git')
+		const repo = Array.from(this.scmService.repositories || []).find((r: ISCMRepository) => r.provider.contextValue === 'git')
 		if (!repo) { throw new Error('No git repository found') }
 		if (!repo.provider.rootUri?.fsPath) { throw new Error('No git repository root path found') }
 		return { path: repo.provider.rootUri.fsPath, repo }
@@ -174,7 +174,7 @@ class GenerateCommitMessageService extends Disposable implements IGenerateCommit
 
 	/** UI Functions */
 
-	private onError(error: any) {
+	private onError(error: unknown) {
 		if (!isCancellationError(error)) {
 			console.error(error)
 			this.notificationService.error(localize2('ribixFailedToGenerateCommitMessage', 'Failed to generate commit message.').value)

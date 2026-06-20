@@ -10,6 +10,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IEncryptionService } from '../../../../platform/encryption/common/encryptionService.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
+import type { IChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { RibixApiClient } from '../common/ribixApiClient.js';
 import { RibixAuthSession, RibixConfig, RibixAuthSummary, OAuthTokenResponse } from '../common/ribixAuthTypes.js';
 
@@ -64,7 +65,7 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 	readonly onDidChangeSession = this._onDidChangeSession.event;
 
 	private pendingSignIn: PendingSignIn | null = null;
-	private authChannel: any;
+	private authChannel: IChannel;
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -161,7 +162,7 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 		}
 
 		// Generate PKCE code verifier and challenge via electron-main channel
-		const { codeVerifier, codeChallenge, state } = await this.authChannel.call('generatePKCE');
+		const { codeVerifier, codeChallenge, state } = await this.authChannel.call<{ codeVerifier: string; codeChallenge: string; state: string }>('generatePKCE');
 
 		const authorizeUrl = new URL('/oauth/authorize', appUrl);
 		authorizeUrl.searchParams.set('client_id', OAUTH_CLIENT_ID);

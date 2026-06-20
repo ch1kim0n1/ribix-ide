@@ -31,7 +31,7 @@ export class SelectionHelperContribution extends Disposable implements IEditorCo
 	public static readonly ID = 'editor.contrib.ribixSelectionHelper';
 	// react
 	private _rootHTML: HTMLElement;
-	private _rerender: (props?: any) => void = () => { };
+	private _rerender: (props?: RibixSelectionHelperProps) => void = () => { };
 	private _rerenderKey: number = 0;
 	private _reactComponentDisposable: IDisposable | null = null;
 

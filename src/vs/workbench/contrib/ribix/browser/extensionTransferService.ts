@@ -105,8 +105,8 @@ class ExtensionTransferService extends Disposable implements IExtensionTransferS
 								if (extensionFolder.name === 'extensions.json') {
 									try {
 										const contentsStr = await fileService.readFile(from)
-										const json: any = JSON.parse(contentsStr.value.toString())
-										const j2 = json.filter((entry: { identifier?: { id?: string } }) => !isBlacklisted(entry?.identifier?.id))
+										const json: Array<{ identifier?: { id?: string } }> = JSON.parse(contentsStr.value.toString())
+										const j2 = json.filter((entry) => !isBlacklisted(entry?.identifier?.id))
 										const jsonStr = JSON.stringify(j2)
 										await fileService.writeFile(to, VSBuffer.fromString(jsonStr))
 									}
@@ -162,8 +162,8 @@ class ExtensionTransferService extends Disposable implements IExtensionTransferS
 						console.log('Updating extensions.json', child.resource.fsPath)
 						try {
 							const contentsStr = await fileService.readFile(child.resource)
-							const json: any = JSON.parse(contentsStr.value.toString())
-							const j2 = json.filter((entry: { identifier?: { id?: string } }) => !isBlacklisted(entry?.identifier?.id))
+							const json: Array<{ identifier?: { id?: string } }> = JSON.parse(contentsStr.value.toString())
+							const j2 = json.filter((entry) => !isBlacklisted(entry?.identifier?.id))
 							const jsonStr = JSON.stringify(j2)
 							await fileService.writeFile(child.resource, VSBuffer.fromString(jsonStr))
 						}

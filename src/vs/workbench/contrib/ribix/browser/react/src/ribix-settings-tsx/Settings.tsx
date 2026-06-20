@@ -23,6 +23,8 @@ import { MCPServer } from '../../../../common/mcpServiceTypes.js';
 import { useMCPServiceState } from '../util/services.js';
 import { OPT_OUT_KEY } from '../../../../common/storageKeys.js';
 import { StorageScope, StorageTarget } from '../../../../../../../platform/storage/common/storage.js';
+import { FeatureOptionsSection } from './FeatureOptionsSection.js';
+import { RibixCommandCenterSection } from './RibixCommandCenterSection.js';
 
 type Tab =
 	| 'models'
@@ -729,7 +731,7 @@ const ProviderSetting = ({ providerName, settingName, subTextMd }: { providerNam
 
 	const settingValue = settingsState.settingsOfProvider[providerName][settingName] as string // this should always be a string in this component
 	if (typeof settingValue !== 'string') {
-		console.log('Error: Provider setting had a non-string value.')
+		console.error('Provider setting had a non-string value:', { providerName, settingName, settingValue })
 		return
 	}
 
@@ -1320,185 +1322,12 @@ export const Settings = () => {
 							</div>
 
 							{/* Feature Options section */}
-							<div className={shouldShowTab('featureOptions') ? `` : 'hidden'}>
-								<ErrorBoundary>
-									<h2 className={`text-3xl mb-2`}>Feature Options</h2>
-
-									<div className='flex flex-col gap-y-8 my-4'>
-										<ErrorBoundary>
-											{/* FIM */}
-											<div>
-												<h4 className={`text-base`}>{displayInfoOfFeatureName('Autocomplete')}</h4>
-												<div className='text-sm text-ribix-fg-3 mt-1'>
-													<span>
-														Experimental.{' '}
-													</span>
-													<span
-														className='hover:brightness-110'
-														data-tooltip-id='ribix-tooltip'
-														data-tooltip-content='We recommend using the largest qwen2.5-coder model you can with Ollama (try qwen2.5-coder:3b).'
-														data-tooltip-class-name='ribix-max-w-[20px]'
-													>
-														Only works with FIM models.*
-													</span>
-												</div>
-
-												<div className='my-2'>
-													{/* Enable Switch */}
-													<ErrorBoundary>
-														<div className='flex items-center gap-x-2 my-2'>
-															<RibixSwitch
-																size='xs'
-																value={settingsState.globalSettings.enableAutocomplete}
-																onChange={(newVal) => ribixSettingsService.setGlobalSetting('enableAutocomplete', newVal)}
-															/>
-															<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.enableAutocomplete ? 'Enabled' : 'Disabled'}</span>
-														</div>
-													</ErrorBoundary>
-
-													{/* Model Dropdown */}
-													<ErrorBoundary>
-														<div className={`my-2 ${!settingsState.globalSettings.enableAutocomplete ? 'hidden' : ''}`}>
-															<ModelDropdown featureName={'Autocomplete'} className='text-xs text-ribix-fg-3 bg-ribix-bg-1 border border-ribix-border-1 rounded p-0.5 px-1' />
-														</div>
-													</ErrorBoundary>
-
-												</div>
-
-											</div>
-										</ErrorBoundary>
-
-										{/* Apply */}
-										<ErrorBoundary>
-
-											<div className='w-full'>
-												<h4 className={`text-base`}>{displayInfoOfFeatureName('Apply')}</h4>
-												<div className='text-sm text-ribix-fg-3 mt-1'>Settings that control the behavior of the Apply button.</div>
-
-												<div className='my-2'>
-													{/* Sync to Chat Switch */}
-													<div className='flex items-center gap-x-2 my-2'>
-														<RibixSwitch
-															size='xs'
-															value={settingsState.globalSettings.syncApplyToChat}
-															onChange={(newVal) => ribixSettingsService.setGlobalSetting('syncApplyToChat', newVal)}
-														/>
-														<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.syncApplyToChat ? 'Same as Chat model' : 'Different model'}</span>
-													</div>
-
-													{/* Model Dropdown */}
-													<div className={`my-2 ${settingsState.globalSettings.syncApplyToChat ? 'hidden' : ''}`}>
-														<ModelDropdown featureName={'Apply'} className='text-xs text-ribix-fg-3 bg-ribix-bg-1 border border-ribix-border-1 rounded p-0.5 px-1' />
-													</div>
-												</div>
-
-
-												<div className='my-2'>
-													{/* Fast Apply Method Dropdown */}
-													<div className='flex items-center gap-x-2 my-2'>
-														<FastApplyMethodDropdown />
-													</div>
-												</div>
-
-											</div>
-										</ErrorBoundary>
-
-
-
-
-										{/* Tools Section */}
-										<div>
-											<h4 className={`text-base`}>Tools</h4>
-											<div className='text-sm text-ribix-fg-3 mt-1'>{`Tools are functions that LLMs can call. Some tools require user approval.`}</div>
-
-											<div className='my-2'>
-												{/* Auto Accept Switch */}
-												<ErrorBoundary>
-													{[...toolApprovalTypes].map((approvalType) => {
-														return <div key={approvalType} className="flex items-center gap-x-2 my-2">
-															<ToolApprovalTypeSwitch size='xs' approvalType={approvalType} desc={`Auto-approve ${approvalType}`} />
-														</div>
-													})}
-
-												</ErrorBoundary>
-
-												{/* Tool Lint Errors Switch */}
-												<ErrorBoundary>
-
-													<div className='flex items-center gap-x-2 my-2'>
-														<RibixSwitch
-															size='xs'
-															value={settingsState.globalSettings.includeToolLintErrors}
-															onChange={(newVal) => ribixSettingsService.setGlobalSetting('includeToolLintErrors', newVal)}
-														/>
-														<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.includeToolLintErrors ? 'Fix lint errors' : `Fix lint errors`}</span>
-													</div>
-												</ErrorBoundary>
-
-												{/* Auto Accept LLM Changes Switch */}
-												<ErrorBoundary>
-													<div className='flex items-center gap-x-2 my-2'>
-														<RibixSwitch
-															size='xs'
-															value={settingsState.globalSettings.autoAcceptLLMChanges}
-															onChange={(newVal) => ribixSettingsService.setGlobalSetting('autoAcceptLLMChanges', newVal)}
-														/>
-														<span className='text-ribix-fg-3 text-xs pointer-events-none'>Auto-accept LLM changes</span>
-													</div>
-												</ErrorBoundary>
-											</div>
-										</div>
-
-
-
-										<div className='w-full'>
-											<h4 className={`text-base`}>Editor</h4>
-											<div className='text-sm text-ribix-fg-3 mt-1'>{`Settings that control the visibility of Ribix IDE suggestions in the code editor.`}</div>
-
-											<div className='my-2'>
-												{/* Auto Accept Switch */}
-												<ErrorBoundary>
-													<div className='flex items-center gap-x-2 my-2'>
-														<RibixSwitch
-															size='xs'
-															value={settingsState.globalSettings.showInlineSuggestions}
-															onChange={(newVal) => ribixSettingsService.setGlobalSetting('showInlineSuggestions', newVal)}
-														/>
-														<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.showInlineSuggestions ? 'Show suggestions on select' : 'Show suggestions on select'}</span>
-													</div>
-												</ErrorBoundary>
-											</div>
-										</div>
-
-										{/* SCM */}
-										<ErrorBoundary>
-
-											<div className='w-full'>
-												<h4 className={`text-base`}>{displayInfoOfFeatureName('SCM')}</h4>
-												<div className='text-sm text-ribix-fg-3 mt-1'>Settings that control the behavior of the commit message generator.</div>
-
-												<div className='my-2'>
-													{/* Sync to Chat Switch */}
-													<div className='flex items-center gap-x-2 my-2'>
-														<RibixSwitch
-															size='xs'
-															value={settingsState.globalSettings.syncSCMToChat}
-															onChange={(newVal) => ribixSettingsService.setGlobalSetting('syncSCMToChat', newVal)}
-														/>
-														<span className='text-ribix-fg-3 text-xs pointer-events-none'>{settingsState.globalSettings.syncSCMToChat ? 'Same as Chat model' : 'Different model'}</span>
-													</div>
-
-													{/* Model Dropdown */}
-													<div className={`my-2 ${settingsState.globalSettings.syncSCMToChat ? 'hidden' : ''}`}>
-														<ModelDropdown featureName={'SCM'} className='text-xs text-ribix-fg-3 bg-ribix-bg-1 border border-ribix-border-1 rounded p-0.5 px-1' />
-													</div>
-												</div>
-
-											</div>
-										</ErrorBoundary>
-									</div>
-								</ErrorBoundary>
-							</div>
+						<div className={shouldShowTab('featureOptions') ? ` : 'hidden'}>
+							<ErrorBoundary>
+								<h2 className={	ext-3xl mb-2}>Feature Options</h2>
+								<FeatureOptionsSection />
+							</ErrorBoundary>
+						</div>
 
 							{/* General section */}
 							<div className={`${shouldShowTab('general') ? `` : 'hidden'} flex flex-col gap-12`}>
@@ -1659,142 +1488,18 @@ Use Model Context Protocol to provide Agent mode with more tools.
 								</ErrorBoundary>
 							</div>
 
-								{/* Ribix Command Center section */}
-								<div className={shouldShowTab('ribix') ? `` : 'hidden'}>
-									<ErrorBoundary>
-										<h2 className='text-3xl mb-2'>Ribix Command Center</h2>
-										<h4 className={`text-ribix-fg-3 mb-4`}>
-											<ChatMarkdownRender inPTag={true} string={`
+							{/* Ribix Command Center section */}
+							<div className={shouldShowTab('ribix') ? `` : 'hidden'}>
+								<ErrorBoundary>
+									<h2 className='text-3xl mb-2'>Ribix Command Center</h2>
+									<h4 className={`text-ribix-fg-3 mb-4`}>
+										<ChatMarkdownRender inPTag={true} string={`
 	Configure Ribix's multi-agent mission system.
-											`} chatMessageLocation={undefined} />
-										</h4>
-
-										{/* Auth Status */}
-										<ErrorBoundary>
-											<AuthStatusSection />
-										</ErrorBoundary>
-
-										<div className='flex flex-col gap-y-8 my-4'>
-											{/* Mission Configuration */}
-											<div>
-												<h4 className={`text-base`}>Mission Configuration</h4>
-												<div className='text-sm text-ribix-fg-3 mt-1'>Settings for mission execution and agent management.</div>
-
-												<div className='my-2'>
-													<ErrorBoundary>
-														<div className='flex items-center gap-x-2 my-2'>
-															<span className='text-ribix-fg-3 text-xs w-48'>Max Concurrent Missions</span>
-															<RibixSimpleInputBox
-																className='w-24'
-																type='number'
-																value={settingsState.globalSettings.ribix.maxConcurrentMissions.toString()}
-																onChange={(newVal) => {
-																	const numVal = parseInt(newVal);
-																	if (!isNaN(numVal) && numVal > 0) {
-																		ribixSettingsService.setGlobalSetting('ribix', {
-																			...settingsState.globalSettings.ribix,
-																			maxConcurrentMissions: numVal
-																		});
-																	}
-																}}
-															/>
-														</div>
-													</ErrorBoundary>
-												</div>
-
-												<div className='my-2'>
-													<ErrorBoundary>
-														<div className='flex items-center gap-x-2 my-2'>
-															<span className='text-ribix-fg-3 text-xs w-48'>Max Agents Per Mission</span>
-															<RibixSimpleInputBox
-																className='w-24'
-																type='number'
-																value={settingsState.globalSettings.ribix.maxAgentsPerMission.toString()}
-																onChange={(newVal) => {
-																	const numVal = parseInt(newVal);
-																	if (!isNaN(numVal) && numVal > 0) {
-																		ribixSettingsService.setGlobalSetting('ribix', {
-																			...settingsState.globalSettings.ribix,
-																			maxAgentsPerMission: numVal
-																		});
-																	}
-																}}
-															/>
-														</div>
-													</ErrorBoundary>
-												</div>
-											</div>
-
-											{/* Behavior Settings */}
-											<div>
-												<h4 className={`text-base`}>Behavior</h4>
-												<div className='text-sm text-ribix-fg-3 mt-1'>Control Ribix Command Center behavior and synchronization.</div>
-
-												<div className='my-2'>
-													<ErrorBoundary>
-														<div className='flex items-center gap-x-2 my-2'>
-															<RibixSwitch
-																size='xs'
-																value={settingsState.globalSettings.ribix.autoOpenCommandCenter}
-																onChange={(newVal) => {
-																	ribixSettingsService.setGlobalSetting('ribix', {
-																		...settingsState.globalSettings.ribix,
-																		autoOpenCommandCenter: newVal
-																	});
-																}}
-															/>
-															<span className='text-ribix-fg-3 text-xs pointer-events-none'>Auto-open Command Center on startup</span>
-														</div>
-													</ErrorBoundary>
-												</div>
-
-												<div className='my-2'>
-													<ErrorBoundary>
-														<div className='flex items-center gap-x-2 my-2'>
-															<RibixSwitch
-																size='xs'
-																value={settingsState.globalSettings.ribix.orgSyncEnabled}
-																onChange={(newVal) => {
-																	ribixSettingsService.setGlobalSetting('ribix', {
-																		...settingsState.globalSettings.ribix,
-																		orgSyncEnabled: newVal
-																	});
-																}}
-															/>
-															<span className='text-ribix-fg-3 text-xs pointer-events-none'>Sync memory to org on mission complete</span>
-														</div>
-													</ErrorBoundary>
-												</div>
-
-												<div className='my-2'>
-													<ErrorBoundary>
-														<div className='flex items-center gap-x-2 my-2'>
-															<RibixSwitch
-																size='xs'
-																value={settingsState.globalSettings.ribix.checkpointOnEveryWrite}
-																onChange={(newVal) => {
-																	ribixSettingsService.setGlobalSetting('ribix', {
-																		...settingsState.globalSettings.ribix,
-																		checkpointOnEveryWrite: newVal
-																	});
-																}}
-															/>
-															<span className='text-ribix-fg-3 text-xs pointer-events-none'>Checkpoint before every agent file write</span>
-														</div>
-													</ErrorBoundary>
-												</div>
-											</div>
-										</div>
-									</ErrorBoundary>
-								</div>
-
-
-
-
-
-						</div>
-
-					</div>
+										`} chatMessageLocation={undefined} />
+									</h4>
+									<RibixCommandCenterSection />
+								</ErrorBoundary>
+							</div>
 				</main>
 			</div>
 		</div>

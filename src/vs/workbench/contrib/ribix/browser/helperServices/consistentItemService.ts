@@ -113,7 +113,6 @@ export class ConsistentItemService extends Disposable implements IConsistentItem
 		this.consistentItemIdOfItemId[itemId] = consistentItemId
 
 		this.disposeFnOfItemId[itemId] = () => {
-			// console.log('calling remove for', itemId)
 			dispose?.()
 		}
 

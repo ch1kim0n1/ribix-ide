@@ -593,7 +593,7 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 	private readonly toolErrMsgs = {
 		rejected: 'Tool call was rejected by the user.',
 		interrupted: 'Tool call was interrupted by the user.',
-		errWhenStringifying: (error: any) => `Tool call succeeded, but there was an error stringifying the output.\n${getErrorMessage(error)}`
+		errWhenStringifying: (error: unknown) => `Tool call succeeded, but there was an error stringifying the output.\n${getErrorMessage(error)}`
 	}
 
 

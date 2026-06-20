@@ -47,10 +47,10 @@ export async function createMissionSnapshot(
 ): Promise<string | null> {
 	try {
 		const label = `ribix-mission-${missionId}-snapshot`;
-		await (ribixSCM as any).gitStashPush(workspacePath, label);
+		await ribixSCM.gitStashPush(workspacePath, label);
 
 		// Resolve the newly created stash ref by listing stashes and matching the label.
-		const stashList: string = await (ribixSCM as any).gitStashList(workspacePath);
+		const stashList: string = await ribixSCM.gitStashList(workspacePath);
 		const lines = stashList.split('\n').filter(Boolean);
 		for (const line of lines) {
 			// git stash list format: "stash@{N}: On branch: <label>"
@@ -83,7 +83,7 @@ export async function revertToSnapshot(
 	workspacePath: string,
 	ribixSCM: IRibixSCMService,
 ): Promise<void> {
-	await (ribixSCM as any).gitStashPop(workspacePath, snapshotRef);
+	await ribixSCM.gitStashPop(workspacePath, snapshotRef);
 }
 
 /**

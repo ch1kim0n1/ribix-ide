@@ -66,7 +66,7 @@ const chatThreadsStateListeners: Set<(s: ThreadsState) => void> = new Set()
 let chatThreadsStreamState: ThreadStreamState
 const chatThreadsStreamStateListeners: Set<(threadId: string) => void> = new Set()
 
-let settingsState: RibixSettingsState // TODO: Rename to RibixSettingsState
+let settingsState: RibixSettingsState
 const settingsStateListeners: Set<(s: RibixSettingsState) => void> = new Set()
 
 let refreshModelState: RefreshModelStateOfProvider

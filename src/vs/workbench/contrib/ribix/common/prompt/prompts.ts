@@ -584,12 +584,6 @@ ${details.map((d, i) => `${i + 1}. ${d}`).join('\n\n')}`)
 }
 
 
-// // log all prompts
-// for (const chatMode of ['agent', 'gather', 'normal'] satisfies ChatMode[]) {
-// 	console.log(`========================================= SYSTEM MESSAGE FOR ${chatMode} ===================================\n`,
-// 		chat_systemMessage({ chatMode, workspaceFolders: [], openedURIs: [], activeURI: 'pee', persistentTerminalIDs: [], directoryStr: 'lol', }))
-// }
-
 export const DEFAULT_FILE_SIZE_LIMIT = 2_000_000
 
 export const readFile = async (fileService: IFileService, uri: URI, fileSizeLimit: number): Promise<{

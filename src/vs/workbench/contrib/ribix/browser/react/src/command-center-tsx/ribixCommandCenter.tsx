@@ -151,8 +151,8 @@ export const RibixCommandCenter = ({ className }: { className: string }) => {
 											try {
 												const authService = accessor.get(IRibixAuthService);
 												await authService.signIn({ apiUrl: apiUrl.trim(), appUrl: appUrl.trim() });
-											} catch (e: any) {
-												setSignInError(e?.message ?? 'Sign-in failed');
+											} catch (e: unknown) {
+												setSignInError(e instanceof Error ? e.message : 'Sign-in failed');
 											} finally {
 												setSigningIn(false);
 											}

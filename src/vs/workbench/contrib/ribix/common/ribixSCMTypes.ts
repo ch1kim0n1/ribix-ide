@@ -53,6 +53,29 @@ export interface IRibixSCMService {
 	 * @param path Path to the git repository
 	 */
 	gitRemoteUrl(path: string): Promise<string>
+
+	/**
+	 * Push changes to git stash with a label
+	 *
+	 * @param path Path to the git repository
+	 * @param label Stash label/message
+	 */
+	gitStashPush(path: string, label: string): Promise<void>
+
+	/**
+	 * List git stashes
+	 *
+	 * @param path Path to the git repository
+	 */
+	gitStashList(path: string): Promise<string>
+
+	/**
+	 * Pop a git stash by ref
+	 *
+	 * @param path Path to the git repository
+	 * @param stashRef Stash reference (e.g. "stash@{0}")
+	 */
+	gitStashPop(path: string, stashRef: string): Promise<void>
 }
 
 export const IRibixSCMService = createDecorator<IRibixSCMService>('ribixSCMService')

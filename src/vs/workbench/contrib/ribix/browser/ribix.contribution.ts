@@ -61,7 +61,7 @@ import './tooltipService.js'
 import './ribixOnboardingService.js'
 
 // register misc service
-import './miscWokrbenchContrib.js'
+import './miscWorkbenchContrib.js'
 
 // register file service (for explorer context menu)
 import './fileService.js'

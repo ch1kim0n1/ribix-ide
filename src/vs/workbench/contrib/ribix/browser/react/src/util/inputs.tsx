@@ -165,7 +165,6 @@ function getRelativeWorkspacePath(accessor: ReturnType<typeof useAccessor>, uri:
 			if (relativePath.startsWith('/')) {
 				relativePath = relativePath.slice(1);
 			}
-			// console.log({ folderPath, relativePath, uriPath });
 
 			return relativePath;
 		}
@@ -1722,131 +1721,6 @@ export const RibixButtonBgDarken = ({ children, disabled, onClick, className }: 
 		onClick={onClick}
 	>{children}</button>
 }
-
-// export const RibixScrollableElt = ({ options, children }: { options: ScrollableElementCreationOptions, children: React.ReactNode }) => {
-// 	const instanceRef = useRef<DomScrollableElement | null>(null);
-// 	const [childrenPortal, setChildrenPortal] = useState<React.ReactNode | null>(null)
-
-// 	return <>
-// 		<WidgetComponent
-// 			ctor={DomScrollableElement}
-// 			propsFn={useCallback((container) => {
-// 				return [container, options] as const;
-// 			}, [options])}
-// 			onCreateInstance={useCallback((instance: DomScrollableElement) => {
-// 				instanceRef.current = instance;
-// 				setChildrenPortal(createPortal(children, instance.getDomNode()))
-// 				return []
-// 			}, [setChildrenPortal, children])}
-// 			dispose={useCallback((instance: DomScrollableElement) => {
-// 				console.log('calling dispose!!!!')
-// 				// instance.dispose();
-// 				// instance.getDomNode().remove()
-// 			}, [])}
-// 		>{children}</WidgetComponent>
-
-// 		{childrenPortal}
-
-// 	</>
-// }
-
-// export const RibixSelectBox = <T,>({ onChangeSelection, initVal, selectBoxRef, options }: {
-// 	initVal: T;
-// 	selectBoxRef: React.MutableRefObject<SelectBox | null>;
-// 	options: readonly { text: string, value: T }[];
-// 	onChangeSelection: (value: T) => void;
-// }) => {
-
-
-// 	return <WidgetComponent
-// 		ctor={DropdownMenu}
-// 		propsFn={useCallback((container) => {
-// 			return [
-// 				container, {
-// 					contextMenuProvider,
-// 					actions: options.map(({ text, value }, i) => ({
-// 						id: i + '',
-// 						label: text,
-// 						tooltip: text,
-// 						class: undefined,
-// 						enabled: true,
-// 						run: () => {
-// 							onChangeSelection(value);
-// 						},
-// 					}))
-
-// 				}] as const;
-// 		}, [options, initVal, contextViewProvider])}
-
-// 		dispose={useCallback((instance: DropdownMenu) => {
-// 			instance.dispose();
-// 			// instance.element.remove()
-// 		}, [])}
-
-// 		onCreateInstance={useCallback((instance: DropdownMenu) => {
-// 			return []
-// 		}, [])}
-
-// 	/>;
-// };
-
-
-
-
-// export const RibixCheckBox = ({ onChangeChecked, initVal, label, checkboxRef, }: {
-// 	onChangeChecked: (checked: boolean) => void;
-// 	initVal: boolean;
-// 	checkboxRef: React.MutableRefObject<ObjectSettingCheckboxWidget | null>;
-// 	label: string;
-// }) => {
-// 	const containerRef = useRef<HTMLDivElement>(null);
-
-
-// 	useEffect(() => {
-// 		if (!containerRef.current) return;
-
-// 		// Create and mount the Checkbox using VSCode's implementation
-
-// 		checkboxRef.current = new ObjectSettingCheckboxWidget(
-// 			containerRef.current,
-// 			themeService,
-// 			contextViewService,
-// 			hoverService,
-// 		);
-
-
-// 		checkboxRef.current.setValue([{
-// 			key: { type: 'string', data: label },
-// 			value: { type: 'boolean', data: initVal },
-// 			removable: false,
-// 			resetable: true,
-// 		}])
-
-// 		checkboxRef.current.onDidChangeList((list) => {
-// 			onChangeChecked(!!list);
-// 		})
-
-
-// 		// cleanup
-// 		return () => {
-// 			if (checkboxRef.current) {
-// 				checkboxRef.current.dispose();
-// 				if (containerRef.current) {
-// 					while (containerRef.current.firstChild) {
-// 						containerRef.current.removeChild(containerRef.current.firstChild);
-// 					}
-// 				}
-// 				checkboxRef.current = null;
-// 			}
-// 		};
-// 	}, [checkboxRef, label, initVal, onChangeChecked]);
-
-// 	return <div ref={containerRef} className="w-full" />;
-// };
-
-
-
-
 const SingleDiffEditor = ({ block, lang }: { block: ExtractedSearchReplaceBlock, lang: string | undefined }) => {
 	const accessor = useAccessor();
 	const modelService = accessor.get('IModelService');
@@ -1960,7 +1834,7 @@ const SingleDiffEditor = ({ block, lang }: { block: ExtractedSearchReplaceBlock,
  *   - searchReplaceBlocks: string in search/replace format (from LLM)
  *   - language?: string (optional, fallback to 'plaintext')
  */
-export const RibixDiffEditor = ({ uri, searchReplaceBlocks, language }: { uri?: any, searchReplaceBlocks: string, language?: string }) => {
+export const RibixDiffEditor = ({ uri, searchReplaceBlocks, language }: { uri?: URI, searchReplaceBlocks: string, language?: string }) => {
 	const accessor = useAccessor();
 	const languageService = accessor.get('ILanguageService');
 

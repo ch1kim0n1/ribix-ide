@@ -91,4 +91,16 @@ export class RibixSCMService implements IRibixSCMService {
 	async gitRemoteUrl(path: string): Promise<string> {
 		return git('git remote get-url origin', path)
 	}
+
+	async gitStashPush(path: string, label: string): Promise<void> {
+		await git(`git stash push -m "${label}"`, path)
+	}
+
+	async gitStashList(path: string): Promise<string> {
+		return git('git stash list', path)
+	}
+
+	async gitStashPop(path: string, stashRef: string): Promise<void> {
+		await git(`git stash pop "${stashRef}"`, path)
+	}
 }
