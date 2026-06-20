@@ -48,7 +48,7 @@ const ButtonLeftTextRightOption = ({ text, leftButton }: { text: string, leftBut
 }
 
 // Auth Status Section
-const AuthStatusSection = () => {
+export const AuthStatusSection = () => {
 	const accessor = useAccessor()
 	const ribixAuthService = accessor.get('IRibixAuthService')
 	const [authSummary, setAuthSummary] = useState<any>(null)
@@ -907,7 +907,7 @@ export const AIInstructionsBox = () => {
 	/>
 }
 
-const FastApplyMethodDropdown = () => {
+export const FastApplyMethodDropdown = () => {
 	const accessor = useAccessor()
 	const ribixSettingsService = accessor.get('IRibixSettingsService')
 
@@ -1287,7 +1287,7 @@ export const Settings = () => {
 						{/* All sections in flex container with gap-12 */}
 						<div className='flex flex-col gap-12'>
 							{/* Models section (formerly FeaturesTab) */}
-							<div className={shouldShowTab('models') ? `` : 'hidden'}>
+							<div className={shouldShowTab('models') ? '' : 'hidden'}>
 								<ErrorBoundary>
 									<h2 className={`text-3xl mb-2`}>Models</h2>
 									<ModelDump />
@@ -1298,7 +1298,7 @@ export const Settings = () => {
 							</div>
 
 							{/* Local Providers section */}
-							<div className={shouldShowTab('localProviders') ? `` : 'hidden'}>
+							<div className={shouldShowTab('localProviders') ? '' : 'hidden'}>
 								<ErrorBoundary>
 									<h2 className={`text-3xl mb-2`}>Local Providers</h2>
 									<h3 className={`text-ribix-fg-3 mb-2`}>{`Ribix IDE can access any model that you host locally. We automatically detect your local models by default.`}</h3>
@@ -1312,7 +1312,7 @@ export const Settings = () => {
 							</div>
 
 							{/* Main Providers section */}
-							<div className={shouldShowTab('providers') ? `` : 'hidden'}>
+							<div className={shouldShowTab('providers') ? '' : 'hidden'}>
 								<ErrorBoundary>
 									<h2 className={`text-3xl mb-2`}>Main Providers</h2>
 									<h3 className={`text-ribix-fg-3 mb-2`}>{`Ribix IDE can access models from Anthropic, OpenAI, OpenRouter, and more.`}</h3>
@@ -1322,15 +1322,15 @@ export const Settings = () => {
 							</div>
 
 							{/* Feature Options section */}
-						<div className={shouldShowTab('featureOptions') ? ` : 'hidden'}>
+						<div className={shouldShowTab('featureOptions') ? '' : 'hidden'}>
 							<ErrorBoundary>
-								<h2 className={	ext-3xl mb-2}>Feature Options</h2>
+								<h2 className='text-3xl mb-2'>Feature Options</h2>
 								<FeatureOptionsSection />
 							</ErrorBoundary>
 						</div>
 
 							{/* General section */}
-							<div className={`${shouldShowTab('general') ? `` : 'hidden'} flex flex-col gap-12`}>
+							<div className={`${shouldShowTab('general') ? '' : 'hidden'} flex flex-col gap-12`}>
 								{/* One-Click Switch section */}
 								<div>
 									<ErrorBoundary>
@@ -1468,7 +1468,7 @@ Alternatively, place a \`.ribixrules\` file in the root of your workspace.
 
 
 							{/* MCP section */}
-							<div className={shouldShowTab('mcp') ? `` : 'hidden'}>
+							<div className={shouldShowTab('mcp') ? '' : 'hidden'}>
 								<ErrorBoundary>
 									<h2 className='text-3xl mb-2'>MCP</h2>
 									<h4 className={`text-ribix-fg-3 mb-4`}>
@@ -1489,7 +1489,7 @@ Use Model Context Protocol to provide Agent mode with more tools.
 							</div>
 
 							{/* Ribix Command Center section */}
-							<div className={shouldShowTab('ribix') ? `` : 'hidden'}>
+							<div className={shouldShowTab('ribix') ? '' : 'hidden'}>
 								<ErrorBoundary>
 									<h2 className='text-3xl mb-2'>Ribix Command Center</h2>
 									<h4 className={`text-ribix-fg-3 mb-4`}>
@@ -1500,6 +1500,8 @@ Use Model Context Protocol to provide Agent mode with more tools.
 									<RibixCommandCenterSection />
 								</ErrorBoundary>
 							</div>
+						</div>
+					</div>
 				</main>
 			</div>
 		</div>
