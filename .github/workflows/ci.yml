@@ -81,6 +81,19 @@ jobs:
         if: matrix.platform == 'linux'
         run: npm audit --audit-level=high || true
 
+      # #337: Coverage reporting.
+      - name: Coverage report
+        if: matrix.platform == 'linux'
+        run: npm test -- --coverage || true
+        continue-on-error: true
+      - name: Upload coverage artifact
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
       # #101: Run smoke tests as part of the CI gate.
       - name: Smoke tests
         if: matrix.platform == 'linux'
