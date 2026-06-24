@@ -99,6 +99,32 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		this._register(this._onDidCompleteAgent);
 	}
 
+	/**
+	 * #88: Drain in-flight agent runs on IDE shutdown. Aborts all active
+	 * agents and waits briefly for them to clean up before the service
+	 * is disposed. Prevents silent loss of running missions on crash/exit.
+	 */
+	public override dispose(): void {
+		// Abort all active execution states.
+		for (const [agentId, state] of this.executionStates) {
+			try {
+				state.tokenSource.cancel();
+				state.abortController.abort();
+			} catch {
+				// Best-effort — don't throw during shutdown.
+			}
+			const agent = this.agents.get(agentId);
+			if (agent && (agent.status === 'executing' || agent.status === 'planning' || agent.status === 'blocked')) {
+				agent.status = 'failed';
+				agent.currentAction = 'Aborted during IDE shutdown';
+				agent.completedAt = Date.now();
+			}
+		}
+		this.executionStates.clear();
+		this._onDidChangeAgents.fire();
+		super.dispose();
+	}
+
 	async spawnAgent(
 		missionId: string,
 		taskId: string,

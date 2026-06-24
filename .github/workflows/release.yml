@@ -39,6 +39,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # #89: Validate that the release tag matches package.json version.
+      - name: Validate release tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version $TAG_VERSION does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+          echo "Tag version $TAG_VERSION matches package.json version $PKG_VERSION"
+
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
         run: |

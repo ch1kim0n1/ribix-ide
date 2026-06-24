@@ -11,6 +11,7 @@
  * malformed. See docs/production-secrets.md for the full inventory.
  *
  * Issue #84 — Production readiness: secrets and environment configuration.
+ * Issue #92 — Runtime minimum version check for Node.js.
  */
 
 import { localize } from '../../../../nls.js';
@@ -31,6 +32,41 @@ export interface ConfigValidationError {
 export interface ConfigValidationWarning {
 	readonly provider: string;
 	readonly message: string;
+}
+
+// #92: Minimum Node.js version required for Ribix IDE features.
+const MIN_NODE_VERSION_MAJOR = 18;
+const MIN_NODE_VERSION_MINOR = 0;
+
+/**
+ * #92: Validate that the runtime Node.js version meets the minimum requirement.
+ * Returns an error if the version is too old.
+ */
+export function validateRuntimeVersion(): ConfigValidationResult {
+	const errors: ConfigValidationError[] = [];
+	const warnings: ConfigValidationWarning[] = [];
+
+	const nodeVersion = process.versions.node;
+	const parts = nodeVersion.split('.').map(Number);
+	const major = parts[0] ?? 0;
+	const minor = parts[1] ?? 0;
+
+	if (major < MIN_NODE_VERSION_MAJOR ||
+		(major === MIN_NODE_VERSION_MAJOR && minor < MIN_NODE_VERSION_MINOR)) {
+		errors.push({
+			provider: 'runtime',
+			setting: 'node',
+			message: localize('ribix.config.nodeVersionTooOld',
+				'Node.js {0} is too old. Ribix IDE requires Node.js {1}.{2} or later.',
+				nodeVersion, MIN_NODE_VERSION_MAJOR, MIN_NODE_VERSION_MINOR),
+		});
+	}
+
+	return {
+		valid: errors.length === 0,
+		errors,
+		warnings,
+	};
 }
 
 /** Provider names that require an API key. */

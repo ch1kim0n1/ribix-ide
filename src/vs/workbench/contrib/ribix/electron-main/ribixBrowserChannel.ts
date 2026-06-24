@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { Event } from '../../../../base/common/event.js';
@@ -12,15 +12,65 @@ import { Event } from '../../../../base/common/event.js';
 // Screenshot storage — written to system temp so paths are accessible in-process
 const SCREENSHOT_DIR = join(tmpdir(), 'ribix-browser');
 
+// #98: Memory bound — max screenshots retained and max total size.
+const MAX_SCREENSHOTS = 200;
+const MAX_SCREENSHOT_DIR_SIZE_MB = 500;
+
 function ensureScreenshotDir() {
 	if (!existsSync(SCREENSHOT_DIR)) {
 		mkdirSync(SCREENSHOT_DIR, { recursive: true });
 	}
 }
 
+/**
+ * #98: Prune old screenshots when the directory exceeds the file count
+ * or size bound. Prevents unbounded disk growth from long agent missions.
+ */
+function pruneScreenshots(): void {
+	try {
+		const files = readdirSync(SCREENSHOT_DIR)
+			.filter(f => f.endsWith('.png'))
+			.map(f => {
+				const filePath = join(SCREENSHOT_DIR, f);
+				try {
+					return { name: f, path: filePath, mtime: statSync(filePath).mtimeMs, size: statSync(filePath).size };
+				} catch {
+					return null;
+				}
+			})
+			.filter((f): f is { name: string; path: string; mtime: number; size: number } => f !== null)
+			.sort((a, b) => a.mtime - b.mtime); // oldest first
+
+		// Prune by count.
+		while (files.length > MAX_SCREENSHOTS) {
+			const oldest = files.shift();
+			if (oldest) {
+				try { unlinkSync(oldest.path); } catch { /* best-effort */ }
+			}
+		}
+
+		// Prune by total size.
+		const totalSizeMB = files.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024);
+		if (totalSizeMB > MAX_SCREENSHOT_DIR_SIZE_MB) {
+			while (files.length > 0) {
+				const oldest = files.shift();
+				if (oldest) {
+					try { unlinkSync(oldest.path); } catch { /* best-effort */ }
+				}
+				const remaining = files.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024);
+				if (remaining <= MAX_SCREENSHOT_DIR_SIZE_MB * 0.8) break;
+			}
+		}
+	} catch {
+		// Best-effort cleanup — never block screenshot capture.
+	}
+}
+
 function screenshotPath(label: string): string {
 	ensureScreenshotDir();
 	const ts = Date.now();
+	// #98: Prune before creating a new screenshot to stay within bounds.
+	pruneScreenshots();
 	return join(SCREENSHOT_DIR, `${label}-${ts}.png`);
 }
 

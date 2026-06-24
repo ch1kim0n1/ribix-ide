@@ -152,6 +152,30 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 			}
 			// Sort by createdAt descending
 			this.missions.sort((a, b) => b.createdAt - a.createdAt);
+
+			// #93: Resume interrupted missions — mark crashed in-flight missions
+			// as failed so the user is aware they need to be restarted.
+			// We don't auto-resume because agent state is not recoverable
+			// after a crash, but we surface them clearly instead of silently
+			// leaving them in 'planning'/'executing' forever.
+			let resumedCount = 0;
+			for (const mission of this.missions) {
+				if (mission.state === 'planning' || mission.state === 'executing') {
+					mission.state = 'failed';
+					resumedCount++;
+				}
+			}
+			if (resumedCount > 0) {
+				console.warn(`[Ribix] ${resumedCount} mission(s) were interrupted by a previous crash and marked as failed.`);
+				// Persist the updated states.
+				this.storageService.store(
+					RIBIX_MISSIONS_STORAGE_KEY,
+					JSON.stringify({ schemaVersion: MISSION_SCHEMA_VERSION, missions: this.missions } satisfies PersistedMissions),
+					StorageScope.WORKSPACE,
+					StorageTarget.USER,
+				);
+				this._onDidChangeMissions.fire();
+			}
 		} catch (e) {
 			console.error('Failed to load missions:', e);
 			this.missions = [];

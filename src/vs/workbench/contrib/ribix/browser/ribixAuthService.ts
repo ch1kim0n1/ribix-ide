@@ -66,6 +66,9 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 
 	private pendingSignIn: PendingSignIn | null = null;
 	private authChannel: IChannel;
+	// #90: Proactive token refresh timer — refreshes 5 minutes before expiry.
+	private refreshTimer: NodeJS.Timeout | null = null;
+	private static readonly REFRESH_LEAD_TIME_MS = 5 * 60 * 1000; // 5 minutes
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -197,6 +200,11 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 
 	async signOut(): Promise<void> {
 		this.pendingSignIn = null;
+		// #90: Clear proactive refresh timer on sign-out.
+		if (this.refreshTimer) {
+			clearTimeout(this.refreshTimer);
+			this.refreshTimer = null;
+		}
 		this.storageService.remove(RIBIX_AUTH_SESSION_KEY, StorageScope.APPLICATION);
 		const summary = await this.getAuthSummary();
 		this._onDidChangeSession.fire(summary);
@@ -229,6 +237,9 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 
 			await this.saveSession(newSession);
 
+			// #90: Schedule next proactive refresh.
+			this.scheduleProactiveRefresh(newSession.expiresAt);
+
 			// Verify the new session with the API
 			const apiClient = new RibixApiClient();
 			await apiClient.getSession({
@@ -247,6 +258,33 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 			await this.signOut();
 			throw new Error('Session expired. Please sign in again.');
 		}
+	}
+
+	/**
+	 * #90: Schedule a proactive token refresh before the token expires.
+	 * Fires REFRESH_LEAD_TIME_MS before the expiry time. If the token
+	 * has already expired or is very close to expiry, refresh immediately.
+	 */
+	private scheduleProactiveRefresh(expiresAtIso: string): void {
+		if (this.refreshTimer) {
+			clearTimeout(this.refreshTimer);
+			this.refreshTimer = null;
+		}
+
+		const expiresAt = new Date(expiresAtIso).getTime();
+		const refreshAt = expiresAt - RibixAuthService.REFRESH_LEAD_TIME_MS;
+		const delay = refreshAt - Date.now();
+
+		if (delay <= 0) {
+			// Token expires very soon — refresh immediately.
+			this.refreshToken().catch(() => { /* silent — getValidConfig will retry */ });
+			return;
+		}
+
+		this.refreshTimer = setTimeout(() => {
+			this.refreshTimer = null;
+			this.refreshToken().catch(() => { /* silent — getValidConfig will retry */ });
+		}, delay);
 	}
 
 	async handleOAuthCallback(code: string, state: string): Promise<void> {
@@ -284,6 +322,9 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 			clearTimeout(pending.timeout);
 			this.pendingSignIn = null;
 			pending.resolve();
+
+			// #90: Schedule proactive token refresh before expiry.
+			this.scheduleProactiveRefresh(session.expiresAt);
 
 			const summary = await this.getAuthSummary();
 			this._onDidChangeSession.fire(summary);
