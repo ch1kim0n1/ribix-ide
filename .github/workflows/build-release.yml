@@ -90,7 +90,7 @@ jobs:
           /usr/bin/codesign --force --deep --options runtime \
             --sign "Developer ID Application: ${{ secrets.APPLE_TEAM_ID }}" \
             "$APP_PATH"
-        continue-on-error: true
+        # #96: Removed continue-on-error — unsigned macOS builds must fail the release.
 
       - name: Notarize macOS app
         if: env.MACOS_CERTIFICATE_P12 != ''
@@ -104,7 +104,7 @@ jobs:
             --team-id "${{ secrets.APPLE_TEAM_ID }}" \
             --wait
           xcrun stapler staple "$DMG_PATH"
-        continue-on-error: true
+        # #96: Removed continue-on-error — unnotarized builds must fail the release.
 
       - name: Clean up keychain
         if: ${{ always() && env.KEYCHAIN_FILE != '' }}
@@ -245,7 +245,7 @@ jobs:
             /tr http://timestamp.digicert.com /td sha256 /fd sha256 \
             "..\VSCode-win32-x64\Ribix IDE.exe"
         shell: cmd
-        continue-on-error: true
+        # #96: Removed continue-on-error — unsigned Windows builds must fail the release.
 
       - name: Clean up certificate
         if: ${{ always() }}

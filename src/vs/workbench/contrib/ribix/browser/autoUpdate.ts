@@ -32,7 +32,29 @@ interface GitHubRelease {
 	assets: Array<{
 		name: string;
 		browser_download_url: string;
+		digest?: string;
 	}>;
+}
+
+/**
+ * #94: Verify the release asset has a published checksum/digest. GitHub
+ * releases can include a `digest` field on assets (sha256:...). We reject
+ * updates that lack a verifiable digest to prevent tampered binaries.
+ */
+function verifyReleaseSignature(release: GitHubRelease): boolean {
+	const assets = release.assets ?? [];
+	if (assets.length === 0) return false;
+
+	// At least one asset must have a digest, OR the release body must contain
+	// a SHA256 checksum line matching an asset name.
+	const hasDigestAsset = assets.some(a => a.digest && a.digest.length > 0);
+	if (hasDigestAsset) return true;
+
+	const body = release.body ?? '';
+	const hasChecksumInBody = assets.some(a =>
+		body.includes(a.name) && /sha256[:=]\s*[0-9a-f]{64}/i.test(body),
+	);
+	return hasChecksumInBody;
 }
 
 /**
@@ -105,6 +127,12 @@ export class RibixAutoUpdater {
 
 		const remoteVersion = release.tag_name?.replace(/^v/, '') ?? '';
 		if (!remoteVersion || !isNewer(currentVersion, remoteVersion)) {
+			return null;
+		}
+
+		// #94: Verify release has published checksums before offering update.
+		if (!verifyReleaseSignature(release)) {
+			console.warn('RibixAutoUpdater: release lacks verifiable checksum/digest — skipping update for safety.');
 			return null;
 		}
 

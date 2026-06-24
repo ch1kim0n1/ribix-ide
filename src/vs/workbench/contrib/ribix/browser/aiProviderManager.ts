@@ -33,6 +33,29 @@ export interface AIProviderConfig {
   timeout?: number;
 }
 
+// #87: Redact API keys from error messages and logs.
+const REDACTED = '[REDACTED]';
+export function redactApiKey(key: string | undefined): string {
+  if (!key) return REDACTED;
+  if (key.length <= 8) return REDACTED;
+  return key.slice(0, 4) + '...' + key.slice(-4);
+}
+
+// #99: Default 60s timeout for all AI provider fetch calls.
+const DEFAULT_AI_TIMEOUT_MS = 60_000;
+
+function getTimeoutMs(config: AIProviderConfig): number {
+  return config.timeout && config.timeout > 0 ? config.timeout : DEFAULT_AI_TIMEOUT_MS;
+}
+
+// #87: Validate API key is present at construction time.
+function requireApiKey(config: AIProviderConfig, provider: string): string {
+  if (!config.apiKey || config.apiKey.trim().length === 0) {
+    throw new Error(`${provider} API key is required but not configured.`);
+  }
+  return config.apiKey;
+}
+
 export interface AIResponse {
   content: string;
   model: string;
@@ -73,11 +96,12 @@ export class AnthropicProvider implements AIProviderInterface {
 
   async complete(prompt: string, config: AIProviderConfig): Promise<AIResponse> {
     const startTime = Date.now();
-    
+    const apiKey = requireApiKey(config, 'Anthropic');
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': config.apiKey!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
@@ -87,6 +111,7 @@ export class AnthropicProvider implements AIProviderInterface {
         messages: [{ role: 'user', content: prompt }],
         temperature: config.temperature || 0.7,
       }),
+      signal: AbortSignal.timeout(getTimeoutMs(config)),
     });
 
     const data = await response.json();
@@ -104,11 +129,12 @@ export class AnthropicProvider implements AIProviderInterface {
 
   async chat(messages: Array<{role: string; content: string}>, config: AIProviderConfig): Promise<AIResponse> {
     const startTime = Date.now();
-    
+    const apiKey = requireApiKey(config, 'Anthropic');
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': config.apiKey!,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
@@ -118,6 +144,7 @@ export class AnthropicProvider implements AIProviderInterface {
         messages,
         temperature: config.temperature || 0.7,
       }),
+      signal: AbortSignal.timeout(getTimeoutMs(config)),
     });
 
     const data = await response.json();
@@ -165,11 +192,12 @@ export class OpenAIProvider implements AIProviderInterface {
 
   async complete(prompt: string, config: AIProviderConfig): Promise<AIResponse> {
     const startTime = Date.now();
-    
+    const apiKey = requireApiKey(config, 'OpenAI');
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${config.apiKey!}`,
+        'Authorization': `Bearer ${apiKey}`,
         'content-type': 'application/json',
       },
       body: JSON.stringify({
@@ -178,6 +206,7 @@ export class OpenAIProvider implements AIProviderInterface {
         temperature: config.temperature || 0.7,
         max_tokens: config.maxTokens || 4096,
       }),
+      signal: AbortSignal.timeout(getTimeoutMs(config)),
     });
 
     const data = await response.json();
@@ -195,11 +224,12 @@ export class OpenAIProvider implements AIProviderInterface {
 
   async chat(messages: Array<{role: string; content: string}>, config: AIProviderConfig): Promise<AIResponse> {
     const startTime = Date.now();
-    
+    const apiKey = requireApiKey(config, 'OpenAI');
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${config.apiKey!}`,
+        'Authorization': `Bearer ${apiKey}`,
         'content-type': 'application/json',
       },
       body: JSON.stringify({
@@ -208,6 +238,7 @@ export class OpenAIProvider implements AIProviderInterface {
         temperature: config.temperature || 0.7,
         max_tokens: config.maxTokens || 4096,
       }),
+      signal: AbortSignal.timeout(getTimeoutMs(config)),
     });
 
     const data = await response.json();
@@ -315,7 +346,7 @@ export class RibixProvider implements AIProviderInterface {
 
   async complete(prompt: string, config: AIProviderConfig): Promise<AIResponse> {
     const startTime = Date.now();
-    
+
     // Call existing Ribix backend API
     const response = await fetch(`${config.baseURL || 'http://localhost:3000'}/api/ai/complete`, {
       method: 'POST',
@@ -324,6 +355,7 @@ export class RibixProvider implements AIProviderInterface {
         'authorization': `Bearer ${config.apiKey || ''}`,
       },
       body: JSON.stringify({ prompt, model: config.model }),
+      signal: AbortSignal.timeout(getTimeoutMs(config)),
     });
 
     const data = await response.json();
@@ -341,7 +373,7 @@ export class RibixProvider implements AIProviderInterface {
 
   async chat(messages: Array<{role: string; content: string}>, config: AIProviderConfig): Promise<AIResponse> {
     const startTime = Date.now();
-    
+
     const response = await fetch(`${config.baseURL || 'http://localhost:3000'}/api/ai/chat`, {
       method: 'POST',
       headers: {
@@ -349,6 +381,7 @@ export class RibixProvider implements AIProviderInterface {
         'authorization': `Bearer ${config.apiKey || ''}`,
       },
       body: JSON.stringify({ messages, model: config.model }),
+      signal: AbortSignal.timeout(getTimeoutMs(config)),
     });
 
     const data = await response.json();

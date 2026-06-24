@@ -608,15 +608,29 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		try {
 			findings = await runner.run({ timeoutMs: 90_000, pages: extraPages });
 		} catch (err) {
+			// #91: Surface Playwright setup errors as agent failures instead of
+			// silently converting them to findings. Distinguish setup errors
+			// (browser not installed, launch failure) from runtime findings.
 			const message = err instanceof Error ? err.message : String(err);
+			const isSetupError = /browser|launch|executable|install/i.test(message);
+
 			this.addActivityLog(agent, 'Playwright error', message, null, null);
 			agentProgressFeed.emit({
 				agentId: `${agent.missionId}:Tester`,
 				agentRole: 'Tester',
 				stage: 'error',
-				message: `Playwright runner failed: ${message}`,
+				message: isSetupError
+					? `Playwright setup failed: ${message}. Install browsers with: npx playwright install chromium`
+					: `Playwright runner failed: ${message}`,
 				timestamp: Date.now(),
 			});
+
+			if (isSetupError) {
+				// Propagate setup errors so the mission can record a proper failure
+				// instead of masking a missing browser as a "p1 finding".
+				throw new Error(`Playwright setup error: ${message}`);
+			}
+
 			return [{
 				title: 'Playwright runner crashed',
 				severity: 'p1',
