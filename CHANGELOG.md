@@ -2,6 +2,34 @@
 
 All notable changes to Ribix IDE are documented here.
 
+## [Unreleased]
+
+## [1.0.5] — 2026-06-30
+
+### Fixed
+- `bugs.url` in `package.json` corrected from `microsoft/vscode/issues` to `ch1kim0n1/ribix-ide/issues`
+- PWA manifest `name`/`short_name` updated from `Code - OSS` to `Ribix IDE`
+
+## [1.0.4] — 2026-06-27
+
+### Added
+- Command Center aggression/chaos control, destructive-approval panel, state-coverage view (#103 #107 #108)
+
+## [1.0.3] — 2026-06-25
+
+### Added
+- Findings panel ensemble contested/percentile surfacing + detection-category filter (#106 #110)
+
+## [1.0.2] — 2026-06-23
+
+### Added
+- Ephemeral VM boot/stop/stream actions + login-handoff flow UI (#104 #105)
+
+## [1.0.1] — 2026-06-22
+
+### Added
+- Tester agent upgraded from BFS to FAFO/user-qa exploration (#102)
+
 ## [1.0.0] — 2026-06-10
 
 ### Added
