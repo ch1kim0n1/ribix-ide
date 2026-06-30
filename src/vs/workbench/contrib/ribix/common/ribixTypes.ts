@@ -145,6 +145,26 @@ export type AgentFinding = {
 	 * the finding then degrades gracefully to text-only.
 	 */
 	screenshotPath?: string
+	/**
+	 * Ensemble vision critique results (#106). Populated only when the backend ensemble
+	 * vision orchestrator produced this finding; absent for single-model findings.
+	 * NOTE: the backend ensemble must populate these — the IDE only surfaces them.
+	 */
+	ensemble?: EnsembleCritique
+}
+
+/**
+ * Ensemble vision critique metadata for a finding (#106). Produced by the backend
+ * ensemble vision orchestrator running the same region past multiple models and
+ * scoring it against a benchmark corpus.
+ */
+export type EnsembleCritique = {
+	/** True when the models disagreed on this finding (flag it as contested). */
+	contested: boolean
+	/** Position against the benchmark corpus, 0–100 (higher = better than corpus). */
+	percentile?: number
+	/** Per-model scores keyed by model id, 0–1 each. Drives the contested flag. */
+	modelScores?: Record<string, number>
 }
 
 export type AgentInstance = {
