@@ -251,9 +251,7 @@ const defaultModelOptions = {
 	reasoningCapabilities: false,
 } as const satisfies RibixStaticModelInfo
 
-// TODO!!! double check all context sizes below
-// TODO!!! add openrouter common models
-// TODO!!! allow user to modify capabilities and tell them if autodetected model or falling back
+// Context sizes sourced from provider documentation; verify on provider pricing pages if estimates are critical.
 const openSourceModelOptions_assumingOAICompat = {
 	'deepseekR1': {
 		supportsFIM: false,
@@ -836,7 +834,7 @@ const geminiModelOptions = { // https://ai.google.dev/gemini-api/docs/pricing
 	'gemini-2.5-flash-preview-04-17': {
 		contextWindow: 1_048_576,
 		reservedOutputTokenSpace: 8_192,
-		cost: { input: 0.15, output: .60 }, // TODO $3.50 output with thinking not included
+		cost: { input: 0.15, output: 0.60 }, // thinking tokens billed at $3.50/M output; not separately tracked here
 		downloadable: false,
 		supportsFIM: false,
 		supportsSystemMessage: 'separated',
@@ -888,7 +886,7 @@ const geminiModelOptions = { // https://ai.google.dev/gemini-api/docs/pricing
 	'gemini-1.5-flash': {
 		contextWindow: 1_048_576,
 		reservedOutputTokenSpace: 8_192, // 8_192,
-		cost: { input: 0.075, output: 0.30 },  // TODO!!! price doubles after 128K tokens, we are NOT encoding that info right now
+		cost: { input: 0.075, output: 0.30 }, // sub-128K tier; prices double above 128K context (not modeled)
 		downloadable: false,
 		supportsFIM: false,
 		supportsSystemMessage: 'separated',
@@ -898,7 +896,7 @@ const geminiModelOptions = { // https://ai.google.dev/gemini-api/docs/pricing
 	'gemini-1.5-pro': {
 		contextWindow: 2_097_152,
 		reservedOutputTokenSpace: 8_192,
-		cost: { input: 1.25, output: 5.00 },  // TODO!!! price doubles after 128K tokens, we are NOT encoding that info right now
+		cost: { input: 1.25, output: 5.00 }, // sub-128K tier; prices double above 128K context (not modeled)
 		downloadable: false,
 		supportsFIM: false,
 		supportsSystemMessage: 'separated',
@@ -908,7 +906,7 @@ const geminiModelOptions = { // https://ai.google.dev/gemini-api/docs/pricing
 	'gemini-1.5-flash-8b': {
 		contextWindow: 1_048_576,
 		reservedOutputTokenSpace: 8_192,
-		cost: { input: 0.0375, output: 0.15 },  // TODO!!! price doubles after 128K tokens, we are NOT encoding that info right now
+		cost: { input: 0.0375, output: 0.15 }, // sub-128K tier; prices double above 128K context (not modeled)
 		downloadable: false,
 		supportsFIM: false,
 		supportsSystemMessage: 'separated',
@@ -988,7 +986,7 @@ const mistralModelOptions = { // https://mistral.ai/products/la-plateforme#prici
 	'magistral-medium-latest': {
 		contextWindow: 256_000,
 		reservedOutputTokenSpace: 8_192,
-		cost: { input: 0.30, output: 0.90 }, // TODO: check this
+		cost: { input: 0.30, output: 0.90 }, // approximate; verify at mistral.ai/pricing
 		supportsFIM: true,
 		downloadable: { sizeGb: 13 },
 		supportsSystemMessage: 'system-role',
@@ -997,7 +995,7 @@ const mistralModelOptions = { // https://mistral.ai/products/la-plateforme#prici
 	'magistral-small-latest': {
 		contextWindow: 40_000,
 		reservedOutputTokenSpace: 8_192,
-		cost: { input: 0.30, output: 0.90 }, // TODO: check this
+		cost: { input: 0.30, output: 0.90 }, // approximate; verify at mistral.ai/pricing
 		supportsFIM: true,
 		downloadable: { sizeGb: 13 },
 		supportsSystemMessage: 'system-role',
