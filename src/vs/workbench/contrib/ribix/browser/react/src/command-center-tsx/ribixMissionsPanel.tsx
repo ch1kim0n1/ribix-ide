@@ -9,6 +9,7 @@ import { IRibixMissionService } from '../../../ribixMissionService.js';
 import { Mission } from '../../../../common/ribixTypes.js';
 import { RibixMissionCard } from './ribixMissionCard.js';
 import { RibixPlanReviewDialog } from './ribixPlanReviewDialog.js';
+import { RibixAggressionControl, Aggression } from './ribixAggressionControl.js';
 import { ICodeEditorService } from '../../../../../../../editor/browser/services/codeEditorService.js';
 
 export const RibixMissionsPanel = () => {
@@ -18,6 +19,7 @@ export const RibixMissionsPanel = () => {
 
 	const [missions, setMissions] = useState<Mission[]>([]);
 	const [outcome, setOutcome] = useState('');
+	const [aggression, setAggression] = useState<Aggression>('default');
 	const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
 
 	// Context attachment state
@@ -76,17 +78,19 @@ export const RibixMissionsPanel = () => {
 		};
 	}, [missionService]);
 
-	const handlePlanThis = async () => {
-		if (!outcome.trim()) return;
+	// Pass the chosen aggression to the user-qa run via the mission notes — the planner
+	// already reads context.notes for scoping, so no service-signature change is needed (#103).
+	const buildNotes = (level: Aggression): string => `user-qa run; aggression=${level}`;
 
+	const startMission = async (missionOutcome: string, level: Aggression, opts?: { staging?: boolean }) => {
 		const attachedSelections = getSelectionContext();
-
+		const notes = buildNotes(level) + (opts?.staging ? '; target=staging' : '');
 		try {
-			const mission = await missionService.createMission(outcome, {
+			const mission = await missionService.createMission(missionOutcome, {
 				attachedFiles: [...attachedFiles],
 				attachedSelections,
 				issueUrls: [issueUrl].filter(Boolean),
-				notes: '',
+				notes,
 			});
 
 			await missionService.submitForPlanning(mission.id);
@@ -96,6 +100,18 @@ export const RibixMissionsPanel = () => {
 		} catch (error) {
 			console.error('Failed to create mission:', error);
 		}
+	};
+
+	const handlePlanThis = async () => {
+		if (!outcome.trim()) return;
+		await startMission(outcome, aggression);
+	};
+
+	// Chaos Run quick action (#103): start an aggression=chaos user-qa run against staging,
+	// using the typed outcome if present or a default chaos-sweep outcome otherwise.
+	const handleChaosRun = async () => {
+		const chaosOutcome = outcome.trim() || 'Chaos user-QA sweep of the application';
+		await startMission(chaosOutcome, 'chaos', { staging: true });
 	};
 
 	const handleAttachFile = () => {
@@ -216,6 +232,13 @@ export const RibixMissionsPanel = () => {
 						}}
 					/>
 				</div>
+
+				{/* Aggression selector + Chaos Run quick action (#103) */}
+				<RibixAggressionControl
+					value={aggression}
+					onChange={setAggression}
+					onChaosRun={handleChaosRun}
+				/>
 
 				<button
 					onClick={handlePlanThis}

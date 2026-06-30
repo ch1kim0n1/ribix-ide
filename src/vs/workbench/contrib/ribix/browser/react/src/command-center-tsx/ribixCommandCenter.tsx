@@ -9,6 +9,8 @@ import '../styles.css';
 import { RibixMissionsPanel } from './ribixMissionsPanel.js';
 import { RibixAgentsPanel } from './ribixAgentsPanel.js';
 import { RibixMemoryPanel } from './ribixMemoryPanel.js';
+import { RibixVmStatusBar } from './RibixVmStatusBar.js';
+import { RibixDestructiveApprovalPanel } from './ribixDestructiveApprovalPanel.js';
 import ErrorBoundary from '../sidebar-tsx/ErrorBoundary.js';
 import { IRibixAuthService } from '../../../ribixAuthService.js';
 
@@ -38,6 +40,12 @@ export const RibixCommandCenter = ({ className }: { className: string }) => {
 					color: 'var(--ribix-text-primary, #F5F0E8)',
 				}}
 			>
+				{/* Mid-run destructive-action approval modal (#107) — always mounted so requests
+				    surface regardless of the active tab; renders nothing when none are pending. */}
+				<ErrorBoundary>
+					<RibixDestructiveApprovalPanel />
+				</ErrorBoundary>
+
 				{/* Tab Navigation */}
 				<div className="flex border-b border-[var(--ribix-border, #1E4A32)]">
 					<button
@@ -81,6 +89,11 @@ export const RibixCommandCenter = ({ className }: { className: string }) => {
 						Settings
 					</button>
 				</div>
+
+				{/* #104/#105: ephemeral VM status + login-handoff bar (scoped to its own component) */}
+				<ErrorBoundary>
+					<RibixVmStatusBar />
+				</ErrorBoundary>
 
 				{/* Tab Content */}
 				<div className="w-full h-[calc(100%-48px)] overflow-auto">

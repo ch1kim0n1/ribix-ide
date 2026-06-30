@@ -52,6 +52,21 @@ export class RibixApiClient {
 		);
 	}
 
+	/**
+	 * Send the engineer's decision for a mid-run destructive-action approval request (#107)
+	 * back to the backend gate. The backend resumes or skips the action accordingly.
+	 */
+	async respondToApproval(
+		config: RibixConfig,
+		request: { approvalId: string; decision: 'approve' | 'reject' | 'reject_all'; missionId?: string },
+	): Promise<{ ok: boolean }> {
+		return this.post<{ ok: boolean }>(
+			config,
+			'/api/v1/approvals/respond',
+			request,
+		);
+	}
+
 	async createPR(config: RibixConfig, request: CreatePRRequest): Promise<CreatePRResponse> {
 		return this.post<CreatePRResponse>(
 			config,

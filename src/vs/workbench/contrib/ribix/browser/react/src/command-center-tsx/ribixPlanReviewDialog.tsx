@@ -14,6 +14,8 @@ import { RibixTaskTree } from './ribixTaskTree.js';
 import { RibixAgentActivityFeed } from './ribixAgentActivityFeed.js';
 import { RibixDiffSummary } from './ribixDiffSummary.js';
 import { RibixUxVision } from './ribixUxVision.js';
+import { RibixStateCoverage } from './ribixStateCoverage.js';
+import { IRibixBackendSseService } from '../../../ribixBackendSseService.js';
 
 /** A task carries the planner's fallback marker when LLM planning failed (ribixPlanningService). */
 const isFallbackTask = (task: PlanTask): boolean =>
@@ -30,7 +32,11 @@ export const RibixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialo
 	const agentService = accessor.get(IRibixAgentService);
 	const orchestrationService = accessor.get(IRibixOrchestrationService);
 	const diffAnnotationWidget = accessor.get(IRibixDiffAnnotationWidget);
+	const sseService = accessor.get(IRibixBackendSseService);
 	const [tasks, setTasks] = useState<PlanTask[]>(mission.tasks);
+	const [hasStateCoverage, setHasStateCoverage] = useState(
+		() => sseService.getStateCoverage(mission.id).length > 0
+	);
 	const [isApproving, setIsApproving] = useState(false);
 	const [uxVisionNotes, setUxVisionNotes] = useState<UxVisionNote[]>(
 		() => diffAnnotationWidget.getUxVisionNotes(mission.id)
@@ -52,6 +58,15 @@ export const RibixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialo
 		});
 		return () => disposable.dispose();
 	}, [diffAnnotationWidget, mission.id]);
+
+	// State-coverage entries (#108) arrive over the SSE stream during a user-qa run.
+	useEffect(() => {
+		setHasStateCoverage(sseService.getStateCoverage(mission.id).length > 0);
+		const disposable = sseService.onDidChangeRunEvents(() => {
+			setHasStateCoverage(sseService.getStateCoverage(mission.id).length > 0);
+		});
+		return () => disposable.dispose();
+	}, [sseService, mission.id]);
 
 	// Track orchestration progress so a failed task surfaces WHY (failed task + agent error).
 	useEffect(() => {
@@ -263,6 +278,16 @@ export const RibixPlanReviewDialog = ({ mission, onClose }: ribixPlanReviewDialo
 								UX Vision ({uxVisionNotes.length})
 							</h3>
 							<RibixUxVision notes={uxVisionNotes} />
+						</div>
+					)}
+
+					{/* State Coverage (#108) — which app-states the user-qa/FAFO run reached + scores. */}
+					{hasStateCoverage && (
+						<div className="mb-4">
+							<h3 className="text-sm font-semibold mb-3 text-[var(--ribix-text-secondary, #8A9E8A)]">
+								State Coverage
+							</h3>
+							<RibixStateCoverage missionId={mission.id} />
 						</div>
 					)}
 				</div>

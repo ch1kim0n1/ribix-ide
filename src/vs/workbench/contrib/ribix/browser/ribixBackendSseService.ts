@@ -28,6 +28,56 @@ export type TaggedFinding = AgentFinding & {
 	cloudId?: string;
 };
 
+/**
+ * A mid-run destructive-action approval request surfaced by the backend (#107).
+ * The agent wants to perform a destructive action (e.g. click DELETE on /account)
+ * against a production target and is paused until the engineer approves or rejects.
+ */
+export type DestructiveApprovalRequest = {
+	/** Opaque backend id used to send the approval/rejection back. */
+	approvalId: string;
+	missionId: string | null;
+	/** The action the agent wants to perform, e.g. "click DELETE". */
+	action: string;
+	/** The target the action would hit, e.g. "/account" or a full URL. */
+	target: string;
+	/** Risk tier from the backend classifier, e.g. "prod", "staging", "low". */
+	tier: string;
+	/** Human-readable reasoning for why this was classified destructive. */
+	reasoning: string;
+};
+
+/** The engineer's response to a destructive-action approval request (#107). */
+export type DestructiveApprovalDecision = 'approve' | 'reject' | 'reject_all';
+
+/** The app-states the FAFO engine can reach during a user-qa run (#108). */
+export type AppStateKind =
+	| 'empty'
+	| 'loading'
+	| 'error'
+	| '404'
+	| 'offline'
+	| 'first-run'
+	| 'post-delete'
+	| 'validation-failed';
+
+/** All app-states tracked by the state-coverage view, in display order (#108). */
+export const ALL_APP_STATES: readonly AppStateKind[] = [
+	'empty', 'loading', 'error', '404', 'offline', 'first-run', 'post-delete', 'validation-failed',
+];
+
+/** A single state-coverage entry: a state the run reached and how it scored (#108). */
+export type StateCoverageEntry = {
+	missionId: string | null;
+	state: AppStateKind;
+	/** Vision critique score 0–100 (higher is better). */
+	score: number;
+	/** Optional path to a thumbnail screenshot of the reached state. */
+	screenshotPath?: string;
+	/** Optional critique detail shown when the state is opened. */
+	critique?: string;
+};
+
 export interface IRibixBackendSseService {
 	readonly _serviceBrand: undefined;
 
@@ -50,6 +100,25 @@ export interface IRibixBackendSseService {
 	 * No-op if already subscribed for the same repo.
 	 */
 	ensureSubscribed(): Promise<void>;
+
+	/**
+	 * Fired whenever the set of pending destructive-action approvals (#107) or the
+	 * collected state-coverage entries (#108) change, so the Command Center UI re-renders.
+	 */
+	onDidChangeRunEvents: Event<void>;
+
+	/** Currently-pending destructive-action approval requests (#107). */
+	getPendingDestructiveApprovals(): DestructiveApprovalRequest[];
+
+	/** State-coverage entries collected for a mission's user-qa run (#108). */
+	getStateCoverage(missionId: string): StateCoverageEntry[];
+
+	/**
+	 * Send the engineer's decision for a destructive-action approval back to the backend (#107),
+	 * then drop it from the pending set. 'reject_all' additionally tells the backend to skip all
+	 * further destructive actions for the remainder of this run.
+	 */
+	respondToDestructiveApproval(approvalId: string, decision: DestructiveApprovalDecision): Promise<void>;
 }
 
 export const IRibixBackendSseService = createDecorator<IRibixBackendSseService>('ribixBackendSseService');
@@ -59,6 +128,14 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 
 	private readonly _onDidReceiveCloudFinding = new Emitter<TaggedFinding>();
 	readonly onDidReceiveCloudFinding = this._onDidReceiveCloudFinding.event;
+
+	private readonly _onDidChangeRunEvents = new Emitter<void>();
+	readonly onDidChangeRunEvents = this._onDidChangeRunEvents.event;
+
+	/** Pending destructive-action approvals keyed by approvalId (#107). */
+	private pendingApprovals = new Map<string, DestructiveApprovalRequest>();
+	/** State-coverage entries keyed by missionId (#108). */
+	private stateCoverage = new Map<string, StateCoverageEntry[]>();
 
 	private ribixSCM: IRibixSCMService;
 	private currentRepoFullName: string | null = null;
@@ -72,6 +149,7 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 	) {
 		super();
 		this._register(this._onDidReceiveCloudFinding);
+		this._register(this._onDidChangeRunEvents);
 		this.ribixSCM = ProxyChannel.toService<IRibixSCMService>(mainProcessService.getChannel('ribix-channel-scm'));
 
 		// Attempt to subscribe on construction; failures are suppressed.
@@ -92,6 +170,33 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 
 	tagIdeFindings(findings: AgentFinding[]): TaggedFinding[] {
 		return findings.map(f => ({ ...f, origin: 'ide' as const }));
+	}
+
+	getPendingDestructiveApprovals(): DestructiveApprovalRequest[] {
+		return [...this.pendingApprovals.values()];
+	}
+
+	getStateCoverage(missionId: string): StateCoverageEntry[] {
+		return this.stateCoverage.get(missionId) ?? [];
+	}
+
+	async respondToDestructiveApproval(approvalId: string, decision: DestructiveApprovalDecision): Promise<void> {
+		const request = this.pendingApprovals.get(approvalId);
+		// Drop optimistically so the panel clears even if the round-trip is slow.
+		this.pendingApprovals.delete(approvalId);
+		this._onDidChangeRunEvents.fire();
+
+		try {
+			const config = await this.authService.getRequiredConfig();
+			const apiClient = new RibixApiClient();
+			await apiClient.respondToApproval(config, {
+				approvalId,
+				decision,
+				missionId: request?.missionId ?? undefined,
+			});
+		} catch (e) {
+			console.warn('respondToDestructiveApproval: failed to send decision:', e);
+		}
 	}
 
 	async ensureSubscribed(): Promise<void> {
@@ -252,6 +357,49 @@ export class RibixBackendSseService extends Disposable implements IRibixBackendS
 				if (missionId && findingId) {
 					this.missionService.onFindingRejected(missionId, findingId, reason);
 				}
+				break;
+			}
+			case 'destructive_action_pending': {
+				// Mid-run destructive-action approval request (#107).
+				const approvalId = typeof d.approvalId === 'string' ? d.approvalId : null;
+				if (!approvalId) { break; }
+				this.pendingApprovals.set(approvalId, {
+					approvalId,
+					missionId: typeof d.missionId === 'string' ? d.missionId : null,
+					action: typeof d.action === 'string' ? d.action : 'unknown action',
+					target: typeof d.target === 'string' ? d.target : '',
+					tier: typeof d.tier === 'string' ? d.tier : 'unknown',
+					reasoning: typeof d.reasoning === 'string' ? d.reasoning : '',
+				});
+				this._onDidChangeRunEvents.fire();
+				break;
+			}
+			case 'destructive_action_resolved': {
+				// Backend resolved the request elsewhere (timeout / another client) — clear it (#107).
+				const approvalId = typeof d.approvalId === 'string' ? d.approvalId : null;
+				if (approvalId && this.pendingApprovals.delete(approvalId)) {
+					this._onDidChangeRunEvents.fire();
+				}
+				break;
+			}
+			case 'state:coverage': {
+				// A state-coverage critique entry from the FAFO engine (#108).
+				const missionId = typeof d.missionId === 'string' ? d.missionId : null;
+				const state = typeof d.state === 'string' ? d.state as AppStateKind : null;
+				if (!missionId || !state || !ALL_APP_STATES.includes(state)) { break; }
+				const entry: StateCoverageEntry = {
+					missionId,
+					state,
+					score: typeof d.score === 'number' ? d.score : 0,
+					screenshotPath: typeof d.screenshotPath === 'string' ? d.screenshotPath : undefined,
+					critique: typeof d.critique === 'string' ? d.critique : undefined,
+				};
+				const existing = this.stateCoverage.get(missionId) ?? [];
+				// Replace any prior entry for the same state so the latest score wins.
+				const next = existing.filter(e => e.state !== state);
+				next.push(entry);
+				this.stateCoverage.set(missionId, next);
+				this._onDidChangeRunEvents.fire();
 				break;
 			}
 			default:
