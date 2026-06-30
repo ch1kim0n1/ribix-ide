@@ -678,20 +678,11 @@ export class AutocompleteService extends Disposable implements IAutocompleteServ
 		// if there is a cached autocompletion, return it
 		if (cachedAutocompletion && autocompletionMatchup) {
 
-			console.log('AA')
-
-
-			// console.log('id: ' + cachedAutocompletion.id)
-
 			if (cachedAutocompletion.status === 'finished') {
-				console.log('A1')
-
 				const inlineCompletions = toInlineCompletions({ autocompletionMatchup, autocompletion: cachedAutocompletion, prefixAndSuffix, position, debug: true })
 				return inlineCompletions
 
 			} else if (cachedAutocompletion.status === 'pending') {
-				console.log('A2')
-
 				try {
 					await cachedAutocompletion.llmPromise;
 					const inlineCompletions = toInlineCompletions({ autocompletionMatchup, autocompletion: cachedAutocompletion, prefixAndSuffix, position })
@@ -699,14 +690,11 @@ export class AutocompleteService extends Disposable implements IAutocompleteServ
 
 				} catch (e) {
 					this._autocompletionsOfDocument[docUriStr].delete(cachedAutocompletion.id)
-					console.error('Error creating autocompletion (1): ' + e)
+					// autocompletion (1) failed — discard silently; a fresh request will be made
 				}
 
-			} else if (cachedAutocompletion.status === 'error') {
-				console.log('A3')
-			} else {
-				console.log('A4')
 			}
+			// status === 'error' or unknown — fall through to fresh request
 
 			return []
 		}
@@ -787,7 +775,7 @@ export class AutocompleteService extends Disposable implements IAutocompleteServ
 			_newlineCount: 0,
 		}
 
-		console.log('starting autocomplete...', predictionType)
+		// starting autocomplete for predictionType
 
 		const featureName: FeatureName = 'Autocomplete'
 		const overridesOfModel = this._settingsService.state.overridesOfModel
@@ -931,7 +919,6 @@ export class AutocompleteService extends Disposable implements IAutocompleteServ
 					const matchup = removeAllWhitespace(prefix) === removeAllWhitespace(autocompletion.prefix + autocompletion.insertText)
 
 					if (matchup) {
-						console.log('ACCEPT', autocompletion.id)
 						this._lastCompletionAccept = Date.now()
 						this._autocompletionsOfDocument[docUriStr].delete(autocompletion.id);
 					}

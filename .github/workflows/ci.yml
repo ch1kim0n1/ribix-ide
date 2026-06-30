@@ -79,7 +79,7 @@ jobs:
       # in transitive deps of Electron/VS Code that require upstream fixes).
       - name: npm audit (high and critical only)
         if: matrix.platform == 'linux'
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
 
       # #337: Coverage reporting.
       - name: Coverage report

@@ -590,7 +590,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 			const apiClient = new RibixApiClient();
 			const response = await apiClient.submitFindings(config, repoFullName, findings, mission.id, serializedRules);
-			console.log(`submitFindingsToBackend: submitted ${response.submitted} findings, ${response.duplicates ?? 0} duplicates skipped for mission ${mission.id}`);
+			console.debug(`submitFindingsToBackend: submitted ${response.submitted} findings, ${response.duplicates ?? 0} duplicates skipped for mission ${mission.id}`);
 
 			// Telemetry: findings submitted (fire-and-forget)
 			void this.metricsService.capture('finding:submitted', { count: response.submitted, source: 'ide' });
@@ -613,7 +613,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 			const queue: PendingFindingsItem[] = JSON.parse(raw);
 			queue.push({ repoFullName, findings, missionId, retries: 0, queuedAt: new Date().toISOString() });
 			this.storageService.store(RIBIX_PENDING_FINDINGS_KEY, JSON.stringify(queue), StorageScope.APPLICATION, StorageTarget.MACHINE);
-			console.log(`queueFindingsForRetry: queued ${findings.length} findings for mission ${missionId} (queue depth: ${queue.length})`);
+			console.debug(`queueFindingsForRetry: queued ${findings.length} findings for mission ${missionId} (queue depth: ${queue.length})`);
 		} catch (e) {
 			console.warn('queueFindingsForRetry: failed to persist queue:', e);
 		}
@@ -650,7 +650,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 				}
 				try {
 					const response = await apiClient.submitFindings(config, item.repoFullName, item.findings, item.missionId);
-					console.log(`flushPendingFindings: submitted ${response.submitted} findings for mission ${item.missionId} (queued at ${item.queuedAt})`);
+					console.debug(`flushPendingFindings: submitted ${response.submitted} findings for mission ${item.missionId} (queued at ${item.queuedAt})`);
 				} catch {
 					remaining.push({ ...item, retries: item.retries + 1 });
 				}

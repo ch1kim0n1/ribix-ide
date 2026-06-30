@@ -21,6 +21,20 @@ import { getUNCHost, addUNCHostToAllowlist } from './vs/base/node/unc.js';
 import { INLSConfiguration } from './vs/nls.js';
 import { NativeParsedArgs } from './vs/platform/environment/common/argv.js';
 
+// #135: Error monitoring — initialize Sentry as early as possible in the main process.
+// Gated on SENTRY_DSN so it is a no-op in local development. Set SENTRY_DSN in
+// production environment secrets (e.g. GitHub Actions → Settings → Secrets).
+// See .env.example for the full list of environment variables ribix-ide reads.
+import * as Sentry from '@sentry/electron/main';
+if (process.env['SENTRY_DSN']) {
+	Sentry.init({
+		dsn: process.env['SENTRY_DSN'],
+		// Attach the product version so errors are grouped by release in Sentry.
+		release: (process.env['npm_package_version'] as string | undefined) ?? 'unknown',
+		environment: process.env['NODE_ENV'] ?? 'production',
+	});
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 perf.mark('code/didStartMain');

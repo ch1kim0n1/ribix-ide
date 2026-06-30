@@ -32,6 +32,7 @@ import { PlaywrightRunner, PlaywrightFinding } from './playwrightRunner.js';
 import { agentProgressFeed } from './agentProgressFeed.js';
 import { IFixMemoryService } from './fixMemory.js';
 import { callLlm, parseToolCalls } from './ribixAgentLlmClient.js';
+import { agentSandboxInstance, SandboxBlockedError } from './agentSandbox.js';
 
 /** Storage key under which the workspace staging URL is persisted. */
 const RIBIX_STAGING_URL_KEY = 'ribix.stagingUrl';
@@ -576,6 +577,23 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		}
 
 		const filePath: string | null = validated?.uri?.fsPath ?? null;
+
+		// #131: Enforce outbound request policy via AgentSandbox before any browser navigation.
+		// guardRequest() throws SandboxBlockedError when the URL is denied or the per-run
+		// request budget is exhausted. The singleton uses a permissive default policy but
+		// can be tightened via ribix.configureSandbox or AgentSandbox.fromStagingUrl().
+		if (tool === 'browser_navigate' && validated?.url) {
+			try {
+				agentSandboxInstance.guardRequest(validated.url, agent.id);
+			} catch (err) {
+				if (err instanceof SandboxBlockedError) {
+					this.addActivityLog(agent, 'Sandbox blocked', err.message, tool, null);
+					return `Error: outbound request blocked by AgentSandbox — ${err.policyReason}. Configure allowed domains via the "ribix.configureSandbox" command.`;
+				}
+				throw err;
+			}
+		}
+
 		this.addActivityLog(agent, 'Tool call', tool, tool, filePath);
 
 		const stringify = (result: unknown): string => {
@@ -879,7 +897,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 	 */
 	private logTiming(agent: AgentInstance, turn: number, llmMs: number, toolMs: number, toolCount: number, estTokens: number): void {
 		if (!this.timingDebugEnabled) { return; }
-		console.log(`[ribix-agent-timing] ${agent.type}/${agent.id.slice(0, 8)} turn=${turn + 1} llm=${llmMs}ms tools=${toolMs}ms toolCalls=${toolCount} estTokens=${estTokens}`);
+		console.debug(`[ribix-agent-timing] ${agent.type}/${agent.id.slice(0, 8)} turn=${turn + 1} llm=${llmMs}ms tools=${toolMs}ms toolCalls=${toolCount} estTokens=${estTokens}`);
 	}
 
 	private addActivityLog(agent: AgentInstance, action: string, detail: string | null, tool: string | null, filePath: string | null): void {

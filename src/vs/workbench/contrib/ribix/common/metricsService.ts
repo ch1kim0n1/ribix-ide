@@ -67,7 +67,7 @@ registerAction2(class extends Action2 {
 		const notifService = accessor.get(INotificationService)
 
 		const debugProperties = await metricsService.getDebuggingProperties()
-		console.log('Metrics:', debugProperties)
+		console.debug('Metrics:', debugProperties)
 		notifService.info(`Ribix IDE Debug info:\n${JSON.stringify(debugProperties, null, 2)}`)
 	}
 })

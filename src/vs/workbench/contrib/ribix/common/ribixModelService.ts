@@ -49,7 +49,7 @@ class RibixModelService extends Disposable implements IRibixModelService {
 			this._modelRefOfURI[uri.fsPath] = editorModelRef;
 		}
 		catch (e) {
-			console.log('InitializeModel error:', e)
+			console.error('InitializeModel error:', e)
 		}
 	};
 

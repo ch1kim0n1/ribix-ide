@@ -84,6 +84,7 @@
     "update-build-ts-version": "npm install typescript@next && tsc -p ./build/tsconfig.build.json"
   },
   "dependencies": {
+    "@sentry/electron": "^5.0.0",
     "@anthropic-ai/sdk": "^0.40.0",
     "@c4312/eventsource-umd": "^3.0.5",
     "@floating-ui/react": "^0.27.8",

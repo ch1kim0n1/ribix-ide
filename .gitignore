@@ -28,3 +28,12 @@ product.overrides.json
 .tool-versions
 src/vs/workbench/contrib/ribix/browser/react/out/**
 src/vs/workbench/contrib/ribix/browser/react/src2/**
+
+# Environment variable files — never commit secrets
+.env
+.env.local
+.env.production
+.env.development
+.env.*.local
+# Keep .env.example tracked (it documents required vars without values)
+!.env.example
