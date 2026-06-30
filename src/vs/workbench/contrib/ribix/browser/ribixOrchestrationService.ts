@@ -11,6 +11,7 @@ import { IRibixAgentService } from './ribixAgentService.js';
 import { IRibixTaskQueueService } from '../common/ribixTaskQueueService.js';
 import { IRibixMissionService } from './ribixMissionService.js';
 import { AgentOutput, Mission, MissionState, PlanTask } from '../common/ribixTypes.js';
+import { agentProgressFeed } from './agentProgressFeed.js';
 
 export interface MissionProgress {
 	missionId: string;
@@ -287,6 +288,7 @@ export class RibixOrchestrationService extends Disposable implements IRibixOrche
 		try {
 			// Mark task as in progress
 			task.status = 'in_progress';
+			agentProgressFeed.emit({ agentId: `${missionId}:${task.agentType}`, agentRole: task.agentType as any, stage: 'planning', message: task.description, timestamp: Date.now() });
 
 			// Build context for the agent
 			const context = await this.buildTaskContext(missionId, task, state);
@@ -388,6 +390,9 @@ export class RibixOrchestrationService extends Disposable implements IRibixOrche
 		}
 
 		state.completedTaskIds.add(taskId);
+		if (task) {
+			agentProgressFeed.emit({ agentId: `${missionId}:${task.agentType}`, agentRole: task.agentType as any, stage: 'complete', message: `${task.description} — done`, timestamp: Date.now() });
+		}
 
 		// Store structured agent output for dependent tasks
 		const agent = this.agentService.getAgent(agentId);
@@ -416,6 +421,9 @@ export class RibixOrchestrationService extends Disposable implements IRibixOrche
 		}
 
 		state.failedTaskIds.add(taskId);
+		if (task) {
+			agentProgressFeed.emit({ agentId: `${missionId}:${task.agentType}`, agentRole: task.agentType as any, stage: 'error', message: `${task.description} — failed`, timestamp: Date.now() });
+		}
 
 		// Capture WHY the task failed: the failing agent records its error in
 		// output.blocked.reason (see ribixAgentService.markAgentFailed). Surface it so the

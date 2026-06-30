@@ -25,6 +25,7 @@ import { IMetricsService } from '../common/metricsService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { SubmitFindingsRequest } from '../common/ribixAuthTypes.js';
 import { SuppressionRules, EMPTY_SUPPRESSION_RULES, loadSuppressionRules, filterSuppressed } from '../common/ribixSuppression.js';
+import { agentProgressFeed } from './agentProgressFeed.js';
 
 export interface IRibixMissionService {
 	readonly _serviceBrand: undefined;
@@ -368,6 +369,8 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.state = 'planning';
 		await this.saveMission(mission);
 
+		agentProgressFeed.emit({ agentId: `${id}:Planner`, agentRole: 'Planner', stage: 'planning', message: 'Generating mission plan…', timestamp: Date.now() });
+
 		// TODO(replay): Record agent_stage_change → planning.
 		//   this._recorders.get(id)?.record({ agentId: '', agentRole: 'planner', type: 'agent_stage_change', data: { from: 'awaiting_outcome', to: 'planning' } });
 
@@ -401,6 +404,8 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.tasks = tasks;
 		mission.state = 'plan_ready';
 		await this.saveMission(mission);
+
+		agentProgressFeed.emit({ agentId: `${id}:Planner`, agentRole: 'Planner', stage: 'complete', message: `Plan ready — ${tasks.length} task(s) queued`, timestamp: Date.now() });
 
 		// TODO(replay): Record agent_stage_change → plan_ready.
 		//   this._recorders.get(id)?.record({ agentId: '', agentRole: 'planner', type: 'agent_stage_change', data: { from: 'planning', to: 'plan_ready', taskCount: tasks.length } });
@@ -445,6 +450,8 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.state = 'executing';
 		await this.saveMission(mission);
 
+		agentProgressFeed.emit({ agentId: `${id}:Planner`, agentRole: 'Planner', stage: 'complete', message: 'Plan approved — agents starting', timestamp: Date.now() });
+
 		// TODO(replay): Record agent_stage_change → executing (plan approved, agents starting).
 		//   this._recorders.get(id)?.record({ agentId: '', agentRole: 'planner', type: 'agent_stage_change', data: { from: 'plan_ready', to: 'executing', branchName } });
 	}
@@ -459,6 +466,8 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.state = 'aborted';
 		mission.completedAt = Date.now();
 		await this.saveMission(mission);
+
+		agentProgressFeed.emit({ agentId: `${id}:Planner`, agentRole: 'Planner', stage: 'error', message: 'Mission aborted', timestamp: Date.now() });
 
 		// Telemetry: mission aborted (fire-and-forget)
 		void this.metricsService.capture('mission:aborted', { reason: 'user_abort' });
@@ -475,6 +484,9 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		mission.completedAt = Date.now();
 		mission.result = result;
 		await this.saveMission(mission);
+
+		const findingCount = result?.reviewerFindings?.length ?? 0;
+		agentProgressFeed.emit({ agentId: `${id}:Release`, agentRole: 'Release', stage: 'complete', message: `Mission complete — ${findingCount} finding(s)`, timestamp: Date.now() });
 
 		// TODO(replay): Record mission_complete and flush the recorder to disk.
 		//   const recorder = this._recorders.get(id);
