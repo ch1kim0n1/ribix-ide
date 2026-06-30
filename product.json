@@ -31,8 +31,9 @@
 	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "ribix-ide",
 	"extensionsGallery": {
-		"serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
-		"itemUrl": "https://marketplace.visualstudio.com/items"
+		"serviceUrl": "https://open-vsx.org/vscode/gallery",
+		"itemUrl": "https://open-vsx.org/vscode/item",
+		"resourceUrlTemplate": "https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}"
 	},
 	"builtInExtensions": [],
 	"linkProtectionTrustedDomains": [
@@ -40,7 +41,7 @@
 		"https://github.com/ch1kim0n1/ribix-ide",
 		"https://ollama.com"
 	],
-	"ribixVersion": "1.0.0",
-	"ribixRelease": "0001",
+	"ribixVersion": "1.0.5",
+	"ribixRelease": "0005",
 	"_telemetryNote": "Set the RIBIX_POSTHOG_KEY build secret (GitHub Actions > Settings > Secrets and variables > Actions) to enable product analytics. When the secret is absent, the PostHog client initialises with a disabled placeholder key and no events are sent."
 }
