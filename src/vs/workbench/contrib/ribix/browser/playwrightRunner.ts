@@ -26,6 +26,42 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
+/**
+ * Subprocess-script fragment injected in `user-qa` (FAFO) mode. It runs inside the
+ * generated Playwright script (so `page` is in scope) after navigation and before
+ * the screenshot. It performs curiosity clicks, hostile input fuzzing, and state
+ * perturbation; the page's existing console/pageerror/response listeners turn any
+ * resulting breakage into findings. Wrapped in try/catch so FAFO can never crash
+ * the run — perturbation failures are expected and non-fatal.
+ */
+const FAFO_INTERACTION_SNIPPET = `
+  // --- FAFO interaction phase (user-qa mode) ---
+  try {
+    const HOSTILE_INPUTS = [
+      '', '   ', "'; DROP TABLE users; --", '<script>alert(1)</script>',
+      '{{7*7}}', '-1', '0', '99999999999999999999', '👾🔥'.repeat(50),
+      'a'.repeat(5000), 'not-an-email', '٢٠٢٤/13/40',
+    ];
+    // Fuzz every visible text-like input with a hostile value.
+    const inputs = await page.$$('input:not([type=hidden]), textarea');
+    for (let i = 0; i < inputs.length; i++) {
+      const value = HOSTILE_INPUTS[i % HOSTILE_INPUTS.length];
+      try { await inputs[i].fill(value, { timeout: 2000 }); } catch { /* perturb */ }
+    }
+    // Curiosity + chaos: rapidly double/triple-click submit-ish buttons.
+    const buttons = await page.$$('button, [type=submit], [role=button]');
+    for (const btn of buttons.slice(0, 8)) {
+      try { await btn.click({ clickCount: 3, timeout: 2000, force: true }); } catch { /* perturb */ }
+    }
+    // State perturbation: resize mid-flow, then bounce through history.
+    try { await page.setViewportSize({ width: 375, height: 667 }); } catch { /* perturb */ }
+    try { await page.goBack({ timeout: 3000 }); await page.goForward({ timeout: 3000 }); } catch { /* perturb */ }
+    try { await page.reload({ timeout: 5000 }); } catch { /* perturb */ }
+    // Let any async breakage settle so listeners can capture it.
+    try { await page.waitForTimeout(750); } catch { /* perturb */ }
+  } catch (fafoErr) { /* FAFO is best-effort; never fail the run on it */ }
+`;
+
 export interface PlaywrightFinding {
 	title: string;
 	severity: 'p0' | 'p1' | 'p2' | 'p3';
@@ -35,6 +71,15 @@ export interface PlaywrightFinding {
 	stackTrace?: string;
 }
 
+/**
+ * Exploration mode for a Playwright run.
+ *  - `proactive`: passive observation only — visit pages and collect anomalies
+ *    (the original BFS-style behavior).
+ *  - `user-qa`: aggressive FAFO mode — additionally perturb page state (curiosity
+ *    clicks + hostile input fuzzing) to flush out bugs a real user would hit.
+ */
+export type PlaywrightRunMode = 'proactive' | 'user-qa';
+
 export interface PlaywrightRunOptions {
 	/** Maximum wall-clock time for the entire run. Defaults to 120 000 ms. */
 	timeoutMs: number;
@@ -43,6 +88,11 @@ export interface PlaywrightRunOptions {
 	 * resolved against `stagingUrl`. E.g. `['/login', '/dashboard']`.
 	 */
 	pages?: string[];
+	/**
+	 * Exploration mode. The Tester agent requests `user-qa` to run aggressive
+	 * FAFO interaction. Defaults to `proactive` (passive observation).
+	 */
+	mode?: PlaywrightRunMode;
 }
 
 /**
@@ -63,12 +113,13 @@ export class PlaywrightRunner {
 	 */
 	async run(opts: PlaywrightRunOptions): Promise<PlaywrightFinding[]> {
 		const pages = [this.stagingUrl, ...(opts.pages ?? []).map(p => this.resolvePageUrl(p))];
+		const mode = opts.mode ?? 'proactive';
 
 		const allFindings: PlaywrightFinding[] = [];
 
 		for (const url of pages) {
 			try {
-				const pageFindings = await this.checkPage(url, opts.timeoutMs);
+				const pageFindings = await this.checkPage(url, opts.timeoutMs, mode);
 				allFindings.push(...pageFindings);
 			} catch (err) {
 				// Subprocess failure — surface it as a P1 so the agent has signal
@@ -92,8 +143,8 @@ export class PlaywrightRunner {
 	 *   - Takes a screenshot and saves it to the OS temp dir
 	 * Returns one `PlaywrightFinding` per distinct anomaly found.
 	 */
-	private async checkPage(url: string, timeoutMs: number): Promise<PlaywrightFinding[]> {
-		const script = this.buildPlaywrightScript(url, timeoutMs);
+	private async checkPage(url: string, timeoutMs: number, mode: PlaywrightRunMode = 'proactive'): Promise<PlaywrightFinding[]> {
+		const script = this.buildPlaywrightScript(url, timeoutMs, mode);
 		const scriptPath = path.join(os.tmpdir(), `ribix-pw-${Date.now()}.mjs`);
 
 		try {
@@ -110,10 +161,14 @@ export class PlaywrightRunner {
 	 * collects anomalies, writes them as a JSON array to stdout, and exits.
 	 * It is written as an ES module (.mjs) so it works with Node's native ESM loader.
 	 */
-	private buildPlaywrightScript(url: string, timeoutMs: number): string {
+	private buildPlaywrightScript(url: string, timeoutMs: number, mode: PlaywrightRunMode = 'proactive'): string {
 		const screenshotPath = path.join(os.tmpdir(), `ribix-screenshot-${Date.now()}.png`).replace(/\\/g, '/');
 		const escapedUrl = JSON.stringify(url);
 		const escapedScreenshot = JSON.stringify(screenshotPath);
+		// In user-qa (FAFO) mode, inject an aggressive interaction phase that
+		// perturbs page state with hostile inputs and curiosity clicks so the
+		// listeners above surface bugs a passive page-visit would miss.
+		const fafoPhase = mode === 'user-qa' ? FAFO_INTERACTION_SNIPPET : '';
 
 		return `
 import { chromium } from 'playwright';
@@ -195,6 +250,7 @@ try {
     });
   }
 
+${fafoPhase}
   // Capture screenshot for visual reference
   try {
     await page.screenshot({ path: screenshotPath, fullPage: true });

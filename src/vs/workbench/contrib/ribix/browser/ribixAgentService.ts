@@ -747,7 +747,9 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 
 		let findings: PlaywrightFinding[];
 		try {
-			findings = await runner.run({ timeoutMs: 90_000, pages: extraPages });
+			// Tester runs in aggressive FAFO mode (user-qa), not passive proactive
+			// observation — see issue #102.
+			findings = await runner.run({ timeoutMs: 90_000, pages: extraPages, mode: 'user-qa' });
 		} catch (err) {
 			// #91: Surface Playwright setup errors as agent failures instead of
 			// silently converting them to findings. Distinguish setup errors
