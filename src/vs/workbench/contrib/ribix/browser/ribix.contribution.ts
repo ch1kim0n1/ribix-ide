@@ -93,6 +93,9 @@ import './ribixAuthService.js'
 // register Ribix backend SSE service (cloud finding sync)
 import './ribixBackendSseService.js'
 
+// register Ribix VM service (#104 ephemeral VM boot/stop/stream, #105 login-handoff)
+import './ribixVmService.js'
+
 // register Ribix auth actions (Sign In / Sign Out commands + OAuth callback handler)
 import './ribixAuthActions.js'
 
