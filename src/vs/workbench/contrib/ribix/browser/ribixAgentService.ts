@@ -72,12 +72,63 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 	/** Write tools that mutate files and require lock + checkpoint before execution. */
 	private static readonly WRITE_TOOLS = new Set(['rewrite_file', 'edit_file', 'create_file_or_folder', 'delete_file_or_folder']);
 
+	/** Tools that execute commands / spawn terminals (can run tests, build, mutate via shell). */
+	private static readonly COMMAND_TOOLS = new Set(['run_command', 'run_persistent_command', 'open_persistent_terminal', 'kill_persistent_terminal']);
+
+	/**
+	 * #115: Per-agent-type tool allowlists, enforced in code (not just the prompt).
+	 * A tool is permitted for an agent type if it is read-only OR explicitly listed here.
+	 * Read-only tools (read_file, ls_dir, searches, lint, browser inspection) are always
+	 * allowed for every type. Write tools and command tools must be opted into per type.
+	 *  - reviewer/planner/docs: read-only only (no write, no command execution).
+	 *  - tester: read-only + command tools (may run tests) but no file writes.
+	 *  - coder/debugger/release/browser: read-only + write + command (full capability).
+	 */
+	private static readonly EXTRA_ALLOWED_TOOLS: Record<AgentType, ReadonlySet<string>> = {
+		planner: new Set<string>(),
+		reviewer: new Set<string>(),
+		docs: new Set<string>(),
+		'onboarding-persona': new Set<string>(),
+		tester: RibixAgentService.COMMAND_TOOLS,
+		coder: new Set([...RibixAgentService.WRITE_TOOLS, ...RibixAgentService.COMMAND_TOOLS]),
+		debugger: new Set([...RibixAgentService.WRITE_TOOLS, ...RibixAgentService.COMMAND_TOOLS]),
+		release: new Set([...RibixAgentService.WRITE_TOOLS, ...RibixAgentService.COMMAND_TOOLS]),
+		browser: new Set([...RibixAgentService.WRITE_TOOLS, ...RibixAgentService.COMMAND_TOOLS]),
+	};
+
+	/**
+	 * Returns true if `tool` is allowed for `agentType`. Read-only tools are always allowed;
+	 * write/command tools are only allowed if listed in EXTRA_ALLOWED_TOOLS for the type.
+	 * MCP / unknown tools are not gated here (handled by their own routing in runOneTool).
+	 */
+	private isToolAllowed(agentType: AgentType, tool: string): boolean {
+		if (!RibixAgentService.WRITE_TOOLS.has(tool) && !RibixAgentService.COMMAND_TOOLS.has(tool)) {
+			return true; // read-only builtin tool
+		}
+		return RibixAgentService.EXTRA_ALLOWED_TOOLS[agentType]?.has(tool) ?? false;
+	}
+
 	/**
 	 * Maximum number of completed/failed agents to retain in memory for UI queries.
 	 * Older entries beyond this cap are pruned once a new agent finishes. Active agents
 	 * (status 'idle'|'planning'|'executing'|'blocked') are never pruned.
 	 */
 	private static readonly MAX_COMPLETED_AGENTS = 50;
+
+	/**
+	 * #118: Message-history growth cap. Tool results from old turns are the dominant
+	 * source of token bloat in long runs. We keep the most-recent RECENT_TOOL_RESULTS
+	 * tool messages verbatim and truncate the content of any older tool message to
+	 * TRUNCATED_TOOL_RESULT_CHARS, leaving a marker. System/user/assistant turns are
+	 * never touched, so the model retains its instructions and full reasoning trail.
+	 */
+	private static readonly RECENT_TOOL_RESULTS = 6;
+	private static readonly TRUNCATED_TOOL_RESULT_CHARS = 500;
+
+	/** #118: Debug flag gating per-turn timing logs (off unless the config key is set). */
+	private get timingDebugEnabled(): boolean {
+		return this.configurationService?.getValue<boolean>('ribix.agentLoop.debugTiming') === true;
+	}
 
 	private agents: Map<string, AgentInstance> = new Map();
 	private executionStates: Map<string, AgentExecutionState> = new Map();
@@ -218,6 +269,30 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		return DEFAULT_AGENT_BUDGETS[type];
 	}
 
+	/** A tool call is safe to run in parallel only if it neither writes files nor runs commands. */
+	private isReadOnlyTool(tool: string): boolean {
+		return !RibixAgentService.WRITE_TOOLS.has(tool) && !RibixAgentService.COMMAND_TOOLS.has(tool);
+	}
+
+	/**
+	 * #118: Caps message-history growth in place. Truncates the content of all but the
+	 * most-recent tool results so accumulated token cost stays bounded across many turns.
+	 * Mutates `messages` directly (cheap, no re-allocation of the array).
+	 */
+	private truncateOldToolResults(messages: AgentTurnMessage[]): void {
+		const toolIndexes: number[] = [];
+		for (let i = 0; i < messages.length; i++) {
+			if (messages[i].role === 'tool') { toolIndexes.push(i); }
+		}
+		const cutoff = toolIndexes.length - RibixAgentService.RECENT_TOOL_RESULTS;
+		for (let k = 0; k < cutoff; k++) {
+			const msg = messages[toolIndexes[k]];
+			if (msg.role === 'tool' && msg.content.length > RibixAgentService.TRUNCATED_TOOL_RESULT_CHARS) {
+				msg.content = `${msg.content.slice(0, RibixAgentService.TRUNCATED_TOOL_RESULT_CHARS)}\n…[older ${msg.toolName} result truncated to bound history growth]`;
+			}
+		}
+	}
+
 	/**
 	 * Real multi-turn agentic loop. Maintains a running message array and feeds tool
 	 * results back to the model every turn until the model emits no tool calls, or a
@@ -262,27 +337,56 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			for (let turn = 0; turn < budget.maxTurns; turn++) {
 				if (tokenSource.token.isCancellationRequested) { break; }
 				if (Date.now() > deadline) { budgetHit = 'deadline'; break; }
+
+				// #118: Bound history growth BEFORE the token check so a long run is
+				// kept under its ceiling by truncation rather than being cut short.
+				this.truncateOldToolResults(messages);
 				if (estimateTokens(messages) > budget.maxTokens) { budgetHit = 'tokens'; break; }
 
 				this.updateAgentStatus(agent, 'executing', `Turn ${turn + 1}`);
+				const llmStart = Date.now();
 				const reply = await this.callLLM(messages, tokenSource.token);
+				const llmMs = Date.now() - llmStart;
 				messages.push({ role: 'assistant', content: reply });
 				lastAssistantMessage = reply;
 				this.addActivityLog(agent, 'LLM turn', `Turn ${turn + 1} response`, null, null);
 
 				const toolCalls = this.parseToolCalls(reply);
 				if (toolCalls.length === 0) {
+					this.logTiming(agent, turn, llmMs, 0, 0, estimateTokens(messages));
 					break; // model is done
 				}
 
-				for (const call of toolCalls) {
+				// #118: Parallelize independent read-only tool calls within a turn.
+				// Write/command tools (and any single-call turn) run sequentially to
+				// preserve ordering and the lock/checkpoint discipline; a contiguous run
+				// of read-only calls is dispatched concurrently.
+				const toolsStart = Date.now();
+				for (let i = 0; i < toolCalls.length; i++) {
 					if (tokenSource.token.isCancellationRequested) { break; }
-					const resultText = await this.runOneTool(agent, call);
-					messages.push({ role: 'tool', toolName: call.tool, content: resultText });
-					if (call.tool === 'run_command' || call.tool === 'run_persistent_command') {
-						lastTestReport = resultText;
+
+					if (this.isReadOnlyTool(toolCalls[i].tool)) {
+						// Gather the contiguous batch of read-only calls and run them together.
+						const batch: ParsedToolCall[] = [];
+						while (i < toolCalls.length && this.isReadOnlyTool(toolCalls[i].tool)) {
+							batch.push(toolCalls[i]);
+							i++;
+						}
+						i--; // outer loop will increment
+						const results = await Promise.all(batch.map(c => this.runOneTool(agent, c)));
+						for (let b = 0; b < batch.length; b++) {
+							messages.push({ role: 'tool', toolName: batch[b].tool, content: results[b] });
+						}
+					} else {
+						const call = toolCalls[i];
+						const resultText = await this.runOneTool(agent, call);
+						messages.push({ role: 'tool', toolName: call.tool, content: resultText });
+						if (call.tool === 'run_command' || call.tool === 'run_persistent_command') {
+							lastTestReport = resultText;
+						}
 					}
 				}
+				this.logTiming(agent, turn, llmMs, Date.now() - toolsStart, toolCalls.length, estimateTokens(messages));
 
 				if (turn === budget.maxTurns - 1) { budgetHit = 'maxTurns'; }
 			}
@@ -431,6 +535,17 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 	//   Obtain missionRecorder from IRibixMissionService._recorders.get(agent.missionId).
 	private async runOneTool(agent: AgentInstance, call: ParsedToolCall): Promise<string> {
 		const { tool, params } = call;
+
+		// #115: Enforce the per-agent-type tool allowlist in code. A Reviewer (or any
+		// read-only role) that emits a write/command tool gets an explaining tool-result
+		// instead of the mutation ever executing — the prompt is advisory, this is the gate.
+		if (!this.isToolAllowed(agent.type, tool)) {
+			const reason = RibixAgentService.WRITE_TOOLS.has(tool)
+				? `a "${agent.type}" agent has a read-only tool allowlist and cannot write files`
+				: `a "${agent.type}" agent is not permitted to run commands`;
+			this.addActivityLog(agent, 'Tool rejected (allowlist)', `${tool}: ${reason}`, tool, null);
+			return `Error: tool "${tool}" is not permitted for this agent — ${reason}. Use read-only tools (read_file, ls_dir, search_*, read_lint_errors) and report findings in your final message instead.`;
+		}
 
 		// Route unknown tools through MCP (Playwright MCP, browser MCP, etc.)
 		if (!this.toolsService.validateParams[tool as keyof typeof this.toolsService.validateParams]) {
@@ -753,6 +868,16 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		for (let i = 0; i < excess; i++) {
 			this.agents.delete(terminal[i].id);
 		}
+	}
+
+	/**
+	 * #118: Per-turn timing log, gated behind the `ribix.agentLoop.debugTiming` config
+	 * flag so it adds no overhead in normal operation. Reports LLM latency, tool latency,
+	 * tool-call count, and the running token estimate so a slow/expensive run is diagnosable.
+	 */
+	private logTiming(agent: AgentInstance, turn: number, llmMs: number, toolMs: number, toolCount: number, estTokens: number): void {
+		if (!this.timingDebugEnabled) { return; }
+		console.log(`[ribix-agent-timing] ${agent.type}/${agent.id.slice(0, 8)} turn=${turn + 1} llm=${llmMs}ms tools=${toolMs}ms toolCalls=${toolCount} estTokens=${estTokens}`);
 	}
 
 	private addActivityLog(agent: AgentInstance, action: string, detail: string | null, tool: string | null, filePath: string | null): void {

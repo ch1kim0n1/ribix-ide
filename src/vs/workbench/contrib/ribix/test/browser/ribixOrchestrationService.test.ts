@@ -47,6 +47,14 @@ class FakeAgentService {
 		a.output = output;
 		this._onComplete.fire({ agentId, status: 'complete' });
 	}
+
+	/** Test helper: fail an agent with a blocked.reason, then fire a terminal failure event. */
+	fail(agentId: string, reason: string) {
+		const a = this.agents.get(agentId)!;
+		a.status = 'failed';
+		a.output = { summary: '', filesChanged: [], testReport: null, findings: [], blocked: { reason }, rawFinalMessage: '' };
+		this._onComplete.fire({ agentId, status: 'failed' });
+	}
 	dispose() { this._onChange.dispose(); this._onComplete.dispose(); }
 }
 
@@ -60,7 +68,9 @@ class FakeMissionService {
 	constructor(public mission: Mission) { }
 	getMission(id: string) { return id === this.mission.id ? this.mission : null; }
 	reviewingCalled = false;
+	abortCalled = false;
 	async setReviewing() { this.reviewingCalled = true; this.mission.state = 'reviewing'; }
+	async abortMission() { this.abortCalled = true; this.mission.state = 'aborted'; }
 }
 
 function makeMission(tasks: PlanTask[]): Mission {
@@ -151,6 +161,63 @@ suite('RibixOrchestrationService — event-driven handoff', () => {
 		await new Promise(r => setTimeout(r, 0));
 
 		assert.strictEqual(missionSvc.reviewingCalled, true);
+		orch.dispose();
+		agentSvc.dispose();
+	});
+
+	test('a failed agent surfaces the task description and agent error in progress (issue #114)', async () => {
+		const tasks = [task('c', 'coder')];
+		const agentSvc = new FakeAgentService();
+		const missionSvc = new FakeMissionService(makeMission(tasks));
+		const orch = new RibixOrchestrationService(agentSvc as any, new FakeTaskQueue() as any, missionSvc as any);
+
+		await orch.executeMission('m1');
+		agentSvc.fail('agent-1', 'compile error: missing semicolon');
+		await new Promise(r => setTimeout(r, 0));
+
+		const progress = orch.getMissionProgress('m1')!;
+		assert.strictEqual(progress.failedTaskId, 'c');
+		assert.strictEqual(progress.failedAgentError, 'compile error: missing semicolon');
+		assert.strictEqual(progress.failedTaskDescription, 'task c');
+		assert.ok(progress.error && progress.error.includes('compile error'), 'error string includes the agent reason');
+
+		orch.dispose();
+		agentSvc.dispose();
+	});
+
+	test('retryMission clears the failure and re-spawns the failed task (issue #114)', async () => {
+		const tasks = [task('c', 'coder')];
+		const agentSvc = new FakeAgentService();
+		const missionSvc = new FakeMissionService(makeMission(tasks));
+		const orch = new RibixOrchestrationService(agentSvc as any, new FakeTaskQueue() as any, missionSvc as any);
+
+		await orch.executeMission('m1');
+		agentSvc.fail('agent-1', 'boom');
+		await new Promise(r => setTimeout(r, 0));
+		assert.strictEqual(orch.getMissionProgress('m1')!.failedAgentError, 'boom');
+
+		await orch.retryMission('m1');
+		await new Promise(r => setTimeout(r, 0));
+
+		const progress = orch.getMissionProgress('m1')!;
+		assert.strictEqual(progress.failedAgentError, null, 'failure cleared after retry');
+		assert.strictEqual(progress.failedTasks, 0, 'failed task reset');
+		assert.strictEqual(agentSvc.spawnCalls.length, 2, 'failed task re-spawned');
+
+		orch.dispose();
+		agentSvc.dispose();
+	});
+
+	test('abortMission aborts the underlying mission (issue #114)', async () => {
+		const tasks = [task('c', 'coder')];
+		const agentSvc = new FakeAgentService();
+		const missionSvc = new FakeMissionService(makeMission(tasks));
+		const orch = new RibixOrchestrationService(agentSvc as any, new FakeTaskQueue() as any, missionSvc as any);
+
+		await orch.executeMission('m1');
+		await orch.abortMission('m1');
+
+		assert.strictEqual(missionSvc.abortCalled, true);
 		orch.dispose();
 		agentSvc.dispose();
 	});

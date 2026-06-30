@@ -231,4 +231,47 @@ suite('RibixFileLockService — concurrency invariants', () => {
 		assert.doesNotThrow(() => release(), 'double release does not throw');
 		assert.strictEqual(svc.isLocked(file), false, 'still unlocked after double release');
 	});
+
+	// 6. Lock is always released when the guarded operation throws (try/finally usage).
+	test('release runs even when the locked operation throws, freeing the lock for the next waiter', async () => {
+		const svc = new FileLockServiceUnderTest();
+		const file = '/repo/src/throws.ts';
+
+		// agent-1 holds the lock while its op throws — the canonical caller pattern releases
+		// in `finally`, so the throw must not strand the lock.
+		const release = await svc.acquire(file, 'agent-1');
+		let caught: Error | null = null;
+		try {
+			throw new Error('callTool blew up');
+		} catch (e) {
+			caught = e as Error;
+		} finally {
+			release();
+		}
+		assert.ok(caught, 'the operation error still propagates to the caller');
+		assert.strictEqual(svc.isLocked(file), false, 'lock freed despite the throw');
+
+		// A waiter queued during the failing op acquires once the lock is freed.
+		const release2 = await svc.acquire(file, 'agent-2');
+		assert.strictEqual(svc.getLockHolder(file), 'agent-2', 'next agent acquires after a throwing op releases');
+		release2();
+	});
+
+	// 7. Same lock acquired twice in one turn (re-entrant) never blocks the agent against itself.
+	test('acquiring the same lock twice in one turn does not deadlock the agent', async () => {
+		const svc = new FileLockServiceUnderTest();
+		const file = '/repo/src/twice.ts';
+
+		const r1 = await svc.acquire(file, 'agent-1');
+		// Second acquire in the same turn must resolve immediately (refcount), not queue.
+		const r2 = await Promise.race([
+			svc.acquire(file, 'agent-1'),
+			new Promise<never>((_, reject) => setTimeout(() => reject(new Error('deadlock: agent blocked on its own lock')), 50)),
+		]);
+		assert.strictEqual(svc.getLockHolder(file), 'agent-1');
+		r1();
+		assert.strictEqual(svc.isLocked(file), true, 'still held after one of two releases');
+		r2();
+		assert.strictEqual(svc.isLocked(file), false, 'fully released after both');
+	});
 });

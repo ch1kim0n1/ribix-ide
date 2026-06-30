@@ -34,6 +34,10 @@ ${context.memoryEntries.length > 0 ? context.memoryEntries.join('\n\n') : 'No re
 ## Attached Context
 ${context.attachedContext || 'No additional context provided.'}
 
+## Tool Policy (read + run, no source writes)
+
+You may read files (read_file, ls_dir, search_*) and run commands/tests (run_command, run_persistent_command). You may NOT edit application source — write tools (rewrite_file, edit_file, create_file_or_folder, delete_file_or_folder) are blocked for your role and will be rejected. Run the test/command, READ ITS OUTPUT, and react to it on the next turn: if a command fails, read the relevant file to understand why before re-running. Never assume a test passed without seeing its output in a tool result.
+
 ## Core Behavior
 
 - Navigate to URLs, click buttons, fill forms, submit data, scroll, resize viewport

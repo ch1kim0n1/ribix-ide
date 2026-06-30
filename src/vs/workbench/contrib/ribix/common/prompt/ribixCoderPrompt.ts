@@ -43,7 +43,8 @@ You receive a specific defect with a failing test and a proposed fix from the De
 - Do not add features
 - Do not add comments or documentation
 - Do not change unrelated files
-- Read the file before editing it — always
+- Read the file before editing it — ALWAYS. Never emit a write tool (rewrite_file/edit_file) for a file you have not read this run; read_file first, then write based on what you saw.
+- After a write, read the tool result it returns and confirm it applied before moving on
 
 ## Tool Call Format
 

@@ -32,6 +32,21 @@ export type AgentWrittenBlock = {
 	activityLogEntries: AgentActivityEntry[];
 };
 
+/**
+ * A visual / UX-vision note produced by the QA browser agent for a UI-touching change (#116).
+ * Carries a textual critique plus an optional rendered-region screenshot. When the browser
+ * tool was unavailable, `screenshotPath` is absent and the note degrades to text-only.
+ */
+export type UxVisionNote = {
+	missionId: string;
+	filePath: string;
+	line: number | null;       // anchor line in the source file (null → top of file)
+	severity: 'low' | 'medium' | 'high';
+	message: string;           // critique
+	suggestion?: string;       // annotated suggestion
+	screenshotPath?: string;   // rendered-region screenshot; absent → text-only
+};
+
 // Interface for the diff annotation service
 export interface IRibixDiffAnnotationWidget {
 	readonly _serviceBrand: undefined;
@@ -42,6 +57,11 @@ export interface IRibixDiffAnnotationWidget {
 	// Clear annotations for a file
 	clearAnnotations(filePath: string): void;
 
+	// UX-vision notes (#116) — surfaced as diff annotations and in mission detail.
+	addUxVisionNotes(notes: UxVisionNote[]): void;
+	getUxVisionNotes(missionId?: string): UxVisionNote[];
+	clearUxVisionNotes(missionId: string): void;
+
 	// Events
 	onDidChangeAnnotations: Event<void>;
 }
@@ -51,8 +71,9 @@ export const IRibixDiffAnnotationWidget = createDecorator<IRibixDiffAnnotationWi
 // Command IDs
 const VIEW_REASONING_COMMAND = 'ribix.viewReasoning';
 const REJECT_BLOCK_COMMAND = 'ribix.rejectBlock';
+const VIEW_UX_VISION_COMMAND = 'ribix.viewUxVision';
 
-class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotationWidget, CodeLensProvider {
+export class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotationWidget, CodeLensProvider {
 	readonly _serviceBrand: undefined;
 
 	private readonly _onDidChangeAnnotations = new Emitter<void>();
@@ -63,6 +84,9 @@ class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotati
 
 	// Track agent-written blocks by file path
 	private readonly agentBlocksByFile = new Map<string, AgentWrittenBlock[]>();
+
+	// UX-vision notes (#116), keyed by file path so they render as code lenses on the diff.
+	private readonly uxVisionByFile = new Map<string, UxVisionNote[]>();
 
 	// Decoration type for agent-written blocks (subtle Ribix gold left border)
 	private readonly agentBlockDecorationType: IModelDecorationOptions;
@@ -106,6 +130,10 @@ class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotati
 			this.rejectBlock(block);
 		}));
 
+		this._register(CommandsRegistry.registerCommand(VIEW_UX_VISION_COMMAND, (_accessor, note: UxVisionNote) => {
+			this.showUxVisionPanel(note);
+		}));
+
 		// Listen to model changes to update decorations
 		this._register(this.modelService.onModelAdded(model => this.updateDecorations(model)));
 		this._register(this.modelService.onModelRemoved(model => this.clearModelDecorations(model)));
@@ -140,15 +168,67 @@ class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotati
 		}
 	}
 
+	addUxVisionNotes(notes: UxVisionNote[]): void {
+		for (const note of notes) {
+			const list = this.uxVisionByFile.get(note.filePath) ?? [];
+			list.push(note);
+			this.uxVisionByFile.set(note.filePath, list);
+		}
+		this._onDidChangeAnnotations.fire();
+		this._onDidChangeCodeLenses.fire();
+	}
+
+	getUxVisionNotes(missionId?: string): UxVisionNote[] {
+		const all: UxVisionNote[] = [];
+		for (const list of this.uxVisionByFile.values()) {
+			for (const note of list) {
+				if (!missionId || note.missionId === missionId) {
+					all.push(note);
+				}
+			}
+		}
+		return all;
+	}
+
+	clearUxVisionNotes(missionId: string): void {
+		for (const [filePath, list] of this.uxVisionByFile) {
+			const kept = list.filter(n => n.missionId !== missionId);
+			if (kept.length === 0) {
+				this.uxVisionByFile.delete(filePath);
+			} else {
+				this.uxVisionByFile.set(filePath, kept);
+			}
+		}
+		this._onDidChangeAnnotations.fire();
+		this._onDidChangeCodeLenses.fire();
+	}
+
 	provideCodeLenses(model: ITextModel): CodeLensList | undefined {
 		const filePath = model.uri.fsPath;
 		const blocks = this.agentBlocksByFile.get(filePath);
-		if (!blocks || blocks.length === 0) {
+		const uxNotes = this.uxVisionByFile.get(filePath);
+		if ((!blocks || blocks.length === 0) && (!uxNotes || uxNotes.length === 0)) {
 			return undefined;
 		}
 
 		const lenses: CodeLens[] = [];
-		for (const block of blocks) {
+
+		// UX-vision lenses (#116) — one per note, anchored to its line (or top of file).
+		for (const note of uxNotes ?? []) {
+			const line = note.line && note.line > 0 ? note.line : 1;
+			const noteRange = new Range(line, 1, line, 1);
+			const icon = note.screenshotPath ? '🖼' : '✎';
+			lenses.push({
+				range: noteRange,
+				command: {
+					id: VIEW_UX_VISION_COMMAND,
+					title: localize('ribix.uxVision', '{0} UX-vision ({1}): {2}', icon, note.severity, note.message),
+					arguments: [note],
+				},
+			});
+		}
+
+		for (const block of blocks ?? []) {
 			const range = block.range;
 
 			// Get agent info
@@ -357,6 +437,60 @@ class RibixDiffAnnotationWidget extends Disposable implements IRibixDiffAnnotati
 					<h2>Activity Log</h2>
 					${activityLogHtml || '<div>No activity log entries</div>'}
 				</div>
+			</body>
+			</html>
+		`;
+	}
+
+	private showUxVisionPanel(note: UxVisionNote): void {
+		const title = localize('ribix.uxVisionTitle', 'UX Vision - {0}', note.severity);
+		const webviewInput = this.webviewWorkbenchService.openWebview(
+			{
+				title,
+				options: { enableFindWidget: true },
+				contentOptions: { allowScripts: false },
+				extension: undefined,
+			},
+			'ribix.uxVision',
+			title,
+			{ group: ACTIVE_GROUP }
+		);
+		webviewInput.webview.setHtml(this.buildUxVisionHtml(note));
+	}
+
+	/**
+	 * Builds the UX-vision detail HTML. Embeds the rendered-region screenshot when one is
+	 * available; otherwise degrades gracefully to a text-only critique (#116).
+	 */
+	private buildUxVisionHtml(note: UxVisionNote): string {
+		const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		const screenshotHtml = note.screenshotPath
+			? `<img class="shot" src="${URI.file(note.screenshotPath).toString()}" alt="Rendered region screenshot" />`
+			: `<div class="text-only">Screenshot unavailable — browser tool did not capture this region. Showing text-only critique.</div>`;
+		const suggestionHtml = note.suggestion
+			? `<div class="suggestion"><strong>Suggestion:</strong> ${escape(note.suggestion)}</div>`
+			: '';
+		return `
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<meta charset="UTF-8">
+				<style>
+					body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; color: #F5F0E8; background-color: #01311F; }
+					h1 { color: #C6AA58; margin-bottom: 10px; }
+					.meta { color: #8A9E8A; font-size: 12px; margin-bottom: 16px; }
+					.critique { padding: 12px; background-color: #0d2618; border-left: 3px solid #C6AA58; border-radius: 4px; margin-bottom: 16px; }
+					.suggestion { padding: 12px; background-color: #1E4A32; border-radius: 4px; margin-bottom: 16px; }
+					.shot { max-width: 100%; border: 1px solid #C6AA58; border-radius: 4px; }
+					.text-only { color: #8A9E8A; font-style: italic; }
+				</style>
+			</head>
+			<body>
+				<h1>UX Vision</h1>
+				<div class="meta">Severity: ${escape(note.severity)} &middot; File: ${escape(note.filePath)}${note.line ? `:${note.line}` : ''}</div>
+				<div class="critique">${escape(note.message)}</div>
+				${suggestionHtml}
+				${screenshotHtml}
 			</body>
 			</html>
 		`;

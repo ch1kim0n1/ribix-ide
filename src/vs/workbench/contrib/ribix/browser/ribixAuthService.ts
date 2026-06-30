@@ -11,8 +11,21 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { IEncryptionService } from '../../../../platform/encryption/common/encryptionService.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import type { IChannel } from '../../../../base/parts/ipc/common/ipc.js';
-import { RibixApiClient } from '../common/ribixApiClient.js';
+import { RibixApiClient, RibixApiError } from '../common/ribixApiClient.js';
 import { RibixAuthSession, RibixConfig, RibixAuthSummary, OAuthTokenResponse } from '../common/ribixAuthTypes.js';
+
+/**
+ * #113: Typed, catchable error thrown when an authenticated config is required
+ * but no valid session exists. Consumers (memory-sync, release/PR) already wrap
+ * calls in try/catch and can `instanceof`-check this to tell "not signed in"
+ * apart from transport failures.
+ */
+export class RibixAuthRequiredError extends Error {
+	constructor(message = 'Sign in to Ribix to continue.') {
+		super(message);
+		this.name = 'RibixAuthRequiredError';
+	}
+}
 
 const RIBIX_AUTH_SESSION_KEY = 'ribix.auth.session';
 const RIBIX_AUTH_URLS_KEY = 'ribix.auth.urls';
@@ -52,6 +65,14 @@ export interface IRibixAuthService {
 	// Session management
 	refreshToken(): Promise<RibixConfig>;
 
+	/**
+	 * #113: Run an authenticated request with automatic single-retry on a 401.
+	 * Passes a fresh config to `request`; if it throws a 401 RibixApiError, forces
+	 * exactly one token refresh and retries once. A second 401 (or a failed refresh)
+	 * surfaces a clean re-auth error so the caller can prompt sign-in once.
+	 */
+	requestWithAuth<T>(request: (config: RibixConfig) => Promise<T>): Promise<T>;
+
 	// OAuth callback — called by the URL protocol handler when ribix-ide://oauth/callback fires
 	handleOAuthCallback(code: string, state: string): Promise<void>;
 }
@@ -69,6 +90,9 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 	// #90: Proactive token refresh timer — refreshes 5 minutes before expiry.
 	private refreshTimer: NodeJS.Timeout | null = null;
 	private static readonly REFRESH_LEAD_TIME_MS = 5 * 60 * 1000; // 5 minutes
+	// #113: Single in-flight refresh shared by all callers so concurrent requests
+	// hitting an expired token trigger exactly one token exchange.
+	private refreshInFlight: Promise<RibixConfig> | null = null;
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -131,7 +155,7 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 	async getRequiredConfig(): Promise<RibixConfig> {
 		const session = await this.getCurrentSession();
 		if (!session) {
-			throw new Error('Not signed in. Please sign in to continue.');
+			throw new RibixAuthRequiredError('Sign in to Ribix to create a pull request.');
 		}
 
 		const urls = await this.getUrls();
@@ -211,9 +235,50 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 	}
 
 	async refreshToken(): Promise<RibixConfig> {
+		// #113: Coalesce concurrent refreshes — share a single in-flight exchange.
+		// All callers awaiting an expired token resolve from the same promise, so
+		// the token endpoint (and its refresh-token rotation) is hit exactly once.
+		if (this.refreshInFlight) {
+			return this.refreshInFlight;
+		}
+		const inFlight = this.doRefresh().finally(() => {
+			this.refreshInFlight = null;
+		});
+		this.refreshInFlight = inFlight;
+		return inFlight;
+	}
+
+	async requestWithAuth<T>(request: (config: RibixConfig) => Promise<T>): Promise<T> {
+		const config = await this.getRequiredConfig();
+		try {
+			return await request(config);
+		} catch (e) {
+			if (e instanceof RibixApiError && e.status === 401) {
+				// Hard 401 with a token we believed valid — force exactly one refresh
+				// and retry once. Any failure here surfaces a clean re-auth error.
+				let fresh: RibixConfig;
+				try {
+					fresh = await this.refreshToken();
+				} catch {
+					throw new RibixAuthRequiredError('Your Ribix session expired. Please sign in again.');
+				}
+				try {
+					return await request(fresh);
+				} catch (retryError) {
+					if (retryError instanceof RibixApiError && retryError.status === 401) {
+						throw new RibixAuthRequiredError('Your Ribix session expired. Please sign in again.');
+					}
+					throw retryError;
+				}
+			}
+			throw e;
+		}
+	}
+
+	private async doRefresh(): Promise<RibixConfig> {
 		const session = await this.getCurrentSession();
 		if (!session) {
-			throw new Error('No session to refresh. Please sign in again.');
+			throw new RibixAuthRequiredError('Your Ribix session expired. Please sign in again.');
 		}
 
 		const urls = await this.getUrls();
@@ -301,6 +366,12 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 			return;
 		}
 
+		// #113: PKCE state/verifier are single-use. Consume the pending sign-in
+		// before the async token exchange so a replayed callback (same code/state)
+		// finds no pending sign-in and is rejected by the guard above.
+		clearTimeout(pending.timeout);
+		this.pendingSignIn = null;
+
 		try {
 			// Use electron-main channel for token exchange (needs Node.js crypto)
 			const tokenResponse = await this.authChannel.call('exchangeCode', {
@@ -319,8 +390,6 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 			});
 
 			await this.saveSession(session);
-			clearTimeout(pending.timeout);
-			this.pendingSignIn = null;
 			pending.resolve();
 
 			// #90: Schedule proactive token refresh before expiry.
@@ -329,8 +398,6 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 			const summary = await this.getAuthSummary();
 			this._onDidChangeSession.fire(summary);
 		} catch (exchangeError) {
-			clearTimeout(pending.timeout);
-			this.pendingSignIn = null;
 			pending.reject(
 				exchangeError instanceof Error
 					? exchangeError

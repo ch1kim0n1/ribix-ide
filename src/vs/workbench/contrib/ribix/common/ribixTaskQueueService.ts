@@ -39,6 +39,12 @@ class RibixTaskQueueService extends Disposable implements IRibixTaskQueueService
 	private queue: QueuedTask<any>[] = [];
 	/** Running tasks keyed by id, value is the task (so we can cancel its token). */
 	private runningTasks: Map<string, QueuedTask<any>> = new Map();
+	/**
+	 * #118: Hard cap on concurrently running tasks. Agents are spawned through this queue
+	 * (see RibixOrchestrationService.spawnAgentForTask), so this is also the cap on the
+	 * number of concurrent in-flight agent LLM loops — processQueue() never starts a task
+	 * while runningTasks.size has reached this value, bounding total LLM concurrency.
+	 */
 	private maxConcurrent: number = 4;
 
 	constructor() {

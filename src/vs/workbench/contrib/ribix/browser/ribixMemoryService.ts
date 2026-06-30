@@ -16,6 +16,26 @@ import { RibixApiClient } from '../common/ribixApiClient.js';
 
 const RIBIX_MEMORY_STORAGE_KEY = 'ribix.memory.entries';
 
+/**
+ * An unresolved sync conflict: a server entry contradicts a local engineer note
+ * (same id, differing content). Surfaced in the Memory tab for accept-mine / accept-theirs.
+ */
+export interface MemoryConflict {
+	id: string;
+	local: MemoryEntry;
+	server: MemoryEntry;
+}
+
+/** Visible sync state for the Memory tab. */
+export interface MemorySyncStatus {
+	lastPulledAt: number | null;
+	lastPushedAt: number | null;
+	/** Number of local entries not yet pushed since the last push (best-effort). */
+	pending: number;
+	/** Unresolved conflicts awaiting an accept-mine / accept-theirs decision. */
+	conflicts: MemoryConflict[];
+}
+
 export interface IRibixMemoryService {
 	readonly _serviceBrand: undefined;
 
@@ -35,6 +55,11 @@ export interface IRibixMemoryService {
 	syncFromOrg(): Promise<void>;
 	syncToOrg(): Promise<void>;
 
+	// Sync status + conflict resolution
+	getSyncStatus(): MemorySyncStatus;
+	/** Resolve a surfaced conflict by keeping the local ('mine') or server ('theirs') entry. */
+	resolveConflictChoice(conflictId: string, choice: 'mine' | 'theirs'): void;
+
 	// Events
 	onDidChangeEntries: Event<void>;
 }
@@ -50,6 +75,11 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 	private entries: MemoryEntry[] = [];
 	private workspaceId: string | null = null;
 	private _initPromise: Promise<void>;
+
+	// Sync status surfaced in the Memory tab.
+	private lastPulledAt: number | null = null;
+	private lastPushedAt: number | null = null;
+	private conflicts: MemoryConflict[] = [];
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -177,6 +207,7 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 			const mergedEntries = this.mergeMemoryEntries(this.entries, response.entries);
 
 			this.entries = mergedEntries;
+			this.lastPulledAt = Date.now();
 			this.saveEntries();
 		} catch (e) {
 			// If not signed in or API error, just log and continue
@@ -197,10 +228,41 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 				workspaceId,
 				entries: entriesToSync,
 			});
+			this.lastPushedAt = Date.now();
+			this._onDidChangeEntries.fire();
 		} catch (e) {
 			// If not signed in or API error, just log and continue
 			console.warn('Failed to sync memory to org:', e);
 		}
+	}
+
+	getSyncStatus(): MemorySyncStatus {
+		// Pending = local entries created/updated since the last successful push.
+		const since = this.lastPushedAt ?? 0;
+		const pending = this.entries.filter(e => e.updatedAt > since).length;
+		return {
+			lastPulledAt: this.lastPulledAt,
+			lastPushedAt: this.lastPushedAt,
+			pending,
+			conflicts: [...this.conflicts],
+		};
+	}
+
+	resolveConflictChoice(conflictId: string, choice: 'mine' | 'theirs'): void {
+		const idx = this.conflicts.findIndex(c => c.id === conflictId);
+		if (idx === -1) { return; }
+		const conflict = this.conflicts[idx];
+		const winner = choice === 'mine' ? conflict.local : conflict.server;
+
+		const entryIdx = this.entries.findIndex(e => e.id === winner.id);
+		if (entryIdx === -1) {
+			this.entries.push(winner);
+		} else {
+			this.entries[entryIdx] = winner;
+		}
+
+		this.conflicts.splice(idx, 1);
+		this.saveEntries();
 	}
 
 	private mergeMemoryEntries(localEntries: MemoryEntry[], serverEntries: MemoryEntry[]): MemoryEntry[] {
@@ -211,6 +273,11 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 			entryMap.set(entry.id, entry);
 		}
 
+		// Drop any previously-surfaced conflicts that no longer have a matching server entry,
+		// then recompute against this pull. Conflicts already pending for an id are preserved.
+		const serverById = new Map(serverEntries.map(e => [e.id, e]));
+		this.conflicts = this.conflicts.filter(c => serverById.has(c.id));
+
 		// Merge server entries with conflict resolution
 		for (const serverEntry of serverEntries) {
 			const localEntry = entryMap.get(serverEntry.id);
@@ -219,7 +286,9 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 				// New entry from server
 				entryMap.set(serverEntry.id, serverEntry);
 			} else {
-				// Conflict resolution
+				// Conflict resolution. A server entry that contradicts a local engineer note
+				// (same id, differing content) is surfaced for an explicit decision rather than
+				// silently overwritten or silently discarded.
 				const mergedEntry = this.resolveConflict(localEntry, serverEntry);
 				entryMap.set(mergedEntry.id, mergedEntry);
 			}
@@ -229,7 +298,15 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 	}
 
 	private resolveConflict(localEntry: MemoryEntry, serverEntry: MemoryEntry): MemoryEntry {
-		// Engineer entries always win
+		// A server entry contradicts a local engineer note when the engineer authored the local
+		// entry and the server content differs. Don't silently pick a winner — keep the local
+		// (engineer) entry in place and surface the conflict for accept-mine / accept-theirs.
+		if (localEntry.source === 'engineer' && localEntry.content !== serverEntry.content) {
+			this.recordConflict(localEntry, serverEntry);
+			return localEntry;
+		}
+
+		// Engineer entries otherwise win
 		if (localEntry.source === 'engineer') {
 			return localEntry;
 		}
@@ -242,6 +319,16 @@ class RibixMemoryService extends Disposable implements IRibixMemoryService {
 			return localEntry;
 		}
 		return serverEntry;
+	}
+
+	private recordConflict(local: MemoryEntry, server: MemoryEntry): void {
+		const existing = this.conflicts.find(c => c.id === local.id);
+		if (existing) {
+			existing.local = local;
+			existing.server = server;
+		} else {
+			this.conflicts.push({ id: local.id, local, server });
+		}
 	}
 }
 

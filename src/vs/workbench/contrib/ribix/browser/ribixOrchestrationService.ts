@@ -20,6 +20,12 @@ export interface MissionProgress {
 	failedTasks: number;
 	currentTask: string | null;
 	error: string | null;
+	/** Id of the task whose agent failed and paused the mission (null when none). */
+	failedTaskId: string | null;
+	/** Human-readable description of the failed task (so the card can show WHY). */
+	failedTaskDescription: string | null;
+	/** The failing agent's error message (from its blocked.reason), surfaced in the card. */
+	failedAgentError: string | null;
 }
 
 export interface IRibixOrchestrationService {
@@ -29,6 +35,11 @@ export interface IRibixOrchestrationService {
 	executeMission(missionId: string): Promise<void>;
 	pauseMission(missionId: string): Promise<void>;
 	resumeMission(missionId: string): Promise<void>;
+
+	/** Retry a mission that paused on a failed task: reset the failed task and resume execution. */
+	retryMission(missionId: string): Promise<void>;
+	/** Abort a paused/failed mission: mark it aborted and stop all agents. */
+	abortMission(missionId: string): Promise<void>;
 
 	// Progress monitoring
 	getMissionProgress(missionId: string): MissionProgress | null;
@@ -46,6 +57,8 @@ interface OrchestrationState {
 	failedTaskIds: Set<string>;
 	spawnedAgentIds: string[];
 	taskContexts: Map<string, any>;
+	/** The task whose agent failure paused the mission, plus the agent's error. */
+	failure: { taskId: string; agentError: string } | null;
 }
 
 export class RibixOrchestrationService extends Disposable implements IRibixOrchestrationService {
@@ -87,6 +100,7 @@ export class RibixOrchestrationService extends Disposable implements IRibixOrche
 			failedTaskIds: new Set(),
 			spawnedAgentIds: [],
 			taskContexts: new Map(),
+			failure: null,
 		};
 		this.orchestrationStates.set(missionId, state);
 
@@ -124,6 +138,52 @@ export class RibixOrchestrationService extends Disposable implements IRibixOrche
 		await this.executeTopological(missionId);
 	}
 
+	async retryMission(missionId: string): Promise<void> {
+		const state = this.orchestrationStates.get(missionId);
+		if (!state) {
+			throw new Error(`Mission ${missionId} is not being orchestrated`);
+		}
+
+		const mission = this.missionService.getMission(missionId);
+		// Reset the failed task(s) so they become ready again, and clear the failure.
+		for (const failedId of state.failedTaskIds) {
+			const task = mission?.tasks.find(t => t.id === failedId);
+			if (task) { task.status = 'pending'; }
+
+			// Drop the failed agent for this task so executeTopological re-spawns it instead of
+			// treating the dead agent as an already-running one (existingAgent guard).
+			state.spawnedAgentIds = state.spawnedAgentIds.filter(agentId => {
+				const agent = this.agentService.getAgent(agentId);
+				return agent?.taskId !== failedId;
+			});
+		}
+		state.failedTaskIds.clear();
+		state.failure = null;
+		state.isPaused = false;
+
+		await this.executeTopological(missionId);
+	}
+
+	async abortMission(missionId: string): Promise<void> {
+		const state = this.orchestrationStates.get(missionId);
+		if (state) {
+			state.isPaused = true;
+			for (const agentId of state.spawnedAgentIds) {
+				try {
+					await this.agentService.abortAgent(agentId);
+				} catch (error) {
+					console.error(`Failed to abort agent ${agentId}:`, error);
+				}
+			}
+		}
+		try {
+			await this.missionService.abortMission(missionId);
+		} catch (error) {
+			console.error(`Failed to abort mission ${missionId}:`, error);
+		}
+		this.emitProgress(missionId);
+	}
+
 	getMissionProgress(missionId: string): MissionProgress | null {
 		const mission = this.missionService.getMission(missionId);
 		if (!mission) {
@@ -136,7 +196,14 @@ export class RibixOrchestrationService extends Disposable implements IRibixOrche
 
 		// Find current task (first in-progress task)
 		const currentTask = mission.tasks.find(task => task.status === 'in_progress');
-		const error = failedTasks > 0 ? 'One or more tasks failed' : null;
+
+		// Surface the concrete reason (failed task + agent error) instead of a generic string.
+		const failure = state?.failure ?? null;
+		const failedTask = failure ? mission.tasks.find(t => t.id === failure.taskId) : undefined;
+		const failedTaskDescription = failedTask?.description ?? null;
+		const error = failure
+			? `Task "${failedTaskDescription ?? failure.taskId}" failed: ${failure.agentError}`
+			: (failedTasks > 0 ? 'One or more tasks failed' : null);
 
 		return {
 			missionId,
@@ -146,6 +213,9 @@ export class RibixOrchestrationService extends Disposable implements IRibixOrche
 			failedTasks,
 			currentTask: currentTask?.id || null,
 			error,
+			failedTaskId: failure?.taskId ?? null,
+			failedTaskDescription,
+			failedAgentError: failure?.agentError ?? null,
 		};
 	}
 
@@ -346,6 +416,13 @@ export class RibixOrchestrationService extends Disposable implements IRibixOrche
 		}
 
 		state.failedTaskIds.add(taskId);
+
+		// Capture WHY the task failed: the failing agent records its error in
+		// output.blocked.reason (see ribixAgentService.markAgentFailed). Surface it so the
+		// mission card can show a human-readable reason instead of a generic string.
+		const agent = this.agentService.getAgent(agentId);
+		const agentError = agent?.output?.blocked?.reason || 'Agent failed without a reported reason.';
+		state.failure = { taskId, agentError };
 
 		// Pause mission on failure
 		state.isPaused = true;

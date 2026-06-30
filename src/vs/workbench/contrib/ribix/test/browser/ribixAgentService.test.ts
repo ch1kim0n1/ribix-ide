@@ -258,6 +258,119 @@ suite('RibixAgentService — agentic loop', () => {
 		service.dispose();
 	});
 
+	test('#115: reviewer write tool is rejected by the allowlist (read-only role, no mutation)', async () => {
+		// Reviewer emits a write tool on turn 1; turn 2 it gives up and summarizes.
+		const llm = makeLLMStub([
+			'I will fix it.\n```json\n{"tool":"rewrite_file","params":{"uri":"/repo/a.ts","newContent":"x"}}\n```',
+			'Summary: could not write, reported instead.',
+		]);
+		const tools = makeToolsStub({ rewrite_file: 'wrote 1 file' });
+		const service = makeAgentService(llm.service, tools.service);
+
+		const completion = waitForCompletion(service);
+		const agentId = await service.spawnAgent('m1', 't1', 'reviewer', 'review and fix');
+		await completion;
+
+		// The write tool must NEVER have executed.
+		assert.strictEqual(tools.invoked.length, 0, 'reviewer write tool must not execute');
+		assert.deepStrictEqual(service.getAgent(agentId)!.filesWritten, [], 'reviewer wrote no files');
+
+		// An explaining tool-result must have been fed back to the model on turn 2.
+		const turn2 = llm.callsLog[1].messages;
+		assert.ok(
+			turn2.some((m: any) => typeof m.content === 'string' && /not permitted/i.test(m.content)),
+			'reviewer must receive an explaining rejection tool-result',
+		);
+		service.dispose();
+	});
+
+	test('#115: coder write tool IS allowed by the allowlist', async () => {
+		const llm = makeLLMStub([
+			'writing\n```json\n{"tool":"rewrite_file","params":{"uri":"/repo/c.ts","newContent":"x"}}\n```',
+			'Summary: wrote it.',
+		]);
+		const tools = makeToolsStub({ rewrite_file: 'wrote 1 file' });
+		const service = makeAgentService(llm.service, tools.service);
+
+		const completion = waitForCompletion(service);
+		const agentId = await service.spawnAgent('m1', 't1', 'coder', 'write c.ts');
+		await completion;
+
+		assert.strictEqual(tools.invoked.length, 1, 'coder write tool executes');
+		assert.deepStrictEqual(service.getAgent(agentId)!.filesWritten, ['/repo/c.ts']);
+		service.dispose();
+	});
+
+	test('#115: tester command tool allowed but write tool rejected', async () => {
+		const llm = makeLLMStub([
+			'run + write\n```json\n{"tool":"run_command","params":{"uri":"npm test"}}\n```\n```json\n{"tool":"rewrite_file","params":{"uri":"/repo/t.ts","newContent":"x"}}\n```',
+			'Summary: done.',
+		]);
+		const tools = makeToolsStub({ run_command: 'tests passed', rewrite_file: 'wrote' });
+		const service = makeAgentService(llm.service, tools.service);
+
+		const completion = waitForCompletion(service);
+		const agentId = await service.spawnAgent('m1', 't1', 'tester', 'run tests');
+		await completion;
+
+		const invokedTools = tools.invoked.map(i => i.tool);
+		assert.ok(invokedTools.includes('run_command'), 'tester may run commands');
+		assert.ok(!invokedTools.includes('rewrite_file'), 'tester must not write files');
+		assert.deepStrictEqual(service.getAgent(agentId)!.filesWritten, []);
+		service.dispose();
+	});
+
+	test('#118: old tool results are truncated to bound history growth', async () => {
+		// Coder reads a file every turn (8 turns of read), then summarizes.
+		// Each read returns a huge result; we assert the EARLIEST read result is
+		// truncated in the messages sent on a later turn, but recent ones are verbatim.
+		const hugeResult = 'A'.repeat(5000);
+		const readCall = 'read\n```json\n{"tool":"read_file","params":{"uri":"/repo/x.ts"}}\n```';
+		const llm = makeLLMStub([...new Array(8).fill(readCall), 'Summary: done.']);
+		const tools = makeToolsStub({ read_file: hugeResult });
+		const service = makeAgentService(llm.service, tools.service);
+
+		const completion = waitForCompletion(service);
+		await service.spawnAgent('m1', 't1', 'coder', 'read many times');
+		await completion;
+
+		// On the final LLM call, the first tool result must have been truncated,
+		// while the most recent ones remain full-size.
+		const lastCall = llm.callsLog[llm.callsLog.length - 1].messages;
+		const toolMsgs = lastCall.filter((m: any) => m.role === 'tool');
+		assert.ok(toolMsgs.length >= 7, 'should have accumulated many tool results');
+		assert.ok(
+			toolMsgs[0].content.length < hugeResult.length && /truncated/i.test(toolMsgs[0].content),
+			'oldest tool result must be truncated',
+		);
+		assert.strictEqual(
+			toolMsgs[toolMsgs.length - 1].content.length, hugeResult.length,
+			'most recent tool result must remain full-size',
+		);
+		service.dispose();
+	});
+
+	test('#118: independent read-only tool calls in one turn all execute and feed back', async () => {
+		// Two read_file calls in a single assistant turn -> both run (parallelized), both results fed back.
+		const twoReads = 'reading two\n'
+			+ '```json\n{"tool":"read_file","params":{"uri":"/repo/one.ts"}}\n```\n'
+			+ '```json\n{"tool":"read_file","params":{"uri":"/repo/two.ts"}}\n```';
+		const llm = makeLLMStub([twoReads, 'Summary: read both.']);
+		const tools = makeToolsStub({ read_file: 'FILE_CONTENT' });
+		const service = makeAgentService(llm.service, tools.service);
+
+		const completion = waitForCompletion(service);
+		const agentId = await service.spawnAgent('m1', 't1', 'coder', 'read two files in one turn');
+		await completion;
+
+		assert.strictEqual(tools.invoked.length, 2, 'both read_file calls executed');
+		assert.deepStrictEqual(service.getAgent(agentId)!.filesRead.sort(), ['/repo/one.ts', '/repo/two.ts']);
+		// Both results must appear as tool messages on the second turn.
+		const turn2Tools = llm.callsLog[1].messages.filter((m: any) => m.role === 'tool');
+		assert.strictEqual(turn2Tools.length, 2, 'both tool results fed back');
+		service.dispose();
+	});
+
 	test('reviewer findings are parsed into structured output', async () => {
 		const findingsJson = 'Review done.\n```json\n[{"severity":"high","file":"/repo/a.ts","line":12,"message":"null deref"}]\n```';
 		const llm = makeLLMStub([findingsJson]);

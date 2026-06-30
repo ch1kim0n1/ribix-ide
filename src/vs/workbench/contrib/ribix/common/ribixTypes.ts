@@ -113,6 +113,7 @@ export type AgentFindingType =
 	| 'code-architecture'
 	| 'onboarding-drop-off'
 	| 'ai-smell'
+	| 'ui_vision'
 
 /** Human-readable description for each AgentFindingType category. */
 export type DetectionCategory = Record<AgentFindingType, string>
@@ -129,6 +130,7 @@ export const DETECTION_CATEGORY_DESCRIPTIONS: DetectionCategory = {
 	'code-architecture': 'God files, circular imports, all-mock test suites, mixed error contracts within a module, or magic literals',
 	'onboarding-drop-off': 'Flows that confuse non-technical users, missing next-step guidance, or unactionable error messages during setup',
 	'ai-smell': 'Telltale signs of unedited AI-generated output: em dashes in UI strings, pill/badge overuse, filler marketing copy (seamless/powerful/robust/intuitive), generic hero sections, comments that restate code, and generic non-domain variable names',
+	'ui_vision': 'Visual / UX-vision critique of a rendered UI region: layout, spacing, hierarchy, contrast, or affordance problems observed in a screenshot of the running app, with an annotated suggestion',
 }
 
 export type AgentFinding = {
@@ -137,6 +139,12 @@ export type AgentFinding = {
 	line: number | null
 	message: string
 	findingType?: AgentFindingType
+	/**
+	 * Optional path to a rendered-region screenshot captured over the browser channel
+	 * (used by `ui_vision` findings). Absent when the browser tool was unavailable —
+	 * the finding then degrades gracefully to text-only.
+	 */
+	screenshotPath?: string
 }
 
 export type AgentInstance = {
