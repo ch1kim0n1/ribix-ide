@@ -126,6 +126,9 @@ import './ribixFileActionContribution.js'
 // register extension compatibility commands
 import './extensionCompatibilityCommands.js'
 
+// register IDE-native findings (sidebar tree, diagnostics, approve/reject, SSE stream)
+import './nativeFindingsContribution.js'
+
 // ---------- common (unclear if these actually need to be imported, because they're already imported wherever they're used) ----------
 
 // llmMessage

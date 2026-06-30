@@ -26,6 +26,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── Signing gate (issue #121) ────────────────────────────────────────────
+      # Release builds MUST be signed. Unsigned binaries ship Gatekeeper/SmartScreen
+      # warnings that cause users to uninstall immediately. Fail here — before the
+      # expensive build — if the signing secrets are not configured.
+      - name: Require signing secrets
+        shell: bash
+        run: |
+          if [ -z "$MACOS_CERTIFICATE_P12" ]; then
+            echo "ERROR: MACOS_CERTIFICATE_P12 secret is not set."
+            echo "Configure signing secrets in Settings → Secrets and variables → Actions."
+            echo "See docs/code-signing.md for instructions."
+            exit 1
+          fi
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20.18.2'
@@ -186,6 +202,18 @@ jobs:
       RIBIX_DISABLE_MANGLE: '1'
     steps:
       - uses: actions/checkout@v4
+
+      # ── Signing gate (issue #121) ────────────────────────────────────────────
+      - name: Require signing secrets
+        shell: bash
+        run: |
+          if [ -z "$WINDOWS_CERTIFICATE_PFX" ]; then
+            echo "ERROR: WINDOWS_CERTIFICATE_PFX secret is not set."
+            echo "Configure signing secrets in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+        env:
+          WINDOWS_CERTIFICATE_PFX: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
 
       - uses: actions/setup-node@v4
         with:

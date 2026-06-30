@@ -54,14 +54,13 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { AgentFinding } from '../common/ribixTypes.js';
 import { BackendFinding, UnifiedFinding, FindingFilter } from './unifiedFindingsProvider.js';
 
 // Re-export for callers that use this module as the single import point.
 export type { BackendFinding, UnifiedFinding, FindingFilter };
 
-// TODO: replace with the IDE's internal AgentFinding type from
-// ../common/ribixTypes.ts once the port begins.
 export interface FindingStub {
 	id: string;
 	title: string;
@@ -76,196 +75,235 @@ export interface FindingStub {
 // Alias so external callers can refer to AgentFinding through this module.
 export type { AgentFinding as Finding };
 
+// ---------------------------------------------------------------------------
+// FindingTreeItem — wraps a BackendFinding as a VS Code tree item
+// ---------------------------------------------------------------------------
+
+const FINDING_TYPE_LABEL: Record<string, string> = {
+	crash: 'CRASH', logic: 'LOGIC', visual: 'VISUAL', perf: 'PERF',
+	a11y: 'A11Y', security: 'SECURITY', 'data-loss-risk': 'DATA LOSS',
+	'rate-limit-blind': 'RATE LIMIT', 'env-parity': 'ENV PARITY',
+	'third-party-resilience': 'RESILIENCE', 'legal-compliance': 'LEGAL',
+	'copy-consistency': 'COPY', 'observability-gap': 'OBSERVABILITY',
+	'day-2-failure': 'DAY-2', 'code-architecture': 'ARCHITECTURE',
+	'onboarding-drop-off': 'ONBOARDING', 'ai-smell': 'AI SMELL',
+	'token-cost': 'TOKEN COST',
+};
+
+export class FindingTreeItem extends vscode.TreeItem {
+	constructor(public readonly finding: BackendFinding) {
+		super(finding.title, vscode.TreeItemCollapsibleState.None);
+		this.id = finding.id;
+		const typeLabel = FINDING_TYPE_LABEL[finding.type] ?? finding.type.toUpperCase();
+		this.description = `${finding.severity.toUpperCase()} · ${typeLabel}`;
+		this.tooltip = new vscode.MarkdownString(
+			`**${finding.severity.toUpperCase()}** — ${finding.title}\n\nType: ${typeLabel}\n\n${finding.description}`
+		);
+		this.iconPath = FindingTreeItem.iconForSeverity(finding.severity);
+		this.contextValue = 'ribixNativeFinding';
+		this.command = {
+			command: 'ribix.viewFinding',
+			title: 'View Finding',
+			arguments: [finding.id],
+		};
+	}
+
+	static iconForSeverity(severity: string): vscode.ThemeIcon {
+		if (severity === 'p0' || severity === 'p1') {
+			return new vscode.ThemeIcon('bug', new vscode.ThemeColor('charts.red'));
+		}
+		return new vscode.ThemeIcon('warning', new vscode.ThemeColor('charts.yellow'));
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FindingsTreeProvider — tree data provider for native findings sidebar
+// ---------------------------------------------------------------------------
+
+export class FindingsTreeProvider implements vscode.TreeDataProvider<FindingTreeItem>, vscode.Disposable {
+	private static readonly MAX_FINDINGS = 2000;
+	private _findings: BackendFinding[] = [];
+	private readonly _onDidChangeTreeData = new vscode.EventEmitter<FindingTreeItem | undefined | null | void>();
+	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+	getTreeItem(element: FindingTreeItem): vscode.TreeItem { return element; }
+
+	getChildren(element?: FindingTreeItem): FindingTreeItem[] {
+		if (element) { return []; }
+		const sorted = [...this._findings].sort((a, b) => {
+			const rank: Record<string, number> = { p0: 0, p1: 1, p2: 2, p3: 3 };
+			const diff = (rank[a.severity] ?? 2) - (rank[b.severity] ?? 2);
+			return diff !== 0 ? diff : b.createdAt - a.createdAt;
+		});
+		return sorted.map(f => new FindingTreeItem(f));
+	}
+
+	setFindings(findings: BackendFinding[]): void {
+		this._findings = findings.slice(0, FindingsTreeProvider.MAX_FINDINGS);
+		this._onDidChangeTreeData.fire();
+	}
+
+	addFinding(finding: BackendFinding): void {
+		if (!this._findings.some(f => f.id === finding.id)) {
+			this._findings = [finding, ...this._findings].slice(0, FindingsTreeProvider.MAX_FINDINGS);
+			this._onDidChangeTreeData.fire();
+		}
+	}
+
+	clear(): void {
+		this._findings = [];
+		this._onDidChangeTreeData.fire();
+	}
+
+	getFindings(): BackendFinding[] { return this._findings; }
+
+	dispose(): void { this._onDidChangeTreeData.dispose(); }
+}
+
+// ---------------------------------------------------------------------------
+// FindingDiagnosticProvider — surfaces findings in the Problems panel
+// ---------------------------------------------------------------------------
+
+export class FindingDiagnosticProvider implements vscode.Disposable {
+	private readonly collection = vscode.languages.createDiagnosticCollection('ribix');
+
+	update(findings: BackendFinding[], workspacePath: string): void {
+		const byFile = new Map<string, BackendFinding[]>();
+		for (const f of findings) {
+			const filePath = f.affectedFiles[0];
+			if (!filePath) { continue; }
+			byFile.set(filePath, [...(byFile.get(filePath) ?? []), f]);
+		}
+
+		this.collection.clear();
+		for (const [filePath, fileFindings] of byFile) {
+			const uri = vscode.Uri.file(path.join(workspacePath, filePath));
+			this.collection.set(uri, fileFindings.map(f => {
+				const d = new vscode.Diagnostic(
+					new vscode.Range(0, 0, 0, 0),
+					`[Ribix] ${f.title}`,
+					f.severity === 'p0' || f.severity === 'p1'
+						? vscode.DiagnosticSeverity.Error
+						: vscode.DiagnosticSeverity.Warning,
+				);
+				d.source = 'Ribix';
+				d.code = f.id;
+				return d;
+			}));
+		}
+	}
+
+	dispose(): void { this.collection.dispose(); }
+}
+
 /**
  * Re-implements core ribix-vscode features natively for ribix-ide users.
  *
- * Usage (once implemented):
+ * Usage:
  *   const integration = new NativeFindingsIntegration();
  *   await integration.registerFindingsSidebar(context);
  *   await integration.registerFindingDecorations(context);
- *   integration.registerApproveRejectCommands(context);
+ *   integration.registerApproveRejectCommands(context, apiUrl, token);
  *   integration.startFindingsStream(apiUrl, token);
  */
 export class NativeFindingsIntegration {
-	// TODO: replace stubs with the real ported providers.
-	// private treeProvider: FindingsTreeProvider | null = null;
-	// private decorationProvider: FindingDecorationProvider | null = null;
-	// private sseClient: SseClient | null = null;
+	private treeProvider: FindingsTreeProvider | null = null;
+	private diagnosticProvider: FindingDiagnosticProvider | null = null;
+	private streamStop: (() => void) | null = null;
 
 	private readonly disposables: vscode.Disposable[] = [];
 
 	/**
-	 * Registers the findings sidebar panel.
-	 *
-	 * Port from: ribix-vscode/src/sidebar/findingsTreeProvider.ts
-	 *   - FindingsTreeProvider implements vscode.TreeDataProvider<FindingTreeItem>
-	 *   - FindingTreeItem (ribix-vscode/src/sidebar/findingTreeItem.ts &
-	 *                       ribix-vscode/src/decorations/findingTreeItem.ts)
-	 *     wraps a Finding and sets severity-based icons and contextValue.
-	 *
-	 * Registration pattern:
-	 *   vscode.window.registerTreeDataProvider('ribix.nativeFindings', treeProvider)
-	 *   vscode.window.createTreeView('ribix.nativeFindings', { treeDataProvider, showCollapseAll: true })
-	 *
-	 * TODO: after porting FindingsTreeProvider, replace the placeholder below with
-	 * the real provider and remove this TODO comment.
+	 * Registers the findings sidebar panel using FindingsTreeProvider.
+	 * The view ID 'ribix.nativeFindings' must be declared in the workbench view registry.
 	 */
 	async registerFindingsSidebar(context: vscode.ExtensionContext): Promise<void> {
-		// TODO: implement — port FindingsTreeProvider from:
-		//   ribix-vscode/src/sidebar/findingsTreeProvider.ts
-		//   ribix-vscode/src/sidebar/findingTreeItem.ts
-		//   ribix-vscode/src/decorations/findingTreeItem.ts
-		//
-		// Steps:
-		//   1. Copy FindingsTreeProvider into this file or a sibling file
-		//      nativeFindingsTreeProvider.ts.
-		//   2. Replace `Finding` with `FindingStub` (or AgentFinding from ribixTypes.ts).
-		//   3. Register the tree view with ID 'ribix.nativeFindings'.
-		//   4. Expose setFindings() so startFindingsStream() can update the tree.
-		//
-		// This stub registers a placeholder so the contribution point is wired up.
-		const placeholder: vscode.TreeDataProvider<vscode.TreeItem> = {
-			getTreeItem: (item) => item,
-			getChildren: () => [],
-		};
+		this.treeProvider = new FindingsTreeProvider();
 		const treeView = vscode.window.createTreeView('ribix.nativeFindings', {
-			treeDataProvider: placeholder,
+			treeDataProvider: this.treeProvider,
 			showCollapseAll: true,
 		});
-		this.disposables.push(treeView);
+		this.disposables.push(treeView, this.treeProvider);
 		context.subscriptions.push(treeView);
 	}
 
 	/**
-	 * Registers gutter icon decorations for affected lines.
-	 *
-	 * Port from: ribix-vscode/src/decorations/findingDecorationProvider.ts
-	 *   - FindingDecorationProvider implements vscode.Disposable
-	 *   - Creates TextEditorDecorationTypes for p0/p1, p2/p3, approved, rejected,
-	 *     ai-smell, and token-cost findings.
-	 *   - update(findings, visibleEditors) applies decorations per editor.
-	 *   - provideHover() returns markdown with approve/reject command links.
-	 *
-	 * Asset dependency: the following SVGs must exist in
-	 *   src/vs/workbench/contrib/ribix/browser/media/
-	 *     gutter-red.svg   — p0/p1
-	 *     gutter-yellow.svg — p2/p3
-	 *     gutter-green.svg  — approved
-	 *     gutter-grey.svg   — rejected
-	 *
-	 * TODO: copy SVGs from ribix-vscode/media/ and port FindingDecorationProvider.
+	 * Registers a FindingDiagnosticProvider that surfaces findings in the Problems panel.
+	 * Gutter-icon decorations (requiring SVG assets) are not yet implemented.
 	 */
 	async registerFindingDecorations(context: vscode.ExtensionContext): Promise<void> {
-		// TODO: implement — port FindingDecorationProvider from:
-		//   ribix-vscode/src/decorations/findingDecorationProvider.ts
-		//
-		// Steps:
-		//   1. Copy FindingDecorationProvider into nativeFindingDecorationProvider.ts.
-		//   2. Swap context.asAbsolutePath("media/...") for the IDE's equivalent
-		//      path resolution (see how other media paths are handled in sidebarPane.ts).
-		//   3. Replace the `Finding` type with `FindingStub` / AgentFinding.
-		//   4. Expose update() so startFindingsStream() can push new findings.
-		//
-		// No-op stub: decorations are not shown until implemented.
-		void context; // suppress unused warning until implemented
+		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+		this.diagnosticProvider = new FindingDiagnosticProvider();
+		this.disposables.push(this.diagnosticProvider);
+		context.subscriptions.push(this.diagnosticProvider);
+		// diagnosticProvider.update() is called when findings arrive via startFindingsStream().
+		void workspacePath;
 	}
 
 	/**
 	 * Registers ribix.approveFinding and ribix.rejectFinding commands.
-	 *
-	 * Port from: ribix-vscode/src/commands/triggerRunCommand.ts
-	 *   (approve/reject handlers, lines ~80–130 in current version)
-	 *
-	 * The commands call PATCH /cli/findings/:id/status with
-	 *   { status: 'approved' | 'rejected' }
-	 * using the active auth token from ribixAuthService.ts.
-	 *
-	 * After updating the finding, refresh the tree and decorations.
-	 *
-	 * TODO: wire up ribixAuthService.ts for the Bearer token, and call
-	 * treeProvider.updateFindingStatus() + decorationProvider.update() after
-	 * each approve/reject.
+	 * Calls PATCH /cli/findings/:id/status on the backend.
 	 */
-	registerApproveRejectCommands(context: vscode.ExtensionContext): void {
-		// TODO: implement approve/reject commands — port from:
-		//   ribix-vscode/src/commands/triggerRunCommand.ts
-		//
-		// Command IDs to register (matching ribix-vscode for parity):
-		//   ribix.approveFinding
-		//   ribix.rejectFinding
-		//   ribix.markFalsePositive   (bonus — already defined in hover provider)
-		//   ribix.ignoreFinding       (bonus)
+	registerApproveRejectCommands(
+		context: vscode.ExtensionContext,
+		getConfig: () => Promise<{ apiUrl: string; accessToken: string } | null>,
+	): void {
+		const patchStatus = async (findingId: string, status: 'approved' | 'rejected' | 'false_positive'): Promise<void> => {
+			const config = await getConfig();
+			if (!config) {
+				void vscode.window.showErrorMessage('Sign in to Ribix to approve or reject findings.');
+				return;
+			}
+			const url = `${config.apiUrl.replace(/\/$/, '')}/cli/findings/${encodeURIComponent(findingId)}/status`;
+			const response = await fetch(url, {
+				method: 'PATCH',
+				headers: {
+					'Authorization': `Bearer ${config.accessToken}`,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ status }),
+			});
+			if (!response.ok) {
+				void vscode.window.showErrorMessage(`Ribix: failed to update finding status (HTTP ${response.status}).`);
+				return;
+			}
+			// Refresh the tree to reflect the new status.
+			this.treeProvider?.clear();
+			const findings = await this.syncBackendFindings(config.apiUrl, config.accessToken);
+			this.treeProvider?.setFindings(findings);
+		};
 
 		const approveFinding = vscode.commands.registerCommand(
 			'ribix.approveFinding',
-			async (args: { findingId: string }) => {
-				// TODO: call PATCH /cli/findings/:id/status { status: 'approved' }
-				//       using auth token from ribixAuthService.ts.
-				//       Then: treeProvider.updateFindingStatus(args.findingId, 'approved')
-				//             decorationProvider.update(...)
-				void vscode.window.showInformationMessage(
-					`[NativeFindingsIntegration] approveFinding not yet implemented (id=${args.findingId}). ` +
-					'Port from ribix-vscode/src/commands/triggerRunCommand.ts.'
-				);
-			}
+			(args: { findingId: string }) => void patchStatus(args.findingId, 'approved'),
 		);
-
 		const rejectFinding = vscode.commands.registerCommand(
 			'ribix.rejectFinding',
-			async (args: { findingId: string }) => {
-				// TODO: call PATCH /cli/findings/:id/status { status: 'rejected' }
-				void vscode.window.showInformationMessage(
-					`[NativeFindingsIntegration] rejectFinding not yet implemented (id=${args.findingId}). ` +
-					'Port from ribix-vscode/src/commands/triggerRunCommand.ts.'
-				);
-			}
+			(args: { findingId: string }) => void patchStatus(args.findingId, 'rejected'),
+		);
+		const markFalsePositive = vscode.commands.registerCommand(
+			'ribix.markFalsePositive',
+			(args: { findingId: string }) => void patchStatus(args.findingId, 'false_positive'),
 		);
 
-		this.disposables.push(approveFinding, rejectFinding);
-		context.subscriptions.push(approveFinding, rejectFinding);
+		this.disposables.push(approveFinding, rejectFinding, markFalsePositive);
+		context.subscriptions.push(approveFinding, rejectFinding, markFalsePositive);
 	}
 
 	/**
-	 * Opens an SSE connection to the ribix backend and pushes findings into the
-	 * tree and decoration providers as events arrive.
-	 *
-	 * Port from: ribix-vscode/src/events/sseClient.ts
-	 *   - SseClient has no VS Code dependency — copy verbatim.
-	 *   - Connect to GET /cli/agent-runs/:runId/stream (or the workspace-level
-	 *     stream endpoint — confirm with the ribix backend API).
-	 *   - On event type 'finding_discovered': call treeProvider.setFindings() and
-	 *     decorationProvider.update(findings, vscode.window.visibleTextEditors).
-	 *   - On event type 'run_completed': show a notification via
-	 *     AgentNotificationService (ribix-vscode/src/notifications/agentNotifications.ts).
-	 *
-	 * TODO: implement — copy SseClient from ribix-vscode/src/events/sseClient.ts
-	 * (no VS Code dependency, pure fetch/AbortController) and call it here.
+	 * Opens an SSE connection to /cli/stream and pushes each arriving finding into
+	 * the tree provider and diagnostic provider. Stops any previous stream.
 	 */
 	startFindingsStream(apiUrl: string, token: string): void {
-		// TODO: implement SSE stream — port SseClient from:
-		//   ribix-vscode/src/events/sseClient.ts
-		//
-		// Wire-up sketch:
-		//   this.sseClient = new SseClient({
-		//     getUrl: () => `${apiUrl}/cli/findings/stream`,
-		//     getAccessToken: () => Promise.resolve(token),
-		//     onEvent: (event) => {
-		//       if (event.type === 'finding_discovered') {
-		//         const findings = [...currentFindings, event.finding];
-		//         this.treeProvider?.setFindings(findings);
-		//         this.decorationProvider?.update(findings, vscode.window.visibleTextEditors);
-		//       }
-		//       if (event.type === 'run_completed') {
-		//         notificationService.onRunCompleted({ runId: event.runId, findingsCount: event.count });
-		//       }
-		//     },
-		//   });
-		//   this.sseClient.connect();
-		console.log(
-			`[NativeFindingsIntegration] startFindingsStream called (apiUrl=${apiUrl}) — not yet implemented. ` +
-			'Port SseClient from ribix-vscode/src/events/sseClient.ts.'
-		);
-		void token; // suppress unused warning
+		this.streamStop?.();
+		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+
+		this.streamStop = this.startBackendStream(apiUrl, token, (finding) => {
+			this.treeProvider?.addFinding(finding);
+			if (this.diagnosticProvider && this.treeProvider) {
+				this.diagnosticProvider.update(this.treeProvider.getFindings(), workspacePath);
+			}
+		});
 	}
 
 	// ---------------------------------------------------------------------------
@@ -440,9 +478,10 @@ export class NativeFindingsIntegration {
 		});
 	}
 
-	/** Disposes all registrations and the SSE connection. */
+	/** Stops the SSE stream and disposes all registrations. */
 	dispose(): void {
-		// this.sseClient?.disconnect();
+		this.streamStop?.();
+		this.streamStop = null;
 		for (const d of this.disposables) {
 			d.dispose();
 		}
