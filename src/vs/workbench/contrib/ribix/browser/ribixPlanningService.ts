@@ -11,7 +11,7 @@ import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { IRibixMemoryService } from './ribixMemoryService.js';
 import { IDirectoryStrService } from '../common/directoryStrService.js';
 import { IRibixSettingsService } from '../common/ribixSettingsService.js';
-import { PlanTask, MissionContext } from '../common/ribixTypes.js';
+import { PlanTask, MissionContext, AgentType, RiskLevel } from '../common/ribixTypes.js';
 import { generatePlanningPrompt, PlanningPromptContext } from '../common/prompt/ribixPlanningPrompt.js';
 
 export interface IRibixPlanningService {
@@ -290,10 +290,10 @@ class RibixPlanningService extends Disposable implements IRibixPlanningService {
 
 			validatedTasks.push({
 				id: taskObj.id,
-				agentType: taskObj.agentType as any,
+				agentType: taskObj.agentType as AgentType,
 				description: taskObj.description,
 				dependsOn: taskObj.dependsOn as string[],
-				riskLevel: taskObj.riskLevel as any,
+				riskLevel: taskObj.riskLevel as RiskLevel,
 				estimatedTokens: taskObj.estimatedTokens,
 				notes: taskObj.notes,
 				status: 'pending',

@@ -13,14 +13,19 @@ export interface WebSocketServerConfig {
   port: number;
   host?: string;
   path?: string;
+  /** Shared secret token required on all connections. Set WS_AUTH_TOKEN in production. */
+  authToken?: string;
 }
 
 export class CollaborationWebSocketServer {
   private wss: WebSocketServer;
   private docs: Map<string, Y.Doc> = new Map();
   private healthServer: http.Server | undefined;
+  /** When set, every connection must supply a matching token query param. */
+  private readonly authToken: string | undefined;
 
   constructor(config: WebSocketServerConfig) {
+    this.authToken = config.authToken;
     this.wss = new WebSocketServer({
       port: config.port,
       host: config.host || '0.0.0.0',
@@ -34,8 +39,19 @@ export class CollaborationWebSocketServer {
   private setupServer(): void {
     this.wss.on('connection', (ws, req) => {
       const url = new URL(req.url!, `http://${req.headers.host}`);
+
+      // #137: Token-based auth — reject connections without a valid token when
+      // WS_AUTH_TOKEN is configured. Clients must pass ?token=<value> in the URL.
+      if (this.authToken) {
+        const provided = url.searchParams.get('token');
+        if (!provided || provided !== this.authToken) {
+          ws.close(4401, 'Unauthorized: missing or invalid token');
+          return;
+        }
+      }
+
       const fileId = url.pathname.split('/').pop() || 'default';
-      
+
       // Get or create document for this file
       let doc = this.docs.get(fileId);
       if (!doc) {
@@ -46,7 +62,6 @@ export class CollaborationWebSocketServer {
       // Extract user info from query params
       const userId = url.searchParams.get('userId') || 'anonymous';
       const userName = url.searchParams.get('userName') || 'Anonymous';
-      const userColor = url.searchParams.get('userColor') || '#4ECDC4';
 
       // Setup Yjs WebSocket connection
       setupWSConnection(ws, req, {
@@ -54,7 +69,7 @@ export class CollaborationWebSocketServer {
         doc,
       });
 
-      console.log(`User ${userName} (${userId}) connected to file ${fileId}`);
+      console.debug(`User ${userName} (${userId}) connected to file ${fileId}`);
     });
 
     this.wss.on('error', (error) => {
@@ -120,8 +135,13 @@ const isMainModule = process.argv[1] !== undefined && import.meta.url === pathTo
 
 if (isMainModule) {
   const port = parseInt(process.env.WS_PORT || '1234', 10);
-  const server = new CollaborationWebSocketServer({ port });
-  
+  // #137: Load auth token from env. Set WS_AUTH_TOKEN in production secrets.
+  const authToken = process.env.WS_AUTH_TOKEN || undefined;
+  if (!authToken) {
+    console.warn('[websocket-server] WS_AUTH_TOKEN is not set — connections are not authenticated. Set WS_AUTH_TOKEN in production.');
+  }
+  const server = new CollaborationWebSocketServer({ port, authToken });
+
   console.log(`Collaboration WebSocket server running on port ${port}`);
   
   process.on('SIGTERM', () => {

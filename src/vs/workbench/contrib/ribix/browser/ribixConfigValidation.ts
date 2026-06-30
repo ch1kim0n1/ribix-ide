@@ -172,11 +172,13 @@ export function validateProviderSettings(
 	}
 
 	// Check that at least one provider is configured
+	const API_KEY_PROVIDER_NAMES: ReadonlyArray<string> = API_KEY_PROVIDERS;
+	const ENDPOINT_PROVIDER_NAMES: ReadonlyArray<string> = ENDPOINT_PROVIDERS;
 	const hasAnyProvider = Object.entries(settingsOfProvider).some(([name, config]) => {
-		if (API_KEY_PROVIDERS.includes(name as any)) {
+		if (API_KEY_PROVIDER_NAMES.includes(name)) {
 			return config?.apiKey && config.apiKey !== '';
 		}
-		if (ENDPOINT_PROVIDERS.includes(name as any)) {
+		if (ENDPOINT_PROVIDER_NAMES.includes(name)) {
 			return config?.endpoint && config.endpoint !== '';
 		}
 		return false;

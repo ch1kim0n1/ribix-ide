@@ -33,6 +33,7 @@ import { agentProgressFeed } from './agentProgressFeed.js';
 import { IFixMemoryService } from './fixMemory.js';
 import { callLlm, parseToolCalls } from './ribixAgentLlmClient.js';
 import { agentSandboxInstance, SandboxBlockedError } from './agentSandbox.js';
+import { CostTracker, DEFAULT_MISSION_CEILING_TOKENS, MISSION_BUDGET_EXCEEDED_MESSAGE } from './costTracker.js';
 
 /** Storage key under which the workspace staging URL is persisted. */
 const RIBIX_STAGING_URL_KEY = 'ribix.stagingUrl';
@@ -69,6 +70,9 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 
 	private readonly _onDidCompleteAgent = new Emitter<{ agentId: string; status: 'complete' | 'failed' }>();
 	readonly onDidCompleteAgent = this._onDidCompleteAgent.event;
+
+	/** Temporary storage for Playwright findings collected during tester agent runs. */
+	private readonly _playwrightFindingsMap = new Map<string, PlaywrightFinding[]>();
 
 	/** Write tools that mutate files and require lock + checkpoint before execution. */
 	private static readonly WRITE_TOOLS = new Set(['rewrite_file', 'edit_file', 'create_file_or_folder', 'delete_file_or_folder']);
@@ -310,6 +314,12 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		let lastTestReport: string | null = null;
 		let budgetHit: string | null = null;
 
+		// #138: Enforce per-mission token budget via CostTracker. The ceiling defaults
+		// to DEFAULT_MISSION_CEILING_TOKENS (100k tokens ≈ $0.50) and can be tuned via
+		// ribix.missionCeilingTokens in settings.
+		const missionCeiling = this.configurationService?.getValue<number>('ribix.missionCeilingTokens') ?? DEFAULT_MISSION_CEILING_TOKENS;
+		const costTracker = new CostTracker(missionCeiling);
+
 		try {
 			this.updateAgentStatus(agent, 'executing', 'Reading memory');
 			const workspaceId = await this.memoryService.getWorkspaceId();
@@ -325,9 +335,9 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			if (agent.type === 'tester' && !tokenSource.token.isCancellationRequested) {
 				const playwrightFindings = await this.runPlaywrightQA(agent, context);
 				// Merge Playwright findings into the agent output findings list.
-				// We mutate the pre-built output after the LLM loop finishes, so we
-				// accumulate them on the agent instance temporarily.
-				(agent as any).__playwrightFindings = playwrightFindings;
+				// We store them in the service-level map keyed by agentId and merge
+				// into the final output after the LLM loop finishes.
+				this._playwrightFindingsMap.set(agent.id, playwrightFindings);
 			}
 
 			const messages: AgentTurnMessage[] = [
@@ -339,15 +349,22 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 				if (tokenSource.token.isCancellationRequested) { break; }
 				if (Date.now() > deadline) { budgetHit = 'deadline'; break; }
 
+				// #138: Enforce token budget ceiling before each LLM call.
+				if (costTracker.isOverCeiling()) { budgetHit = 'tokenCeiling'; throw new Error(MISSION_BUDGET_EXCEEDED_MESSAGE); }
+
 				// #118: Bound history growth BEFORE the token check so a long run is
 				// kept under its ceiling by truncation rather than being cut short.
 				this.truncateOldToolResults(messages);
 				if (estimateTokens(messages) > budget.maxTokens) { budgetHit = 'tokens'; break; }
 
 				this.updateAgentStatus(agent, 'executing', `Turn ${turn + 1}`);
+				// #138: Record estimated input tokens before the LLM call.
+				costTracker.addTokens(estimateTokens(messages));
 				const llmStart = Date.now();
 				const reply = await this.callLLM(messages, tokenSource.token);
 				const llmMs = Date.now() - llmStart;
+				// #138: Record estimated output tokens after the LLM reply.
+				costTracker.addTokens(estimateTokens([{ role: 'assistant', content: reply }]));
 				messages.push({ role: 'assistant', content: reply });
 				lastAssistantMessage = reply;
 				this.addActivityLog(agent, 'LLM turn', `Turn ${turn + 1} response`, null, null);
@@ -399,7 +416,8 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			agent.output = this.buildAgentOutput(agent, lastAssistantMessage, lastTestReport, budgetHit);
 
 			// Merge any pre-collected Playwright findings into the final output.
-			const pwFindings: PlaywrightFinding[] | undefined = (agent as any).__playwrightFindings;
+			const pwFindings: PlaywrightFinding[] | undefined = this._playwrightFindingsMap.get(agent.id);
+			this._playwrightFindingsMap.delete(agent.id);
 			if (pwFindings && pwFindings.length > 0 && agent.output) {
 				const converted: AgentFinding[] = pwFindings.map(f => ({
 					severity: f.severity === 'p0' ? 'high' : f.severity === 'p1' ? 'high' : f.severity === 'p2' ? 'medium' : 'low' as const,

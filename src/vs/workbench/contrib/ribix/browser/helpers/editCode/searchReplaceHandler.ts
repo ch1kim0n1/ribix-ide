@@ -26,8 +26,8 @@ export const applySearchReplaceBlock = (
 	startingLine?: number
 ): { success: boolean; appliedLine: number; error?: string } => {
 	const fullText = model.getValue();
-	const searchText = (block as any).searchBlock;
-	const replaceText = (block as any).replaceBlock;
+	const searchText = block.orig;
+	const replaceText = block.final;
 
 	// Find the search text
 	let searchIdx: number;
@@ -114,12 +114,12 @@ export const validateSearchReplaceBlocks = (
 	for (let i = 0; i < blocks.length; i++) {
 		const block = blocks[i];
 
-		if (!(block as any).searchBlock) {
+		if (!block.orig) {
 			errors.push(`Block ${i + 1}: Missing search content`);
 			continue;
 		}
 
-		if (!fullText.includes((block as any).searchBlock)) {
+		if (!fullText.includes(block.orig)) {
 			errors.push(`Block ${i + 1}: Search text not found in file`);
 		}
 	}
@@ -140,10 +140,10 @@ export const formatInvalidBlockError = (
 	lines.push(`// Error in search/replace block ${index + 1}:`);
 	lines.push('');
 	lines.push('// Original content:');
-	lines.push((block as any).searchBlock);
+	lines.push(block.orig);
 	lines.push('');
 	lines.push('// Replacement content:');
-	lines.push((block as any).replaceBlock);
+	lines.push(block.final);
 	lines.push('');
 
 	return lines.join('\n');

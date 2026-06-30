@@ -70,8 +70,10 @@ const parseHeadersJSON = (s: string | undefined): Record<string, string | null |
 }
 
 const newOpenAICompatibleSDK = async ({ settingsOfProvider, providerName, includeInPayload }: { settingsOfProvider: SettingsOfProvider, providerName: ProviderName, includeInPayload?: { [s: string]: any } }) => {
+	// #139: This code runs in the Electron main process (Node.js environment).
+	// dangerouslyAllowBrowser is not needed here and would silently bypass the SDK's
+	// security intent; omit it so the SDK behaves correctly in a Node environment.
 	const commonPayloadOpts: ClientOptions = {
-		dangerouslyAllowBrowser: true,
 		...includeInPayload,
 	}
 	if (providerName === 'openAI') {
@@ -478,10 +480,9 @@ const sendAnthropicChat = async ({ messages, providerName, onText, onFinalMessag
 		: {}
 
 
-	// instance
+	// instance — runs in Electron main (Node.js); dangerouslyAllowBrowser is not needed
 	const anthropic = new Anthropic({
 		apiKey: thisConfig.apiKey,
-		dangerouslyAllowBrowser: true
 	});
 
 	const stream = anthropic.messages.stream({

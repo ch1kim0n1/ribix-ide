@@ -337,7 +337,7 @@ export class NativeFindingsIntegration {
 			}
 
 			return (data as BackendFinding[]).filter(item =>
-				typeof item === 'object' && item !== null && typeof (item as any).id === 'string',
+				typeof item === 'object' && item !== null && typeof (item as { id?: unknown }).id === 'string',
 			);
 		} catch (e) {
 			console.warn('[NativeFindingsIntegration] syncBackendFindings failed:', e);
@@ -395,7 +395,7 @@ export class NativeFindingsIntegration {
 								if (eventType === 'finding' || eventType === 'finding_discovered') {
 									const payload = parsed as { data?: BackendFinding } | BackendFinding;
 									const finding = (payload as { data?: BackendFinding }).data ?? (payload as BackendFinding);
-									if (finding && typeof (finding as any).id === 'string') {
+									if (finding && typeof (finding as { id?: unknown }).id === 'string') {
 										onFinding(finding as BackendFinding);
 									}
 								}
