@@ -180,7 +180,7 @@ export const agentSandboxInstance = new AgentSandbox({
 /**
  * Registers the ribix.configureSandbox command.
  * Opens a QuickPick so the user can inspect and adjust the active sandbox policy.
- * Full settings UI is a TODO — this QuickPick covers the essentials for now.
+ * Opens a QuickPick covering the essential policy fields; individual field editing can be added later.
  */
 export function registerAgentSandboxCommand(): vscode.Disposable {
 	return vscode.commands.registerCommand('ribix.configureSandbox', async () => {
@@ -219,7 +219,7 @@ export function registerAgentSandboxCommand(): vscode.Disposable {
 
 		const picked = await vscode.window.showQuickPick(options, {
 			title: 'Agent Sandbox Policy',
-			placeHolder: 'Current policy — full editor UI is a TODO',
+			placeHolder: 'Select a policy option to configure the agent sandbox',
 		});
 
 		if (!picked) {
