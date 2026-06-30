@@ -24,6 +24,15 @@ export class CollaborationWebSocketServer {
   /** When set, every connection must supply a matching token query param. */
   private readonly authToken: string | undefined;
 
+  /**
+   * #137: Per-IP connection rate limiting. Tracks the number of open WebSocket
+   * connections from each remote IP address. New connections are rejected with
+   * close code 4429 when the per-IP ceiling is reached, preventing brute-force
+   * enumeration of document IDs and resource exhaustion.
+   */
+  private static readonly MAX_CONNECTIONS_PER_IP = 10;
+  private readonly connectionCountByIp = new Map<string, number>();
+
   constructor(config: WebSocketServerConfig) {
     this.authToken = config.authToken;
     this.wss = new WebSocketServer({
@@ -49,6 +58,23 @@ export class CollaborationWebSocketServer {
           return;
         }
       }
+
+      // #137: Per-IP rate limiting — reject if this IP already has too many open connections.
+      const clientIp = req.socket.remoteAddress ?? 'unknown';
+      const currentCount = this.connectionCountByIp.get(clientIp) ?? 0;
+      if (currentCount >= CollaborationWebSocketServer.MAX_CONNECTIONS_PER_IP) {
+        ws.close(4429, 'Too Many Connections: per-IP connection limit reached');
+        return;
+      }
+      this.connectionCountByIp.set(clientIp, currentCount + 1);
+      ws.on('close', () => {
+        const n = this.connectionCountByIp.get(clientIp) ?? 1;
+        if (n <= 1) {
+          this.connectionCountByIp.delete(clientIp);
+        } else {
+          this.connectionCountByIp.set(clientIp, n - 1);
+        }
+      });
 
       const fileId = url.pathname.split('/').pop() || 'default';
 

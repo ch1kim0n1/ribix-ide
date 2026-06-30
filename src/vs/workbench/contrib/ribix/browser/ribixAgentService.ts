@@ -460,6 +460,8 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 
 			agent.completedAt = Date.now();
 			const completionDetail = budgetHit ? `Completed (budget: ${budgetHit})` : 'Task completed';
+			// #138: Log final token budget usage so cost is visible in agent activity.
+			this.addActivityLog(agent, 'Token budget', costTracker.getSummary(), null, null);
 			this.updateAgentStatus(agent, 'complete', completionDetail);
 			this.addActivityLog(agent, 'Completion', completionDetail, null, null);
 		} catch (error) {
