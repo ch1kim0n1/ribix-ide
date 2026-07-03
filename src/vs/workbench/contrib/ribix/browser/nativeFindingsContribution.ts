@@ -45,14 +45,14 @@ class NativeFindingsContribution extends Disposable implements IWorkbenchContrib
 
 		// Start the backend SSE stream if already signed in.
 		this.authService.getAuthSummary().then(summary => {
-			if (summary.isSignedIn) {
+			if (summary.status === 'signed_in') {
 				this.startStream();
 			}
 		});
 
 		// Re-start the stream on each auth state change.
 		this._register(this.authService.onDidChangeSession(summary => {
-			if (summary.isSignedIn) {
+			if (summary.status === 'signed_in') {
 				this.startStream();
 			} else {
 				this.integration.dispose();

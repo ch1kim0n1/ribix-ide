@@ -6,6 +6,8 @@
 import { MemoryEntry } from './ribixTypes.js';
 
 // Auth session types
+export type RibixPlan = 'free' | 'pro' | 'team';
+
 export interface RibixAuthSession {
 	accessToken: string;
 	refreshToken: string;
@@ -14,6 +16,7 @@ export interface RibixAuthSession {
 	workspaceRole: string;
 	githubInstallationId: string;
 	userId: string;
+	plan: RibixPlan;
 }
 
 export interface RibixConfig {
@@ -26,14 +29,18 @@ export interface RibixConfig {
 	workspaceRole: string;
 	githubInstallationId: string;
 	userId: string;
+	plan: RibixPlan;
 }
 
 export interface RibixAuthSummary {
 	status: 'signed_out' | 'signed_in' | 'expired';
+	/** Convenience alias used by contributions: true when status === 'signed_in'. */
+	isSignedIn: boolean;
 	workspaceId: string | null;
 	workspaceRole: string | null;
 	githubInstallationId: string | null;
 	expiresAt: string | null;
+	plan: RibixPlan | null;
 }
 
 // API request/response types

@@ -1497,6 +1497,8 @@ Use Model Context Protocol to provide Agent mode with more tools.
 	Configure Ribix's multi-agent mission system.
 										`} chatMessageLocation={undefined} />
 									</h4>
+									<AuthStatusSection />
+									<div className='w-full h-[1px] my-4' />
 									<RibixCommandCenterSection />
 								</ErrorBoundary>
 							</div>

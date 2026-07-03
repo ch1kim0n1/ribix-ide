@@ -5,15 +5,17 @@
 
 export type AIProvider = 'anthropic' | 'openai' | 'ollama' | 'ribix' | 'custom';
 
-export type AIModel = 
-  // Anthropic
-  | 'claude-3-opus-20240229' 
-  | 'claude-3-sonnet-20240229' 
-  | 'claude-3-haiku-20240307'
+export type AIModel =
+  // Anthropic (current Claude 4 family)
+  | 'claude-opus-4-8'
+  | 'claude-sonnet-4-6'
+  | 'claude-haiku-4-5'
+  | 'claude-3-7-sonnet-latest'
+  | 'claude-3-5-haiku-latest'
   // OpenAI
-  | 'gpt-4-turbo-2024-04-09'
-  | 'gpt-4-0125-preview'
-  | 'gpt-3.5-turbo-0125'
+  | 'gpt-4.1'
+  | 'gpt-4.1-mini'
+  | 'o4-mini'
   // Ollama (local)
   | 'llama3:8b'
   | 'llama3:70b'
@@ -161,11 +163,13 @@ export class AnthropicProvider implements AIProviderInterface {
   }
 
   estimateCost(prompt: string, config: AIProviderConfig): number {
-    const tokenCount = Math.ceil(prompt.length / 4); // Rough estimate
+    const tokenCount = Math.ceil(prompt.length / 4);
     const costs: Record<string, number> = {
-      'claude-3-opus-20240229': 0.015,
-      'claude-3-sonnet-20240229': 0.003,
-      'claude-3-haiku-20240307': 0.00025,
+      'claude-opus-4-8': 0.015,
+      'claude-sonnet-4-6': 0.003,
+      'claude-haiku-4-5': 0.00025,
+      'claude-3-7-sonnet-latest': 0.003,
+      'claude-3-5-haiku-latest': 0.00025,
     };
     const costPer1k = costs[config.model as string] || 0.003;
     return (tokenCount / 1000) * costPer1k;
@@ -173,9 +177,9 @@ export class AnthropicProvider implements AIProviderInterface {
 
   getAvailableModels(): AIModel[] {
     return [
-      'claude-3-opus-20240229',
-      'claude-3-sonnet-20240229',
-      'claude-3-haiku-20240307',
+      'claude-opus-4-8',
+      'claude-sonnet-4-6',
+      'claude-haiku-4-5',
     ];
   }
 }
@@ -257,19 +261,19 @@ export class OpenAIProvider implements AIProviderInterface {
   estimateCost(prompt: string, config: AIProviderConfig): number {
     const tokenCount = Math.ceil(prompt.length / 4);
     const costs: Record<string, number> = {
-      'gpt-4-turbo-2024-04-09': 0.01,
-      'gpt-4-0125-preview': 0.03,
-      'gpt-3.5-turbo-0125': 0.0005,
+      'gpt-4.1': 0.002,
+      'gpt-4.1-mini': 0.0004,
+      'o4-mini': 0.0011,
     };
-    const costPer1k = costs[config.model as string] || 0.01;
+    const costPer1k = costs[config.model as string] || 0.002;
     return (tokenCount / 1000) * costPer1k;
   }
 
   getAvailableModels(): AIModel[] {
     return [
-      'gpt-4-turbo-2024-04-09',
-      'gpt-4-0125-preview',
-      'gpt-3.5-turbo-0125',
+      'gpt-4.1',
+      'gpt-4.1-mini',
+      'o4-mini',
     ];
   }
 }
@@ -347,14 +351,13 @@ export class RibixProvider implements AIProviderInterface {
   async complete(prompt: string, config: AIProviderConfig): Promise<AIResponse> {
     const startTime = Date.now();
 
-    // Call existing Ribix backend API
-    const response = await fetch(`${config.baseURL || 'http://localhost:3000'}/api/ai/complete`, {
+    const response = await fetch(`${config.baseURL || 'http://localhost:3000'}/api/v1/ai/chat`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'authorization': `Bearer ${config.apiKey || ''}`,
       },
-      body: JSON.stringify({ prompt, model: config.model }),
+      body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: config.model }),
       signal: AbortSignal.timeout(getTimeoutMs(config)),
     });
 
@@ -374,7 +377,7 @@ export class RibixProvider implements AIProviderInterface {
   async chat(messages: Array<{role: string; content: string}>, config: AIProviderConfig): Promise<AIResponse> {
     const startTime = Date.now();
 
-    const response = await fetch(`${config.baseURL || 'http://localhost:3000'}/api/ai/chat`, {
+    const response = await fetch(`${config.baseURL || 'http://localhost:3000'}/api/v1/ai/chat`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -397,16 +400,15 @@ export class RibixProvider implements AIProviderInterface {
     };
   }
 
-  estimateCost(prompt: string, config: AIProviderConfig): number {
-    // Ribix backend handles cost estimation
-    return 0;
+  estimateCost(_prompt: string, _config: AIProviderConfig): number {
+    return 0; // billed through Ribix account
   }
 
   getAvailableModels(): AIModel[] {
     return [
-      'claude-3-opus-20240229',
-      'claude-3-sonnet-20240229',
-      'gpt-4-turbo-2024-04-09',
+      'claude-sonnet-4-6',
+      'claude-haiku-4-5',
+      'gpt-4.1-mini',
     ];
   }
 }
@@ -425,10 +427,9 @@ export class AIProviderManager {
     this.providers.set('ollama', new OllamaProvider());
     this.providers.set('ribix', new RibixProvider());
 
-    // Default configuration
     this.currentConfig = {
       provider: this.currentProvider,
-      model: 'claude-3-sonnet-20240229',
+      model: 'claude-sonnet-4-6',
       temperature: 0.7,
       maxTokens: 4096,
     };
@@ -523,12 +524,12 @@ export class AIProviderManager {
 
   estimateCost(tokens: number): { provider: AIProvider; costUsd: number } {
     const costs: Record<string, number> = {
-      'claude-3-opus-20240229': 0.015,
-      'claude-3-sonnet-20240229': 0.003,
-      'claude-3-haiku-20240307': 0.00025,
-      'gpt-4-turbo-2024-04-09': 0.01,
-      'gpt-4-0125-preview': 0.03,
-      'gpt-3.5-turbo-0125': 0.0005,
+      'claude-opus-4-8': 0.015,
+      'claude-sonnet-4-6': 0.003,
+      'claude-haiku-4-5': 0.00025,
+      'gpt-4.1': 0.002,
+      'gpt-4.1-mini': 0.0004,
+      'o4-mini': 0.0011,
     };
     const costPer1k = costs[this.currentConfig.model as string] ?? 0;
     return {

@@ -244,6 +244,7 @@ export class RibixApiClient {
 		githubInstallationId: string;
 		scopes: string[];
 		userId: string;
+		plan: string;
 	}> {
 		const requestId = generateUuid();
 		const response = await this.fetchImpl(
@@ -277,6 +278,7 @@ export class RibixApiClient {
 			githubInstallationId: string;
 			scopes: string[];
 			userId: string;
+			plan: string;
 		};
 	}
 

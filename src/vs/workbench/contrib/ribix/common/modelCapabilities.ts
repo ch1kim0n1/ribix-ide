@@ -66,6 +66,12 @@ export const defaultProviderSettings = {
 		endpoint: '', // optionally allow overriding default
 	},
 
+	// Ribix-hosted AI: models proxied via user's Ribix account (paid plan required).
+	// The access token is injected automatically from IRibixAuthService — no manual key entry.
+	ribix: {
+		endpoint: '',
+	},
+
 } as const
 
 
@@ -153,6 +159,12 @@ export const defaultModelsOfProvider = {
 	microsoftAzure: [],
 	awsBedrock: [],
 	liteLLM: [],
+	// Models available to Ribix paid-plan users via Ribix's API key.
+	ribix: [
+		'ribix/claude-sonnet-4-6',
+		'ribix/claude-haiku-4-5',
+		'ribix/gpt-4o-mini',
+	],
 
 
 } as const satisfies Record<ProviderName, string[]>
@@ -1447,6 +1459,14 @@ const openRouterSettings: RibixStaticProviderInfo = {
 
 
 
+// ---------------- Ribix managed provider ----------------
+
+const ribixSettings: RibixStaticProviderInfo = {
+	// ponytail: curated models served via Ribix's proxy — fall back to known Anthropic/OpenAI capabilities
+	modelOptionsFallback: (modelName) => extensiveModelOptionsFallback(modelName),
+	modelOptions: {},
+}
+
 // ---------------- model settings of everything above ----------------
 
 const modelSettingsOfProvider: { [providerName in ProviderName]: RibixStaticProviderInfo } = {
@@ -1472,6 +1492,7 @@ const modelSettingsOfProvider: { [providerName in ProviderName]: RibixStaticProv
 	googleVertex: googleVertexSettings,
 	microsoftAzure: microsoftAzureSettings,
 	awsBedrock: awsBedrockSettings,
+	ribix: ribixSettings,
 } as const
 
 

@@ -12,9 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # All jobs gated — web IDE deployment not needed for desktop-only shipping
   test:
-    if: false
     runs-on: ubuntu-latest
     
     steps:

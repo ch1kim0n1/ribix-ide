@@ -109,10 +109,12 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 		if (!session) {
 			return {
 				status: 'signed_out',
+				isSignedIn: false,
 				workspaceId: null,
 				workspaceRole: null,
 				githubInstallationId: null,
 				expiresAt: null,
+				plan: null,
 			};
 		}
 
@@ -121,19 +123,23 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 		if (expiresAt <= now) {
 			return {
 				status: 'expired',
+				isSignedIn: false,
 				workspaceId: session.workspaceId,
 				workspaceRole: session.workspaceRole,
 				githubInstallationId: session.githubInstallationId,
 				expiresAt: session.expiresAt,
+				plan: session.plan ?? null,
 			};
 		}
 
 		return {
 			status: 'signed_in',
+			isSignedIn: true,
 			workspaceId: session.workspaceId,
 			workspaceRole: session.workspaceRole,
 			githubInstallationId: session.githubInstallationId,
 			expiresAt: session.expiresAt,
+			plan: session.plan ?? null,
 		};
 	}
 
@@ -298,6 +304,7 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 				workspaceRole: session.workspaceRole,
 				githubInstallationId: session.githubInstallationId,
 				userId: session.userId,
+				plan: session.plan ?? 'free',
 			};
 
 			await this.saveSession(newSession);
@@ -456,15 +463,17 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 			workspaceRole: claims.workspace_role,
 			githubInstallationId: claims.githubInstallationId,
 			userId: claims.sub,
+			plan: 'free',
 		};
 
-		// Verify session with API
+		// Verify session with API and fetch plan
 		const apiClient = new RibixApiClient();
-		await apiClient.getSession({
+		const sessionData = await apiClient.getSession({
 			apiUrl: params.apiUrl,
 			appUrl: params.appUrl,
 			...session,
 		});
+		session.plan = (sessionData.plan as import('../common/ribixAuthTypes.js').RibixPlan) ?? 'free';
 
 		return session;
 	}
