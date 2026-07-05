@@ -138,16 +138,13 @@ class RibixFileLockService extends Disposable implements IRibixFileLockService {
 				this.locks.delete(filePath);
 				this._onDidChangeLocks.fire();
 
-				// Reject all pending waiters for this path — the lock timed out while
-				// an agent was holding it, so we cannot safely hand it to a waiter.
-				// Each waiter should handle the rejection and retry if needed.
-				const pending = this.pendingAcquisitions.get(filePath);
-				if (pending && pending.length > 0) {
-					this.pendingAcquisitions.delete(filePath);
-					for (const waiter of pending) {
-						waiter.reject(new Error(`Lock on ${filePath} was force-expired (held by ${lock.agentId}); retry acquisition`));
-					}
-				}
+				// Hand off the lock to the next queued waiter instead of
+				// rejecting all of them. The previous holder crashed or hung —
+				// that's not the waiters' fault, and rejecting all of them
+				// cascades the failure to every agent waiting on this file.
+				// The first waiter gets a fresh lock with a fresh timeout; any
+				// remaining waiters stay queued behind it.
+				this.processNextPending(filePath);
 			}
 		}
 	}

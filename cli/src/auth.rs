@@ -66,10 +66,17 @@ impl Display for AuthProvider {
 }
 
 impl AuthProvider {
-	pub fn client_id(&self) -> &'static str {
+	/// OAuth client IDs are read from environment variables at runtime.
+	/// Falls back to the compiled-in defaults if the env var is not set,
+	/// so existing deployments keep working without configuration changes.
+	/// To rotate: set RIBIX_MICROSOFT_CLIENT_ID / RIBIX_GITHUB_CLIENT_ID
+	/// in the build environment or at runtime.
+	pub fn client_id(&self) -> String {
 		match self {
-			AuthProvider::Microsoft => "aebc6443-996d-45c2-90f0-388ff96faa56",
-			AuthProvider::Github => "01ab8ac9400c4e429b23",
+			AuthProvider::Microsoft => std::env::var("RIBIX_MICROSOFT_CLIENT_ID")
+				.unwrap_or_else(|_| "aebc6443-996d-45c2-90f0-388ff96faa56".to_string()),
+			AuthProvider::Github => std::env::var("RIBIX_GITHUB_CLIENT_ID")
+				.unwrap_or_else(|_| "01ab8ac9400c4e429b23".to_string()),
 		}
 	}
 

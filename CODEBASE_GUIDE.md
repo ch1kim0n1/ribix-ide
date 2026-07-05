@@ -21,7 +21,7 @@ src/vs/workbench/contrib/ribix/
 | `browser/ribixAgentService.ts` | Agent lifecycle — start, abort, completion events |
 | `common/ribixTaskQueueService.ts` | Serialised task queue with concurrency guard |
 | `common/ribixFileLockService.ts` | File-level lock to prevent overlapping edits |
-| `electron-main/metricsMainService.ts` | PostHog telemetry (reads `RIBIX_POSTHOG_KEY` env var) |
+| `electron-main/metricsMainService.ts` | Telemetry sender (POSTs to the Ribix backend `/api/telemetry/event` endpoint) |
 | `electron-main/ribixUpdateMainService.ts` | Auto-update check (points to `ch1kim0n1/ribix-ide` releases) |
 
 ---
@@ -50,7 +50,7 @@ For a deeper VS Code architecture overview see Microsoft's [Source Code Organiza
 
 ## Telemetry
 
-Telemetry uses PostHog. The client reads `process.env['RIBIX_POSTHOG_KEY']` at runtime. If the variable is absent, the key defaults to a disabled placeholder and no events are sent. To enable analytics, set `RIBIX_POSTHOG_KEY` as a GitHub Actions secret and inject it at build time.
+Telemetry is sent to the Ribix backend's `/api/telemetry/event` endpoint (see `metricsMainService.ts`). The API URL is derived from the configured Ribix backend URL. If the variable is absent, no events are sent. Telemetry is opt-out via the `ribix.telemetry.enabled` setting.
 
 ---
 

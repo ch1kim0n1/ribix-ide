@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "dev:websocket": "tsx server/websocket-server.ts",
+    "build:websocket": "tsc -p tsconfig.server.json",
+    "start:websocket": "node dist-server/websocket-server.js",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

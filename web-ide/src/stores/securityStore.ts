@@ -80,15 +80,27 @@ async function loadPersistedAuditLog(): Promise<AuditLogEntry[]> {
 // Server-side RBAC validation
 // ---------------------------------------------------------------------------
 
-/** Returns the user's role as recorded on the backend, or null on failure. */
-async function fetchServerRole(token: string): Promise<Role | null> {
+/**
+ * Returns the user's role as recorded on the backend, or null on failure.
+ *
+ * C3: the token is read from sessionStorage (fallback) and sent both via the
+ * Authorization header and as a cookie (`credentials: 'include'`) so the
+ * server can validate from whichever it supports. When `token` is omitted the
+ * sessionStorage token is used; when none is available the request relies
+ * solely on the httpOnly cookie.
+ */
+async function fetchServerRole(token?: string): Promise<Role | null> {
   try {
     const webIdeBase =
       (typeof import.meta !== 'undefined' &&
         (import.meta as any).env?.VITE_WEB_IDE_API_BASE_URL) ||
       '/web-ide';
+    const effectiveToken = token ?? getAuthToken();
+    const headers: Record<string, string> = {};
+    if (effectiveToken) headers['Authorization'] = `Bearer ${effectiveToken}`;
     const resp = await fetch(`${webIdeBase}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers,
+      ...withCredentials,
     });
     if (!resp.ok) return null;
     const data = await resp.json() as { user?: { role?: string } };
@@ -190,12 +202,17 @@ export class SecurityManager {
    * Validate the current user's role against the backend.
    * Throws an Error with code 403 if the server disagrees or the token is
    * invalid/missing.  Guards all mutating operations.
+   *
+   * C3: when no in-memory token is set, falls back to the sessionStorage token
+   * (or the httpOnly cookie via credentials:'include') so server-side RBAC
+   * still works after a page reload where the token is no longer in JS memory.
    */
   async validateRoleServerSide(requiredPermission: Permission): Promise<void> {
-    if (!this.currentToken) {
+    const effectiveToken = this.currentToken ?? getAuthToken();
+    if (!effectiveToken) {
       throw Object.assign(new Error('No auth token — cannot validate role server-side'), { code: 403 });
     }
-    const serverRole = await fetchServerRole(this.currentToken);
+    const serverRole = await fetchServerRole(effectiveToken);
     if (!serverRole) {
       throw Object.assign(new Error('Server-side role check failed — token may be invalid'), { code: 403 });
     }
@@ -418,6 +435,7 @@ export class SecurityManager {
  * Security Store for React
  */
 import { create } from 'zustand';
+import { getAuthToken, withCredentials } from '../lib/authToken';
 
 interface SecurityState {
   currentUser: User | null;

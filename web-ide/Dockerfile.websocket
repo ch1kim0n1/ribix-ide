@@ -27,6 +27,10 @@ COPY --from=base /app/package*.json ./
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/server ./server
 COPY --from=base /app/tsconfig.json ./tsconfig.json
+COPY --from=base /app/tsconfig.server.json ./tsconfig.server.json
+
+# Compile the TypeScript server to JavaScript for production
+RUN npm run build:websocket
 
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S ribix -u 1001
@@ -38,4 +42,4 @@ EXPOSE 1234 1235
 ENV NODE_ENV=production
 ENV WS_PORT=1234
 
-CMD ["npm", "run", "dev:websocket"]
+CMD ["node", "dist-server/websocket-server.js"]

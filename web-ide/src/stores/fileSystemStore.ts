@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { webIdeApiUrl } from '../lib/api';
+import { authHeader, withCredentials } from '../lib/authToken';
 
 interface FileSystemItem {
   name: string;
@@ -42,11 +43,15 @@ interface FileSystemState {
  * the authenticated user's personal workspace via the Bearer token, so every
  * request must carry it — otherwise all callers fall back to the shared
  * "workspace-123" workspace and clobber each other's files (issue #53).
+ *
+ * C3: the token is now read from sessionStorage (see src/lib/authToken.ts)
+ * instead of localStorage. `credentials: 'include'` is also spread into every
+ * request (via `withCredentials`) so httpOnly auth cookies are sent once the
+ * backend supports them; the Authorization header remains as a fallback.
  */
 const authHeaders = (): Record<string, string> => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('ribix_token') : null;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  Object.assign(headers, authHeader());
   return headers;
 };
 
@@ -193,6 +198,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ path, content, language }),
+        ...withCredentials,
       });
 
       if (!response.ok) {
@@ -242,6 +248,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ path }),
+        ...withCredentials,
       });
 
       if (!response.ok) {
@@ -289,6 +296,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ path }),
+        ...withCredentials,
       });
 
       if (!response.ok) {
@@ -315,6 +323,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ path, content }),
+        ...withCredentials,
       });
 
       if (!response.ok) {
@@ -360,6 +369,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ path, isDirectory: false }),
+        ...withCredentials,
       });
 
       if (!response.ok) {
@@ -403,6 +413,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ path, isDirectory: true }),
+        ...withCredentials,
       });
 
       if (!response.ok) {
@@ -444,6 +455,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     try {
       const response = await fetch(`${webIdeApiUrl('/filesystem/list')}?path=${encodeURIComponent(path)}`, {
         headers: authHeaders(),
+        ...withCredentials,
       });
 
       if (!response.ok) {
@@ -467,6 +479,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     try {
       const response = await fetch(webIdeApiUrl('/filesystem/export.zip'), {
         headers: authHeaders(),
+        ...withCredentials,
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));

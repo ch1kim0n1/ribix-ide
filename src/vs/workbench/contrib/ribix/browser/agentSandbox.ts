@@ -24,10 +24,11 @@ interface AgentStats {
  * SandboxBlockedError when the URL is denied or the per-run request budget
  * is exhausted.
  *
- * TODO (wire-up): call guardRequest() inside the agent HTTP tool in
- * ribixAgentService.ts before every outbound fetch. The agentId is available
- * on AgentInstance. A shared singleton (agentSandboxInstance) should be used
- * so the policy is consistent across all agent types.
+ * Wired up in ribixAgentService.ts: guardRequest() is called before every
+ * `browser_navigate` tool call. If new outbound HTTP tools are added in the
+ * future, they must also call guardRequest(url, agentId) before making the
+ * request. The shared singleton (agentSandboxInstance) is used so the policy
+ * is consistent across all agent types.
  */
 export class AgentSandbox {
 	private readonly stats: Map<string, AgentStats> = new Map();
@@ -165,7 +166,7 @@ export class SandboxBlockedError extends Error {
 
 /**
  * Shared singleton for use in agent execution code.
- * TODO (wire-up): inject this into ribixAgentService.ts and call
+ * Injected into ribixAgentService.ts — call
  * agentSandboxInstance.guardRequest(url, agentId) before each tool HTTP call.
  * The policy should be populated from user settings or the staging connector URL.
  */

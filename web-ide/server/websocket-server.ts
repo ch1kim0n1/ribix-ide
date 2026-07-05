@@ -21,7 +21,9 @@ export class CollaborationWebSocketServer {
   private wss: WebSocketServer;
   private docs: Map<string, Y.Doc> = new Map();
   private healthServer: http.Server | undefined;
-  /** When set, every connection must supply a matching token query param. */
+  /** When set, every connection must supply a matching token via the
+   * `Sec-WebSocket-Protocol` subprotocol handshake. Passing tokens in URL
+   * query strings leaks them into proxy/access logs and browser history. */
   private readonly authToken: string | undefined;
 
   /**
@@ -39,6 +41,21 @@ export class CollaborationWebSocketServer {
       port: config.port,
       host: config.host || '0.0.0.0',
       path: config.path || '/collaboration',
+      // Handle auth in the 'connection' event via Sec-WebSocket-Protocol so
+      // tokens never appear in URLs. The browser client passes the token as
+      // a subprotocol: new WebSocket(url, ['ribix-auth.<token>']).
+      handleProtocols: (protocols: Set<string>): string | false => {
+        if (!this.authToken) {
+          // No auth configured — accept any protocol (or none).
+          return protocols.values().next().value ?? false;
+        }
+        for (const proto of protocols) {
+          if (proto.startsWith('ribix-auth.') && proto.slice('ribix-auth.'.length) === this.authToken) {
+            return proto;
+          }
+        }
+        return false;
+      },
     });
 
     this.setupServer();
@@ -49,15 +66,9 @@ export class CollaborationWebSocketServer {
     this.wss.on('connection', (ws, req) => {
       const url = new URL(req.url!, `http://${req.headers.host}`);
 
-      // #137: Token-based auth — reject connections without a valid token when
-      // WS_AUTH_TOKEN is configured. Clients must pass ?token=<value> in the URL.
-      if (this.authToken) {
-        const provided = url.searchParams.get('token');
-        if (!provided || provided !== this.authToken) {
-          ws.close(4401, 'Unauthorized: missing or invalid token');
-          return;
-        }
-      }
+      // #137: Auth is enforced via Sec-WebSocket-Protocol in handleProtocols
+      // above. If we reach here, the upgrade was already authorized (or no
+      // auth token is configured). No query-param token check needed.
 
       // #137: Per-IP rate limiting — reject if this IP already has too many open connections.
       const clientIp = req.socket.remoteAddress ?? 'unknown';

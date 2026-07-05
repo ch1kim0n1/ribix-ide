@@ -193,16 +193,17 @@ suite('RibixFileLockService — concurrency invariants', () => {
 	});
 
 	// 4. Lock auto-releases after timeout (simulated via backdating + manual cleanup trigger)
-	test('lock auto-releases after timeout and pending waiters are rejected', async () => {
+	test('lock auto-releases after timeout and pending waiter acquires the lock', async () => {
 		const svc = new FileLockServiceUnderTest(30000);
 		const file = '/repo/src/timeout.ts';
 
 		await svc.acquire(file, 'agent-slow'); // never released by agent
 
-		// Queue a waiter that should be rejected on timeout
-		let rejectionError: Error | null = null;
-		const waiterPromise = svc.acquire(file, 'agent-waiter').catch(e => {
-			rejectionError = e;
+		// Queue a waiter that should receive the lock on timeout hand-off
+		let waiterResult: (() => void) | null = null;
+		const waiterPromise = svc.acquire(file, 'agent-waiter').then(release => {
+			waiterResult = release;
+			return release;
 		});
 
 		// Simulate that 30s have passed by backdating the lock
@@ -213,9 +214,14 @@ suite('RibixFileLockService — concurrency invariants', () => {
 
 		await waiterPromise;
 
-		assert.strictEqual(svc.isLocked(file), false, 'expired lock removed');
-		assert.ok(rejectionError, 'waiter received a rejection error');
-		assert.ok((rejectionError as Error).message.includes('force-expired'), 'rejection message mentions force-expired');
+		// The waiter should now hold the lock (hand-off, not rejection)
+		assert.strictEqual(svc.isLocked(file), true, 'lock handed off to waiter');
+		assert.strictEqual(svc.getLockHolder(file), 'agent-waiter', 'waiter is now the lock holder');
+		assert.ok(waiterResult, 'waiter received a release function');
+
+		// Clean up
+		waiterResult!();
+		assert.strictEqual(svc.isLocked(file), false, 'lock released by waiter');
 	});
 
 	// 5. Double release is a no-op (no crash, no incorrect state)

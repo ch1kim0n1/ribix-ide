@@ -22,9 +22,25 @@ Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
 });
 
+// sessionStorage stub for the auth token (C3). sessionStorage is tab-scoped
+// and cleared when the tab closes, so it does NOT survive a full browser
+// restart — only an in-tab reload.
+const session: Record<string, string> = {};
+const sessionStorageStub = {
+  getItem: (key: string) => session[key] ?? null,
+  setItem: (key: string, value: string) => { session[key] = value; },
+  removeItem: (key: string) => { delete session[key]; },
+  clear: () => { for (const k of Object.keys(session)) delete session[k]; },
+};
+Object.defineProperty(globalThis, 'sessionStorage', {
+  value: sessionStorageStub,
+  writable: true,
+  configurable: true,
+});
+
 // Stub window so stores that guard on `typeof window` will persist.
 Object.defineProperty(globalThis, 'window', {
-  value: { localStorage: localStorageStub },
+  value: { localStorage: localStorageStub, sessionStorage: sessionStorageStub },
   writable: true,
   configurable: true,
 });
@@ -32,6 +48,7 @@ Object.defineProperty(globalThis, 'window', {
 describe('Data Persistence Across Restart', () => {
   beforeEach(() => {
     localStorageStub.clear();
+    sessionStorageStub.clear();
   });
 
   it('fileSystemStore persists root files to localStorage and restores them', async () => {
@@ -160,7 +177,7 @@ describe('Data Persistence Across Restart', () => {
     expect(localStorageStub.getItem('ribix_filesystem_state')).toBeNull();
   });
 
-  it('authStore token persists across simulated restart', async () => {
+  it('authStore token persists in sessionStorage across in-tab reload (C3)', async () => {
     const { useAuthStore } = await import('./authStore');
 
     // Simulate login
@@ -170,23 +187,28 @@ describe('Data Persistence Across Restart', () => {
       isAuthenticated: true,
     });
 
-    // Verify token was persisted
-    expect(localStorageStub.getItem('ribix_token')).toBe('my-jwt-token-12345');
+    // C3: token is persisted to sessionStorage (NOT localStorage).
+    expect(sessionStorageStub.getItem('ribix_token')).toBe('my-jwt-token-12345');
+    expect(localStorageStub.getItem('ribix_token')).toBeNull();
+    // Non-sensitive authenticated flag remains in localStorage.
+    expect(localStorageStub.getItem('ribix_authenticated')).toBe('1');
 
-    // Simulate restart: clear in-memory state
+    // Simulate in-tab reload: clear in-memory state only (storage persists).
     useAuthStore.setState({ token: null, user: null, isAuthenticated: false });
 
-    // The token should still be in localStorage
-    expect(localStorageStub.getItem('ribix_token')).toBe('my-jwt-token-12345');
+    // The token should still be in sessionStorage (survives reload within tab).
+    expect(sessionStorageStub.getItem('ribix_token')).toBe('my-jwt-token-12345');
   });
 
-  it('authStore clearAuth removes token from localStorage', async () => {
+  it('authStore clearAuth removes token from sessionStorage (C3)', async () => {
     const { useAuthStore } = await import('./authStore');
 
     useAuthStore.getState().setToken('temp-token');
-    expect(localStorageStub.getItem('ribix_token')).toBe('temp-token');
+    expect(sessionStorageStub.getItem('ribix_token')).toBe('temp-token');
+    expect(localStorageStub.getItem('ribix_token')).toBeNull();
 
     useAuthStore.getState().clearAuth();
+    expect(sessionStorageStub.getItem('ribix_token')).toBeNull();
     expect(localStorageStub.getItem('ribix_token')).toBeNull();
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });

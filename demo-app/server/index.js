@@ -1,6 +1,16 @@
+// !! DEMO APP — INTENTIONALLY SIMPLE FOR QA TESTING !!
+// This server exists solely so Ribix agents have a target to test against.
+// It must NEVER be deployed to production or exposed publicly.
+// The bugs below (P0-P3) are deliberate and are used by the agent test suite.
 const express = require('express');
 const app = express();
 app.use(express.json());
+
+// Guard: refuse to start in production-like environments.
+if (process.env.NODE_ENV === 'production' || process.env.DEMO_APP_ALLOW_PROD !== '1') {
+  console.error('[demo-app] Refusing to start — this app is for local testing only. Set DEMO_APP_ALLOW_PROD=1 to override.');
+  process.exit(1);
+}
 
 let products = [
   { id: 1, name: 'Widget A', price: 29.99 },
@@ -47,4 +57,4 @@ app.post('/api/login', (req, res) => {
   }
 });
 
-app.listen(3001, () => console.log('Demo server on http://localhost:3001'));
+app.listen(3001, () => console.log('Demo server on http://localhost:3001 (LOCAL TESTING ONLY)'));

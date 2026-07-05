@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { create } from 'zustand';
 import { useAuthStore } from './stores/authStore';
+import { getAuthToken } from './lib/authToken';
 import { AIChatPanel } from './components/AIChatPanel';
 import { FileExplorer } from './components/FileExplorer';
 import { TerminalPanel } from './components/TerminalPanel';
@@ -272,11 +273,22 @@ This is the web-based version of Ribix IDE.
       setLoading(false);
     }, 1000);
 
-    // Check for existing auth
-    const existingToken = localStorage.getItem('ribix_token');
+    // C3: restore auth on reload. The token lives in sessionStorage (scoped
+    // to this tab) and the non-sensitive user/isAuthenticated flag lives in
+    // localStorage so the UI can show the logged-in state across reloads
+    // without exposing the token itself to XSS via localStorage.
+    const existingToken = getAuthToken();
     const existingUser = localStorage.getItem('ribix_user');
+    const wasAuthenticated = localStorage.getItem('ribix_authenticated') === '1';
     if (existingToken && existingUser) {
       useAuthStore.getState().setToken(existingToken);
+      useAuthStore.setState({
+        user: JSON.parse(existingUser),
+        isAuthenticated: true,
+      });
+    } else if (wasAuthenticated && existingUser) {
+      // Token expired/cleared from sessionStorage but UI flag remains — keep
+      // the user visible so they can be prompted to re-authenticate.
       useAuthStore.setState({
         user: JSON.parse(existingUser),
         isAuthenticated: true,

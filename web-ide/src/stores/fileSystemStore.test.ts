@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useFileSystemStore } from './fileSystemStore';
 
 // Minimal localStorage stub for node environment (fileSystemStore uses localStorage
-// for both the auth token and filesystem persistence).
+// for filesystem persistence; the auth token now lives in sessionStorage — C3).
 const store: Record<string, string> = {};
 const localStorageStub = {
   getItem: (key: string) => store[key] ?? null,
@@ -16,10 +16,24 @@ Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
 });
 
+// sessionStorage stub for the auth token (C3).
+const sessionStore: Record<string, string> = {};
+const sessionStorageStub = {
+  getItem: (key: string) => sessionStore[key] ?? null,
+  setItem: (key: string, value: string) => { sessionStore[key] = value; },
+  removeItem: (key: string) => { delete sessionStore[key]; },
+  clear: () => { for (const k of Object.keys(sessionStore)) delete sessionStore[k]; },
+};
+Object.defineProperty(globalThis, 'sessionStorage', {
+  value: sessionStorageStub,
+  writable: true,
+  configurable: true,
+});
+
 // fileSystemStore guards localStorage access with `typeof window === 'undefined'`,
 // so expose a minimal window object in the node environment.
 Object.defineProperty(globalThis, 'window', {
-  value: { localStorage: localStorageStub },
+  value: { localStorage: localStorageStub, sessionStorage: sessionStorageStub },
   writable: true,
   configurable: true,
 });
@@ -58,6 +72,7 @@ function mockFetchResponse(body: unknown, ok = true, status = 200): Response {
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   createdElements.length = 0;
   (URL.createObjectURL as any).mockClear?.();
   (URL.revokeObjectURL as any).mockClear?.();
@@ -186,8 +201,9 @@ describe('useFileSystemStore', () => {
     expect(useFileSystemStore.getState().isLoading).toBe(false);
   });
 
-  it('createFile sends Authorization header when token is present', async () => {
-    localStorage.setItem('ribix_token', 'tok-xyz');
+  it('createFile sends Authorization header (from sessionStorage) and credentials:include when token is present', async () => {
+    // C3: token now lives in sessionStorage, not localStorage.
+    sessionStorage.setItem('ribix_token', 'tok-xyz');
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(mockFetchResponse({ success: true }));
@@ -198,6 +214,7 @@ describe('useFileSystemStore', () => {
       expect.any(String),
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer tok-xyz' }),
+        credentials: 'include',
       }),
     );
   });

@@ -8,6 +8,7 @@ import { WebsocketProvider } from 'y-websocket';
 import { Awareness } from 'y-protocols/awareness';
 import { create } from 'zustand';
 import { collaborationWebSocketUrl } from '../lib/api';
+import { getAuthToken } from '../lib/authToken';
 
 export interface UserPresence {
   user: {
@@ -66,6 +67,24 @@ export class CollaborationManager {
     }
 
     const doc = new Y.Doc();
+    // Pass the auth token as a WebSocket subprotocol rather than a query
+    // param so it doesn't leak into proxy/access logs or browser history.
+    // The server's handleProtocols validates it during the upgrade handshake.
+    // C3: token is read from sessionStorage (fallback) instead of localStorage.
+    const authToken = getAuthToken();
+    const subprotocols = authToken ? [`ribix-auth.${authToken}`] : undefined;
+
+    // y-websocket's WebsocketProvider doesn't accept a `protocols` argument
+    // directly, so we use a WebSocket polyfill that injects the subprotocol
+    // into the native WebSocket constructor call.
+    const WebSocketPolyfill = subprotocols
+      ? class AuthedWebSocket extends WebSocket {
+          constructor(url: string | URL, _protocols?: string | string[]) {
+            super(url, subprotocols);
+          }
+        }
+      : undefined;
+
     const provider = new WebsocketProvider(
       websocketUrl,
       fileId,
@@ -77,7 +96,8 @@ export class CollaborationManager {
           userName: this.userName,
           userColor: this.userColor,
         },
-      }
+        ...(WebSocketPolyfill ? { WebSocketPolyfill } : {}),
+      },
     );
 
     const awareness = provider.awareness;
