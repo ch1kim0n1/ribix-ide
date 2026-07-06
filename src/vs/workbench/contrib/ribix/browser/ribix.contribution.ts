@@ -170,3 +170,6 @@ import './unifiedFindingsProvider.js'
 
 // register Ribix fix memory service (cross-mission learning, fix reuse suggestions)
 import './fixMemory.js'
+
+// #150: register Ribix GDPR deletion command (right-to-be-forgotten for agent run data)
+import './ribixGdprActions.js'

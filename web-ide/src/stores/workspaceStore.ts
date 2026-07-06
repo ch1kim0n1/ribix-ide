@@ -180,6 +180,7 @@ interface WorkspaceState {
   currentWorkspace: WorkspaceConfig | null;
   isLoading: boolean;
   error: string | null;
+  stagingUrl: string | null;
   
   // Actions
   loadWorkspaces: () => Promise<void>;
@@ -190,6 +191,7 @@ interface WorkspaceState {
   deleteWorkspace: (id: string) => Promise<void>;
   setCurrentWorkspace: (workspace: WorkspaceConfig | null) => void;
   setError: (error: string | null) => void;
+  setStagingUrl: (url: string | null) => void;
 }
 
 const workspaceManager = new WorkspaceManager();
@@ -200,8 +202,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   currentWorkspace: null,
   isLoading: false,
   error: null,
+  stagingUrl: null,
 
   setError: (error) => set({ error }),
+  setStagingUrl: (url) => set({ stagingUrl: url }),
 
   loadWorkspaces: async () => {
     set({ isLoading: true, error: null });

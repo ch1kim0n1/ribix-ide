@@ -28,6 +28,11 @@ import { BROWSER_AGENT_PROMPT } from './ribixBrowserAgent.js';
 import { IRibixSettingsService } from '../common/ribixSettingsService.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
 import { PlaywrightRunner, PlaywrightFinding } from './playwrightRunner.js';
 import { agentProgressFeed } from './agentProgressFeed.js';
 import { IFixMemoryService } from './fixMemory.js';
@@ -37,6 +42,18 @@ import { CostTracker, DEFAULT_MISSION_CEILING_TOKENS, MISSION_BUDGET_EXCEEDED_ME
 
 /** Storage key under which the workspace staging URL is persisted. */
 const RIBIX_STAGING_URL_KEY = 'ribix.stagingUrl';
+
+/**
+ * #149: Storage key for persisting completed agent runs to workspace storage
+ * so they survive IDE restarts. Stored as a JSON array of serialized agents.
+ */
+const RIBIX_AGENT_RUNS_STORAGE_KEY = 'ribix.agentRuns.v1';
+
+/** #149: Sub-folder inside globalStorageHome where agent run JSON files are kept. */
+const AGENT_RUNS_STORAGE_FOLDER = 'ribix-agent-runs';
+
+/** #149: Maximum number of persisted agent run files to retain on disk. */
+const MAX_PERSISTED_AGENT_RUNS = 100;
 
 export interface IRibixAgentService {
 	readonly _serviceBrand: undefined;
@@ -52,6 +69,18 @@ export interface IRibixAgentService {
 	// Events
 	onDidChangeAgents: Event<void>;
 	onDidCompleteAgent: Event<{ agentId: string; status: 'complete' | 'failed' }>;
+
+	// #152: Rate limiting — returns the number of currently executing agents.
+	getActiveRunCount(): number;
+	// #152: Returns the number of queued agent runs waiting for a slot.
+	getQueuedRunCount(): number;
+
+	// #150: GDPR right-to-be-forgotten — clears all local agent run data
+	// (in-memory agents, persisted JSON files, and workspace storage entries).
+	deleteAllAgentRunData(): Promise<void>;
+
+	// #149: Returns all persisted (completed/failed) agent runs loaded from disk.
+	getPersistedAgentRuns(): AgentInstance[];
 }
 
 export const IRibixAgentService = createDecorator<IRibixAgentService>('ribixAgentService');
@@ -135,6 +164,28 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		return this.configurationService?.getValue<boolean>('ribix.agentLoop.debugTiming') === true;
 	}
 
+	/**
+	 * #152: Maximum number of concurrently executing agents. Additional spawn
+	 * requests are queued and dispatched when a slot frees up.
+	 */
+	private static readonly MAX_CONCURRENT_AGENT_RUNS = 3;
+
+	/**
+	 * #152: Queue of pending agent spawn requests waiting for a concurrency slot.
+	 * Each entry contains the arguments needed to start the agent once a slot opens.
+	 */
+	private readonly _agentQueue: Array<{
+		agent: AgentInstance;
+		taskDescription: string;
+		context?: any;
+	}> = [];
+
+	/** #149: Persisted agent runs loaded from disk on startup. */
+	private _persistedAgentRuns: AgentInstance[] = [];
+
+	/** #149: URI of the directory where agent run JSON files are stored. */
+	private _agentRunsStorageUri: URI | undefined;
+
 	private agents: Map<string, AgentInstance> = new Map();
 	private executionStates: Map<string, AgentExecutionState> = new Map();
 
@@ -149,10 +200,17 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		@IStorageService private readonly storageService: IStorageService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IFixMemoryService private readonly fixMemoryService: IFixMemoryService,
+		@ILogService private readonly logService: ILogService,
+		@IFileService private readonly fileService: IFileService,
+		@IUserDataProfilesService private readonly userDataProfilesService: IUserDataProfilesService,
 	) {
 		super();
 		this._register(this._onDidChangeAgents);
 		this._register(this._onDidCompleteAgent);
+		// #149: Load persisted agent runs from disk on startup.
+		this.loadPersistedAgentRuns().catch(e => {
+			this.logService.error('Failed to load persisted agent runs:', e);
+		});
 	}
 
 	/**
@@ -209,13 +267,61 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		this.agents.set(agentId, agent);
 		this._onDidChangeAgents.fire();
 
+		// #152: Rate limiting — if at capacity, queue the agent instead of starting it.
+		if (this.getActiveRunCount() > RibixAgentService.MAX_CONCURRENT_AGENT_RUNS) {
+			agent.currentAction = `Queued (position ${this._agentQueue.length + 1})`;
+			this._agentQueue.push({ agent, taskDescription, context });
+			this._onDidChangeAgents.fire();
+			this.logService.info(`[ribix-agent] Agent ${agentId} queued (${this._agentQueue.length} waiting, ${this.getActiveRunCount()} active)`);
+			return agentId;
+		}
+
 		// Start agent execution
-		this.executeAgent(agent, taskDescription, context).catch(error => {
-			console.error(`Agent ${agentId} execution failed:`, error);
-			this.markAgentFailed(agentId, error.message);
-		});
+		this.startAgentExecution(agent, taskDescription, context);
 
 		return agentId;
+	}
+
+	/**
+	 * #152: Starts agent execution (called directly when a slot is available,
+	 * or from the queue drain when a slot frees up).
+	 */
+	private startAgentExecution(agent: AgentInstance, taskDescription: string, context?: any): void {
+		this.executeAgent(agent, taskDescription, context).catch(error => {
+			this.logService.error(`Agent ${agent.id} execution failed:`, error);
+			this.markAgentFailed(agent.id, error.message);
+		});
+	}
+
+	/**
+	 * #152: Drains the agent queue when a concurrency slot opens up.
+	 * Called after each agent completes or is aborted.
+	 */
+	private drainAgentQueue(): void {
+		if (this._agentQueue.length === 0) { return; }
+		if (this.getActiveRunCount() > RibixAgentService.MAX_CONCURRENT_AGENT_RUNS) { return; }
+
+		const next = this._agentQueue.shift();
+		if (!next) { return; }
+
+		next.agent.currentAction = 'Initializing';
+		this._onDidChangeAgents.fire();
+		this.logService.info(`[ribix-agent] Draining queue — starting agent ${next.agent.id} (${this._agentQueue.length} still queued)`);
+		this.startAgentExecution(next.agent, next.taskDescription, next.context);
+	}
+
+	getActiveRunCount(): number {
+		return Array.from(this.agents.values()).filter(agent =>
+			['idle', 'planning', 'executing', 'blocked'].includes(agent.status)
+		).length;
+	}
+
+	getQueuedRunCount(): number {
+		return this._agentQueue.length;
+	}
+
+	getPersistedAgentRuns(): AgentInstance[] {
+		return this._persistedAgentRuns;
 	}
 
 	getAgent(agentId: string): AgentInstance | null {
@@ -268,6 +374,8 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		// (otherwise an aborted agent orphans the per-agent completion listener).
 		this._onDidCompleteAgent.fire({ agentId: agent.id, status: 'failed' });
 		this.pruneCompletedAgents();
+		// #152: A concurrency slot freed up — drain the queue.
+		this.drainAgentQueue();
 	}
 
 	private budgetForType(type: AgentType): AgentLoopBudget {
@@ -446,7 +554,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 					missionId: agent.missionId,
 					appliedAt: new Date().toISOString(),
 				}).catch(e => {
-					console.warn('fixMemoryService.recordFix failed:', e);
+					this.logService.warn('fixMemoryService.recordFix failed:', e);
 				});
 			}
 
@@ -454,7 +562,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			//    similar past fixes and surface suggestions via IDE notification.
 			if (agent.output && agent.output.findings.length > 0) {
 				this.fixMemoryService.showSuggestions(agent.output.findings).catch(e => {
-					console.warn('fixMemoryService.showSuggestions failed:', e);
+					this.logService.warn('fixMemoryService.showSuggestions failed:', e);
 				});
 			}
 
@@ -471,6 +579,12 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		} finally {
 			this.executionStates.delete(agent.id);
 			this._onDidChangeAgents.fire();
+			// #149: Persist completed/failed agent runs to disk for backup/recovery.
+			this.persistAgentRun(agent).catch(e => {
+				this.logService.error('Failed to persist agent run:', e);
+			});
+			// #152: A concurrency slot freed up — drain the queue.
+			this.drainAgentQueue();
 		}
 	}
 
@@ -917,7 +1031,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 	 */
 	private logTiming(agent: AgentInstance, turn: number, llmMs: number, toolMs: number, toolCount: number, estTokens: number): void {
 		if (!this.timingDebugEnabled) { return; }
-		console.debug(`[ribix-agent-timing] ${agent.type}/${agent.id.slice(0, 8)} turn=${turn + 1} llm=${llmMs}ms tools=${toolMs}ms toolCalls=${toolCount} estTokens=${estTokens}`);
+		this.logService.debug(`[ribix-agent-timing] ${agent.type}/${agent.id.slice(0, 8)} turn=${turn + 1} llm=${llmMs}ms tools=${toolMs}ms toolCalls=${toolCount} estTokens=${estTokens}`);
 	}
 
 	private addActivityLog(agent: AgentInstance, action: string, detail: string | null, tool: string | null, filePath: string | null): void {
@@ -953,6 +1067,164 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			this._onDidCompleteAgent.fire({ agentId: agent.id, status: 'failed' });
 			this.pruneCompletedAgents();
 		}
+	}
+
+	// ─── #149: Persist completed agent runs to disk ──────────────────────────
+
+	/**
+	 * #149: Resolves the storage directory URI for agent run JSON files.
+	 * Lazily creates the directory on first access.
+	 */
+	private async getAgentRunsStorageDir(): Promise<URI> {
+		if (this._agentRunsStorageUri) {
+			return this._agentRunsStorageUri;
+		}
+		const baseUri = URI.joinPath(this.userDataProfilesService.defaultProfile.globalStorageHome, AGENT_RUNS_STORAGE_FOLDER);
+		try {
+			await this.fileService.createDirectory(baseUri);
+		} catch {
+			// Directory may already exist — ignore.
+		}
+		this._agentRunsStorageUri = baseUri;
+		return baseUri;
+	}
+
+	/**
+	 * #149: Persists a completed/failed agent run as a JSON file in the workspace
+	 * data directory. Only terminal-state agents are persisted. Also stores a
+	 * lightweight index in workspace storage for quick startup loading.
+	 */
+	private async persistAgentRun(agent: AgentInstance): Promise<void> {
+		if (agent.status !== 'complete' && agent.status !== 'failed') {
+			return;
+		}
+		try {
+			const dir = await this.getAgentRunsStorageDir();
+			const fileUri = URI.joinPath(dir, `${agent.id}.json`);
+			const serialized = JSON.stringify({
+				id: agent.id,
+				type: agent.type,
+				missionId: agent.missionId,
+				taskId: agent.taskId,
+				status: agent.status,
+				currentAction: agent.currentAction,
+				startedAt: agent.startedAt,
+				completedAt: agent.completedAt,
+				filesRead: agent.filesRead,
+				filesWritten: agent.filesWritten,
+				output: agent.output,
+			});
+			await this.fileService.writeFile(fileUri, VSBuffer.fromString(serialized));
+
+			// Also update the in-memory persisted list (keep most-recent first).
+			this._persistedAgentRuns = [agent, ...this._persistedAgentRuns.filter(a => a.id !== agent.id)]
+				.slice(0, MAX_PERSISTED_AGENT_RUNS);
+
+			// Prune old files if we exceed the cap.
+			if (this._persistedAgentRuns.length > MAX_PERSISTED_AGENT_RUNS) {
+				const toRemove = this._persistedAgentRuns.slice(MAX_PERSISTED_AGENT_RUNS);
+				for (const old of toRemove) {
+					try {
+						await this.fileService.del(URI.joinPath(dir, `${old.id}.json`));
+					} catch { /* file may already be gone */ }
+				}
+			}
+		} catch (e) {
+			this.logService.error('persistAgentRun: failed to write agent run to disk:', e);
+		}
+	}
+
+	/**
+	 * #149: Loads persisted agent run JSON files from disk on startup.
+	 * Populates `_persistedAgentRuns` with the most recent terminal-state agents.
+	 */
+	private async loadPersistedAgentRuns(): Promise<void> {
+		try {
+			const dir = await this.getAgentRunsStorageDir();
+			const entries = await this.fileService.readdir(dir);
+			const loaded: AgentInstance[] = [];
+			for (const [name] of entries) {
+				if (!name.endsWith('.json')) { continue; }
+				try {
+					const content = await this.fileService.readFile(URI.joinPath(dir, name));
+					const parsed = JSON.parse(content.value.toString()) as Partial<AgentInstance>;
+					if (parsed && parsed.id && (parsed.status === 'complete' || parsed.status === 'failed')) {
+						loaded.push({
+							id: parsed.id,
+							type: parsed.type ?? 'coder',
+							missionId: parsed.missionId ?? '',
+							taskId: parsed.taskId ?? '',
+							status: parsed.status,
+							currentAction: parsed.currentAction ?? '',
+							activityLog: [],
+							filesRead: parsed.filesRead ?? [],
+							filesWritten: parsed.filesWritten ?? [],
+							startedAt: parsed.startedAt ?? 0,
+							completedAt: parsed.completedAt ?? null,
+							output: parsed.output ?? null,
+						});
+					}
+				} catch {
+					// Malformed file — skip.
+				}
+			}
+			// Sort by completedAt descending (most-recent first).
+			loaded.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));
+			this._persistedAgentRuns = loaded.slice(0, MAX_PERSISTED_AGENT_RUNS);
+			if (loaded.length > 0) {
+				this.logService.info(`[ribix-agent] Loaded ${loaded.length} persisted agent run(s) from disk.`);
+			}
+		} catch (e) {
+			// Directory may not exist yet — that's fine for a fresh install.
+			this.logService.debug('loadPersistedAgentRuns: no persisted runs found (expected on first run):', e);
+		}
+	}
+
+	// ─── #150: GDPR right-to-be-forgotten ────────────────────────────────────
+
+	/**
+	 * #150: GDPR deletion — clears ALL local agent run data:
+	 *  - In-memory agents map
+	 *  - Queued agent spawns
+	 *  - Persisted JSON files on disk
+	 *  - Workspace storage index
+	 * Does NOT abort currently-running agents (call abortAgent first if needed).
+	 */
+	async deleteAllAgentRunData(): Promise<void> {
+		// Clear the queue.
+		this._agentQueue.length = 0;
+
+		// Clear in-memory agents (only terminal-state ones; active ones need explicit abort).
+		const toRemove = Array.from(this.agents.values()).filter(
+			a => a.status === 'complete' || a.status === 'failed'
+		);
+		for (const a of toRemove) {
+			this.agents.delete(a.id);
+		}
+
+		// Clear persisted in-memory list.
+		this._persistedAgentRuns = [];
+
+		// Delete JSON files from disk.
+		try {
+			const dir = await this.getAgentRunsStorageDir();
+			const entries = await this.fileService.readdir(dir);
+			for (const [name] of entries) {
+				if (name.endsWith('.json')) {
+					try {
+						await this.fileService.del(URI.joinPath(dir, name));
+					} catch { /* best-effort */ }
+				}
+			}
+		} catch {
+			// Directory may not exist — nothing to delete.
+		}
+
+		// Clear workspace storage index.
+		this.storageService.remove(RIBIX_AGENT_RUNS_STORAGE_KEY, StorageScope.WORKSPACE);
+
+		this._onDidChangeAgents.fire();
+		this.logService.info('[ribix-agent] All local agent run data deleted (GDPR right-to-be-forgotten).');
 	}
 }
 

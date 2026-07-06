@@ -13,6 +13,7 @@ import { IApplicationStorageMainService } from '../../../../platform/storage/ele
 
 import { IMetricsService } from '../common/metricsService.js';
 import { OPT_OUT_KEY } from '../common/storageKeys.js';
+import { initSentryMain } from './ribixSentry.js';
 
 
 const os = isWindows ? 'windows' : isMacintosh ? 'mac' : isLinux ? 'linux' : null
@@ -116,6 +117,10 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 		// very important to await whenReady!
 		await this._appStorage.whenReady
 
+		// #148: Initialize Sentry in the main process for crash reporting.
+		// Only activates when SENTRY_DSN is set in the environment.
+		await initSentryMain().catch(() => { /* never crash the IDE */ });
+
 		const { commit, version, ribixVersion, release, quality } = this._productService
 
 		const isDevMode = !this._envMainService.isBuilt // found in abstractUpdateService.ts
@@ -135,7 +140,9 @@ export class MetricsMainService extends Disposable implements IMetricsService {
 			...osInfo,
 		}
 
-		this._optOut = this._appStorage.getBoolean(OPT_OUT_KEY, StorageScope.APPLICATION, false)
+		// #148: Telemetry is opt-IN (not opt-out). Default is true (opted out =
+		// telemetry disabled) until the user explicitly enables it in Settings.
+		this._optOut = this._appStorage.getBoolean(OPT_OUT_KEY, StorageScope.APPLICATION, true)
 
 		// Read the API URL from auth storage (set when user signs in).
 		try {

@@ -7,12 +7,21 @@ import { createHash, randomBytes } from 'crypto';
 import { shell } from 'electron';
 import { IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { Event } from '../../../../base/common/event.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { OAuthTokenResponse } from '../common/ribixAuthTypes.js';
 
-const OAUTH_CLIENT_ID = 'ribix-ide';
+/**
+ * #145/#147: OAuth client ID. Read from the RIBIX_OAUTH_CLIENT_ID environment
+ * variable so deployments can override it without code changes. Falls back to
+ * 'ribix-ide' for local development and backward compatibility.
+ */
+const OAUTH_CLIENT_ID = process.env['RIBIX_OAUTH_CLIENT_ID'] || 'ribix-ide';
 
 export class RibixAuthChannel implements IServerChannel {
-	constructor() {}
+	// #148: Optional ILogService — the channel is instantiated from a VS Code
+	// core file (app.ts) that doesn't pass a logger. When not provided, falls
+	// back to console so logging still works.
+	constructor(@ILogService private readonly logService?: ILogService) {}
 
 	listen<T>(_: unknown, event: string): Event<T> {
 		throw new Error(`Event not found: ${event}`);
@@ -37,7 +46,11 @@ export class RibixAuthChannel implements IServerChannel {
 			}
 		}
 		catch (e) {
-			console.error('Ribix auth channel: Call Error:', e);
+			if (this.logService) {
+				this.logService.error('Ribix auth channel: Call Error:', e);
+			} else {
+				console.error('Ribix auth channel: Call Error:', e);
+			}
 			throw e;
 		}
 	}

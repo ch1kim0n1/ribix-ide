@@ -289,33 +289,46 @@ function classifySeverity({ type, message }) {
 	}
 
 	/**
-	 * Spawns `npx --yes playwright` to execute the given script file and returns stdout.
+	 * #145: Returns a sanitized copy of process.env with sensitive keys removed
+	 * before passing to spawned subprocesses. Prevents API keys, tokens, and
+	 * other secrets from leaking into the Playwright/Node child process.
+	 */
+	private sanitizedEnv(): NodeJS.ProcessEnv {
+		const env = { ...process.env };
+		const sensitivePatterns = [
+			/API_?KEY/i, /SECRET/i, /TOKEN/i, /PASSWORD/i, /CREDENTIAL/i,
+			/OAUTH/i, /PRIVATE_?KEY/i, /ACCESS_?KEY/i, /AWS/i, /GITHUB_TOKEN/i,
+			/SENTRY_?DSN/i, /RIBIX_.*KEY/i, /RIBIX_.*SECRET/i, /RIBIX_.*TOKEN/i,
+		];
+		for (const key of Object.keys(env)) {
+			if (sensitivePatterns.some(pattern => pattern.test(key))) {
+				delete env[key];
+			}
+		}
+		return env;
+	}
+
+	/**
+	 * Spawns a Node subprocess to execute the given Playwright script and returns stdout.
 	 * stderr is captured but not thrown — subprocess errors produce a P1 finding instead.
+	 *
+	 * #142: Previously spawned `npx --yes playwright run-script` (a non-existent CLI
+	 * command) and then immediately killed it before re-spawning with `node`. That
+	 * dead npx spawn was removed — we now spawn `node` directly.
 	 */
 	private runSubprocess(scriptPath: string, timeoutMs: number): Promise<string> {
 		return new Promise((resolve, reject) => {
-			const child = childProcess.spawn(
-				'npx',
-				['--yes', 'playwright', 'run-script', scriptPath],
-				{
-					shell: true,
-					timeout: timeoutMs,
-					env: { ...process.env },
-				}
-			);
-
-			// `npx playwright run-script` is not a real Playwright CLI command — Playwright
-			// scripts are just Node scripts. Run them directly via node instead.
-			// Re-spawn with node so the script is executed as a plain ESM module.
-			child.kill();
-
+			// #142: The old code spawned `npx --yes playwright run-script` (a
+			// non-existent Playwright CLI command) and then immediately killed
+			// it before re-spawning with `node`. That dead npx spawn is removed
+			// — we spawn `node` directly with the script fed via stdin.
 			const nodeChild = childProcess.spawn(
 				'node',
 				['--input-type=module'],
 				{
 					shell: false,
 					timeout: timeoutMs,
-					env: { ...process.env },
+					env: this.sanitizedEnv(),
 					stdio: ['pipe', 'pipe', 'pipe'],
 				}
 			);
@@ -333,6 +346,25 @@ function classifySeverity({ type, message }) {
 
 			nodeChild.on('close', (code) => {
 				if (code !== 0 && !stdout.trim().startsWith('[')) {
+					// #142: Detect missing Playwright browsers and provide install guidance.
+					if (/playwright.*not.*found|cannot find module 'playwright'|ERR_MODULE_NOT_FOUND/i.test(stderr)) {
+						reject(new Error(
+							'Playwright is not installed. Install it with:\n' +
+							'  npm install playwright\n' +
+							'  npx playwright install chromium\n\n' +
+							`Subprocess stderr: ${stderr.slice(0, 300)}`
+						));
+						return;
+					}
+					// #142: Detect missing browser binaries.
+					if (/executable.*not found|browserType\.launch.*Executable|chromium.*not found/i.test(stderr)) {
+						reject(new Error(
+							'Playwright browsers are not installed. Install them with:\n' +
+							'  npx playwright install chromium\n\n' +
+							`Subprocess stderr: ${stderr.slice(0, 300)}`
+						));
+						return;
+					}
 					reject(new Error(`Playwright script exited ${code}: ${stderr.slice(0, 500)}`));
 				} else {
 					resolve(stdout);

@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- #145: Content Security Policy — restricts resource loading to prevent XSS.
+         In production, tighten 'connect-src' to only known API/WS endpoints. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' ws: wss: http: https:; worker-src 'self' blob:;">
     <title>Ribix IDE - Web</title>
     <style>
         * {

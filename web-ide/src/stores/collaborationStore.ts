@@ -209,6 +209,8 @@ export class CollaborationManager {
 
 interface CollaborationState {
   isConnected: boolean;
+  isReconnecting: boolean;
+  reconnectAttempt: number;
   currentSession: string | null;
   users: UserPresence[];
   cursors: Map<string, { position: number; selection?: { from: number; to: number } }>;
@@ -218,12 +220,15 @@ interface CollaborationState {
   leaveSession: (fileId: string) => void;
   updateCursor: (position: number, selection?: { from: number; to: number }) => void;
   setConnected: (connected: boolean) => void;
+  setReconnecting: (attempt: number) => void;
 }
 
 let collaborationManager: CollaborationManager | null = null;
 
 export const useCollaborationStore = create<CollaborationState>((set, get) => ({
   isConnected: false,
+  isReconnecting: false,
+  reconnectAttempt: 0,
   currentSession: null,
   users: [],
   cursors: new Map(),
@@ -239,7 +244,18 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
     const session = collaborationManager.joinSession(
       fileId,
       collaborationWebSocketUrl(),
-      (connected) => set({ isConnected: connected }),
+      (connected) => {
+        if (connected) {
+          set({ isConnected: true, isReconnecting: false, reconnectAttempt: 0 });
+        } else {
+          // #154: When disconnected, mark as reconnecting so the UI can notify.
+          set((state) => ({
+            isConnected: false,
+            isReconnecting: true,
+            reconnectAttempt: state.reconnectAttempt + 1,
+          }));
+        }
+      },
     );
 
     set({
@@ -280,5 +296,6 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
     }
   },
 
-  setConnected: (connected) => set({ isConnected: connected }),
+  setConnected: (connected) => set({ isConnected: connected, isReconnecting: false, reconnectAttempt: 0 }),
+  setReconnecting: (attempt) => set({ isReconnecting: true, isConnected: false, reconnectAttempt: attempt }),
 }));

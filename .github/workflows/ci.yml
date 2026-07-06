@@ -82,10 +82,10 @@ jobs:
         run: npm audit --audit-level=high
 
       # #337: Coverage reporting.
+      # #144: Removed continue-on-error — coverage failures should surface in CI.
       - name: Coverage report
         if: matrix.platform == 'linux'
-        run: npm test -- --coverage || true
-        continue-on-error: true
+        run: npm test -- --coverage
       - name: Upload coverage artifact
         if: matrix.platform == 'linux'
         uses: actions/upload-artifact@v4
@@ -93,6 +93,30 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 30
+
+      # #144: ESLint — run on Linux only to avoid triple-running.
+      - name: ESLint
+        if: matrix.platform == 'linux'
+        run: npx eslint src/vs/workbench/contrib/ribix/ --max-warnings 0
+        continue-on-error: true  # Advisory for now — fix existing warnings incrementally.
+
+      # #144: Build the Rust CLI (release mode). Runs on Linux only to keep
+      # CI fast; the CLI is platform-independent at the source level.
+      - name: Install Rust toolchain
+        if: matrix.platform == 'linux'
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build Rust CLI (release)
+        if: matrix.platform == 'linux'
+        working-directory: ./cli
+        run: cargo build --release
+      # #151: Run cargo audit to catch known vulnerabilities in Rust dependencies.
+      - name: Cargo audit (Rust dependency vulnerabilities)
+        if: matrix.platform == 'linux'
+        working-directory: ./cli
+        run: |
+          cargo install cargo-audit --locked 2>/dev/null || true
+          cargo audit || true
+        continue-on-error: true  # Advisory — don't block CI on advisory DB yet.
 
       # #101: Run smoke tests as part of the CI gate.
       - name: Smoke tests

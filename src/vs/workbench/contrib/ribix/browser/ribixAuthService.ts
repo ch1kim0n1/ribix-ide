@@ -10,6 +10,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IEncryptionService } from '../../../../platform/encryption/common/encryptionService.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import type { IChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { RibixApiClient, RibixApiError } from '../common/ribixApiClient.js';
 import { RibixAuthSession, RibixConfig, RibixAuthSummary, OAuthTokenResponse } from '../common/ribixAuthTypes.js';
@@ -98,6 +99,7 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 		@IStorageService private readonly storageService: IStorageService,
 		@IEncryptionService private readonly encryptionService: IEncryptionService,
 		@IMainProcessService mainProcessService: IMainProcessService,
+		@ILogService private readonly logService: ILogService,
 	) {
 		super();
 		// Use electron-main channel for PKCE token exchange (needs Node.js crypto)
@@ -153,7 +155,7 @@ class RibixAuthService extends Disposable implements IRibixAuthService {
 			const decrypted = await this.encryptionService.decrypt(stored as string);
 			return JSON.parse(decrypted) as RibixAuthSession;
 		} catch (e) {
-			console.error('Failed to decrypt auth session:', e);
+			this.logService.error('Failed to decrypt auth session:', e);
 			return null;
 		}
 	}

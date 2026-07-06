@@ -6,12 +6,43 @@ interface CollaborationIndicatorProps {
 }
 
 export function CollaborationIndicator({ fileId }: CollaborationIndicatorProps) {
-  const { isConnected, users, joinSession, leaveSession } = useCollaborationStore();
+  const { isConnected, isReconnecting, reconnectAttempt, users, joinSession, leaveSession } = useCollaborationStore();
 
   React.useEffect(() => {
     joinSession(fileId);
     return () => leaveSession(fileId);
   }, [fileId]);
+
+  // #154: Show a reconnect notification banner when the WebSocket drops.
+  if (isReconnecting && !isConnected) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          top: '48px',
+          right: '16px',
+          backgroundColor: '#3c1e1e',
+          border: '1px solid #f14c4c',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          zIndex: 50,
+          minWidth: '280px',
+          color: '#d4d4d4',
+          fontSize: '13px',
+        }}
+      >
+        <div style={{ fontWeight: 600, marginBottom: '4px', color: '#f14c4c' }}>
+          ⚠️ Connection Lost
+        </div>
+        <div style={{ fontSize: '12px' }}>
+          Reconnecting to collaboration server{reconnectAttempt > 1 ? ` (attempt ${reconnectAttempt})` : ''}…
+        </div>
+        <div style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>
+          Your changes are preserved locally and will sync when reconnected.
+        </div>
+      </div>
+    );
+  }
 
   if (!isConnected || users.length === 0) {
     return null;
