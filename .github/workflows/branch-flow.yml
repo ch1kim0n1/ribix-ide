@@ -1,0 +1,29 @@
+name: Branch flow
+
+on:
+  pull_request:
+    branches:
+      - staging
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  enforce:
+    name: Enforce branch flow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Allow only the approved promotion path
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          if [[ "$BASE_BRANCH" == "staging" && "$HEAD_BRANCH" == "dev" ]] || \
+             [[ "$BASE_BRANCH" == "main" && "$HEAD_BRANCH" == "staging" ]]; then
+            exit 0
+          fi
+
+          echo "Invalid pull request path: $HEAD_BRANCH -> $BASE_BRANCH"
+          echo "Allowed paths are dev -> staging and staging -> main."
+          exit 1
