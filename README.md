@@ -37,7 +37,7 @@ Every other AI IDE helps you write code faster. Ribix IDE makes sure the code yo
 
 ## One-click install
 
-The fastest way to get Ribix IDE running. The installer downloads a pre-built binary, extracts it, and creates a desktop shortcut — no build tools required.
+The fastest way to get Ribix IDE running. The installer downloads the matching release asset, verifies its SHA-256 checksum, extracts it, and creates a desktop shortcut — no build tools required.
 
 **macOS / Linux**
 ```bash
@@ -51,7 +51,7 @@ curl -sSL https://raw.githubusercontent.com/ch1kim0n1/ribix-ide/main/install.bat
 
 The installer shows progress indicators for each step (download, extract, verify, create shortcut) and takes 1–2 minutes with a pre-built binary.
 
-> **No build tools needed**: The one-click installer downloads pre-built binaries from GitHub Releases. You only need Node.js and build tools if you're building from source (see Quick Start below).
+> **No build tools needed**: The one-click installer works once a verified GitHub Release has been published. You only need Node.js and build tools if you're building from source (see Quick Start below).
 
 ### Quick Start Templates
 

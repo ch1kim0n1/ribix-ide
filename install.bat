@@ -7,10 +7,11 @@ set "INSTALL_ROOT=%LOCALAPPDATA%\RibixIDE"
 set "APP_ROOT=%INSTALL_ROOT%\app"
 set "ARCHIVE_PATH=%TEMP%\%ASSET_NAME%"
 set "RELEASE_JSON=%TEMP%\ribix-ide-release.json"
+set "CHECKSUM_PATH=%TEMP%\%ASSET_NAME%.sha256"
 set "SHORTCUT_PATH=%USERPROFILE%\Desktop\Ribix IDE.lnk"
 set "APP_DIR=%APP_ROOT%\VSCode-win32-x64"
 set "APP_EXE=%APP_DIR%\Ribix IDE.exe"
-set "TOTAL_STEPS=5"
+set "TOTAL_STEPS=6"
 set "CURRENT_STEP=0"
 
 where powershell >nul 2>nul
@@ -50,11 +51,42 @@ if not defined DOWNLOAD_URL (
   exit /b 1
 )
 
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$assetName = '%ASSET_NAME%.sha256';" ^
+  "$release = Get-Content '%RELEASE_JSON%' | ConvertFrom-Json;" ^
+  "$asset = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1;" ^
+  "if (-not $asset) { throw 'Checksum asset not found in latest release.' };" ^
+  "$asset.browser_download_url"`) do (
+  set "CHECKSUM_URL=%%i"
+)
+
+if not defined CHECKSUM_URL (
+  call :step_fail
+  echo Failed to resolve the checksum URL for %ASSET_NAME%.
+  exit /b 1
+)
+
 call :step_start "Downloading %ASSET_NAME%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "Invoke-WebRequest -UseBasicParsing -Uri '%DOWNLOAD_URL%' -OutFile '%ARCHIVE_PATH%'"
 if %ERRORLEVEL% NEQ 0 (
   call :step_fail
+  exit /b 1
+)
+call :step_done
+
+call :step_start "Verifying download"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Invoke-WebRequest -UseBasicParsing -Uri '%CHECKSUM_URL%' -OutFile '%CHECKSUM_PATH%'"
+if %ERRORLEVEL% NEQ 0 (
+  call :step_fail
+  exit /b 1
+)
+for /f "tokens=1" %%i in (%CHECKSUM_PATH%) do set "EXPECTED_SHA=%%i"
+for /f "delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm SHA256 '%ARCHIVE_PATH%').Hash.ToLower()"`) do set "ACTUAL_SHA=%%i"
+if /I not "%ACTUAL_SHA%"=="%EXPECTED_SHA%" (
+  call :step_fail
+  echo Checksum verification failed for %ASSET_NAME%.
   exit /b 1
 )
 call :step_done

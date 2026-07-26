@@ -66,16 +66,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create DMG
-        run: |
-          APP_NAME="Ribix IDE"
-          ARCH="${{ matrix.arch }}"
-          mkdir -p dist
-          hdiutil create -volname "$APP_NAME" \
-            -srcfolder "../VSCode-darwin-${ARCH}/${APP_NAME}.app" \
-            -ov -format UDZO \
-            "dist/RibixIDE-${ARCH}.dmg"
-
       # ── Code signing & notarization (issue #60) ──────────────────────────────
       # Signs the macOS app with a Developer ID certificate and submits for notarization.
       # Requires secrets: MACOS_CERTIFICATE_P12 (base64-encoded), MACOS_CERTIFICATE_PASSWORD,
@@ -108,6 +98,19 @@ jobs:
             "$APP_PATH"
         # #96: Removed continue-on-error — unsigned macOS builds must fail the release.
 
+      # Package only after signing. A DMG is a copy of the app bundle, so
+      # creating it first would publish an unsigned image even when signing
+      # the source bundle succeeds afterwards.
+      - name: Create signed DMG
+        run: |
+          APP_NAME="Ribix IDE"
+          ARCH="${{ matrix.arch }}"
+          mkdir -p dist
+          hdiutil create -volname "$APP_NAME" \
+            -srcfolder "../VSCode-darwin-${ARCH}/${APP_NAME}.app" \
+            -ov -format UDZO \
+            "dist/RibixIDE-${ARCH}.dmg"
+
       - name: Notarize macOS app
         if: env.MACOS_CERTIFICATE_P12 != ''
         env:
@@ -128,10 +131,15 @@ jobs:
           security delete-keychain "$KEYCHAIN_FILE" 2>/dev/null || true
           rm -f "$KEYCHAIN_FILE"
 
+      - name: Generate checksum
+        run: shasum -a 256 "dist/RibixIDE-${{ matrix.arch }}.dmg" > "dist/RibixIDE-${{ matrix.arch }}.dmg.sha256"
+
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/RibixIDE-${{ matrix.arch }}.dmg
+          files: |
+            dist/RibixIDE-${{ matrix.arch }}.dmg
+            dist/RibixIDE-${{ matrix.arch }}.dmg.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -183,10 +191,15 @@ jobs:
           mkdir -p dist
           tar czf dist/RibixIDE-linux-x64.tar.gz -C .. VSCode-linux-x64
 
+      - name: Generate checksum
+        run: sha256sum dist/RibixIDE-linux-x64.tar.gz > dist/RibixIDE-linux-x64.tar.gz.sha256
+
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/RibixIDE-linux-x64.tar.gz
+          files: |
+            dist/RibixIDE-linux-x64.tar.gz
+            dist/RibixIDE-linux-x64.tar.gz.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -280,9 +293,17 @@ jobs:
         run: rm -f cert.pfx
         shell: bash
 
+      - name: Generate checksum
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 'dist\RibixIDE-win32-x64.zip').Hash.ToLower()
+          "$hash  RibixIDE-win32-x64.zip" | Set-Content -NoNewline 'dist\RibixIDE-win32-x64.zip.sha256'
+        shell: pwsh
+
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/RibixIDE-win32-x64.zip
+          files: |
+            dist/RibixIDE-win32-x64.zip
+            dist/RibixIDE-win32-x64.zip.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -12,7 +12,7 @@ BIN_DIR="${HOME}/.local/bin"
 TMP_DIR="$(mktemp -d)"
 
 # --- Progress tracking ---
-TOTAL_STEPS=5
+TOTAL_STEPS=6
 CURRENT_STEP=0
 
 step_start() {
@@ -106,11 +106,49 @@ else:
 PY
 )"
 
+CHECKSUM_URL="$(python3 - "${RELEASE_JSON}" "${ASSET_NAME}.sha256" <<'PY'
+import json
+import sys
+
+release_path, asset_name = sys.argv[1], sys.argv[2]
+with open(release_path, "r", encoding="utf-8") as fh:
+    payload = json.load(fh)
+
+for asset in payload.get("assets", []):
+    if asset.get("name") == asset_name:
+        print(asset["browser_download_url"])
+        break
+else:
+    raise SystemExit(f"Could not find checksum asset {asset_name!r} in latest release.")
+PY
+)"
+
 mkdir -p "${INSTALL_ROOT}"
 ARCHIVE_PATH="${TMP_DIR}/${ASSET_NAME}"
 
 step_start "Downloading ${ASSET_NAME}"
 curl -fL "${DOWNLOAD_URL}" -o "${ARCHIVE_PATH}"
+step_done
+
+CHECKSUM_PATH="${TMP_DIR}/${ASSET_NAME}.sha256"
+step_start "Verifying download"
+curl -fsSL "${CHECKSUM_URL}" -o "${CHECKSUM_PATH}"
+EXPECTED_SHA="$(awk '{print $1}' "${CHECKSUM_PATH}")"
+if [[ -z "${EXPECTED_SHA}" ]]; then
+  step_fail
+  echo "Release checksum is empty for ${ASSET_NAME}" >&2
+  exit 1
+fi
+if [[ "${OS}" == "Linux" ]]; then
+  ACTUAL_SHA="$(sha256sum "${ARCHIVE_PATH}" | awk '{print $1}')"
+else
+  ACTUAL_SHA="$(shasum -a 256 "${ARCHIVE_PATH}" | awk '{print $1}')"
+fi
+if [[ "${ACTUAL_SHA}" != "${EXPECTED_SHA}" ]]; then
+  step_fail
+  echo "Checksum verification failed for ${ASSET_NAME}" >&2
+  exit 1
+fi
 step_done
 
 rm -rf "${APP_ROOT}"
