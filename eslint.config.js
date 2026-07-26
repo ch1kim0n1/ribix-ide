@@ -1433,5 +1433,25 @@ export default tseslint.config(
 			'@typescript-eslint/prefer-optional-chain': 'warn',
 			'@typescript-eslint/prefer-readonly': 'warn',
 		}
+	},
+	// #530: no-console — error for src files, off for test files
+	{
+		files: [
+			'src/**/*.ts',
+			'src/**/*.tsx',
+		],
+		rules: {
+			'no-console': 'error',
+		},
+	},
+	{
+		files: [
+			'**/*.test.ts',
+			'src/vs/**/*.test.ts',
+			'test/**/*.ts',
+		],
+		rules: {
+			'no-console': 'off',
+		},
 	}
 );

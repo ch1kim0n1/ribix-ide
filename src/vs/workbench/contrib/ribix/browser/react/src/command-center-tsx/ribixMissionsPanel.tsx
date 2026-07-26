@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAccessor } from '../util/services.js';
+import { LoadingBlock, SkeletonRow } from '../util/Spinner.js';
 import { IRibixMissionService } from '../../../ribixMissionService.js';
 import { Mission } from '../../../../common/ribixTypes.js';
 import { RibixMissionCard } from './ribixMissionCard.js';
@@ -18,6 +19,7 @@ export const RibixMissionsPanel = () => {
 	const codeEditorService = accessor.get(ICodeEditorService);
 
 	const [missions, setMissions] = useState<Mission[]>([]);
+	const [isLoadingMissions, setIsLoadingMissions] = useState(true);
 	const [outcome, setOutcome] = useState('');
 	const [aggression, setAggression] = useState<Aggression>('default');
 	const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
@@ -67,6 +69,7 @@ export const RibixMissionsPanel = () => {
 	useEffect(() => {
 		// Load missions on mount
 		setMissions(missionService.getAllMissions());
+		setIsLoadingMissions(false);
 
 		// Subscribe to mission changes
 		const disposable = missionService.onDidChangeMissions(() => {
@@ -258,7 +261,14 @@ export const RibixMissionsPanel = () => {
 				<h3 className="text-sm font-semibold mb-3 text-[var(--ribix-text-secondary, #8A9E8A)]">
 					Missions
 				</h3>
-				{missions.length === 0 ? (
+				{isLoadingMissions ? (
+					<div className="space-y-3">
+						<SkeletonRow />
+						<SkeletonRow />
+						<SkeletonRow />
+						<LoadingBlock text="Loading missions…" />
+					</div>
+				) : missions.length === 0 ? (
 					<div className="text-center py-8 text-[var(--ribix-text-secondary, #8A9E8A)]">
 						No missions yet. Create your first mission above.
 					</div>

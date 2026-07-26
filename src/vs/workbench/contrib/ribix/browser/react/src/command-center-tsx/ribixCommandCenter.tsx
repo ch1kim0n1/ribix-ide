@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { useIsDark, useAccessor } from '../util/services.js';
 import '../styles.css';
+import { Spinner } from '../util/Spinner.js';
 import { RibixMissionsPanel } from './ribixMissionsPanel.js';
 import { RibixAgentsPanel } from './ribixAgentsPanel.js';
 import { RibixMemoryPanel } from './ribixMemoryPanel.js';
@@ -176,7 +177,12 @@ export const RibixCommandCenter = ({ className }: { className: string }) => {
 											color: 'var(--ribix-bg-primary, #01311F)',
 										}}
 									>
-										{signingIn ? 'Opening browser…' : 'Sign In'}
+										{signingIn ? (
+										<span className="inline-flex items-center gap-2">
+											<Spinner className="w-3.5 h-3.5" />
+											Opening browser…
+										</span>
+									) : 'Sign In'}
 									</button>
 									<p className="text-xs text-[var(--ribix-text-secondary, #8A9E8A)] mt-2">
 										Sign in to enable org memory sync and PR creation. Leave URLs as default for ribix.dev.

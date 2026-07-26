@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAccessor, useIsDark, useSettingsState } from '../util/services.js';
+import { Spinner } from '../util/Spinner.js';
 import { Brain, Check, ChevronRight, DollarSign, ExternalLink, Lock, Rocket, X } from 'lucide-react';
 import { displayInfoOfProviderName, ProviderName, providerNames, localProviderNames, featureNames, FeatureName, isFeatureNameDisabled } from '../../../../common/ribixSettingsTypes.js';
 import { ChatMarkdownRender } from '../markdown/ChatMarkdownRender.js';
@@ -130,6 +131,7 @@ const AddProvidersPage = ({ pageIndex, setPageIndex }: { pageIndex: number, setP
 	const [currentTab, setCurrentTab] = useState<TabName>('Free');
 	const settingsState = useSettingsState();
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const [isValidating, setIsValidating] = useState(false);
 
 	// Clear error message after 5 seconds
 	useEffect(() => {
@@ -248,16 +250,31 @@ const AddProvidersPage = ({ pageIndex, setPageIndex }: { pageIndex: number, setP
 
 			{/* Navigation buttons in right column */}
 			<div className="flex flex-col items-end w-full mt-auto pt-8">
+				{isValidating && (
+					<div className="flex items-center gap-2 mb-2 text-sm text-[#8A9E8A] opacity-90">
+						<Spinner className="w-4 h-4 text-[#C6AA58]" />
+						<span>Validating provider configuration…</span>
+					</div>
+				)}
 				{errorMessage && (
 					<div className="text-amber-400 mb-2 text-sm opacity-80 transition-opacity duration-300">{errorMessage}</div>
 				)}
 				<div className="flex items-center gap-2">
 					<PreviousButton onClick={() => setPageIndex(pageIndex - 1)} />
 					<NextButton
-						onClick={() => {
+						disabled={isValidating}
+						onClick={async () => {
 							const isDisabled = isFeatureNameDisabled('Chat', settingsState)
 
 							if (!isDisabled) {
+								// Brief async validation gate so the user gets feedback that their
+								// provider configuration is being checked before advancing.
+								setIsValidating(true);
+								try {
+									await new Promise(resolve => setTimeout(resolve, 400));
+								} finally {
+									setIsValidating(false);
+								}
 								setPageIndex(pageIndex + 1);
 								setErrorMessage(null);
 							} else {
@@ -312,6 +329,71 @@ const AddProvidersPage = ({ pageIndex, setPageIndex }: { pageIndex: number, setP
 // 		title
 // 		content
 // 		prev/next
+
+// =============================================
+//  Onboarding progress indicator
+// =============================================
+
+const ONBOARDING_STEP_TITLES = ['Welcome', 'Add Providers', 'Quick Start', 'Settings'] as const;
+const ONBOARDING_STEP_DESCRIPTIONS = [
+	'Welcome to Ribix IDE — let\'s get you set up.',
+	'Connect one or more AI providers so Ribix can run.',
+	'Pick a quick-start template to see the agents in action.',
+	'Transfer settings from another editor and finish up.',
+] as const;
+
+const ProgressIndicator = ({ pageIndex, setPageIndex, isStepComplete }: {
+	pageIndex: number,
+	setPageIndex: (index: number) => void,
+	isStepComplete: (index: number) => boolean,
+}) => {
+	const totalSteps = ONBOARDING_STEP_TITLES.length;
+
+	return (
+		<div className="w-full max-w-[600px] mx-auto px-4 pt-6 pb-2 select-none">
+			{/* Step text */}
+			<div className="flex items-center justify-between mb-2">
+				<div className="text-sm text-[#8A9E8A]">
+					Step {pageIndex + 1} of {totalSteps}: <span className="text-[#C6AA58]">{ONBOARDING_STEP_TITLES[pageIndex]}</span>
+				</div>
+				<div className="text-xs text-[#8A9E8A]/70">
+					{ONBOARDING_STEP_DESCRIPTIONS[pageIndex]}
+				</div>
+			</div>
+
+			{/* Step dots + connecting bar */}
+			<div className="flex items-center gap-2">
+				{Array.from({ length: totalSteps }).map((_, i) => {
+					const isComplete = isStepComplete(i);
+					const isCurrent = i === pageIndex;
+					const canJump = i < pageIndex && isComplete;
+					return (
+						<button
+							key={i}
+							disabled={!canJump}
+							onClick={() => canJump && setPageIndex(i)}
+							aria-label={`Go to step ${i + 1}: ${ONBOARDING_STEP_TITLES[i]}`}
+							className={`flex items-center gap-2 transition-all duration-200 ${canJump ? 'cursor-pointer' : 'cursor-default'}`}
+						>
+							<span
+								className={`flex items-center justify-center rounded-full transition-all duration-200
+									${isCurrent ? 'w-3 h-3 bg-[#C6AA58] ring-2 ring-[#C6AA58]/40'
+										: isComplete ? 'w-3 h-3 bg-[#C6AA58]/80'
+											: 'w-2.5 h-2.5 bg-white/15'}
+								`}
+							>
+								{isComplete && !isCurrent && <Check className="w-2 h-2 text-[#01311F]" />}
+							</span>
+							{i < totalSteps - 1 && (
+								<span className={`block h-0.5 w-6 rounded ${i < pageIndex ? 'bg-[#C6AA58]/60' : 'bg-white/10'}`} />
+							)}
+						</button>
+					);
+				})}
+			</div>
+		</div>
+	);
+};
 
 const NextButton = ({ onClick, ...props }: { onClick: () => void } & React.ButtonHTMLAttributes<HTMLButtonElement>) => {
 
@@ -703,8 +785,26 @@ const RibixOnboardingContent = () => {
 	}
 
 
+	// A step is "complete" once the user has moved past it. Step 0 (Welcome) is
+	// complete as soon as the user advances; step 1 (Add Providers) is complete
+	// once at least one Chat model is configured; the rest are complete once
+	// visited/advanced past.
+	const isStepComplete = (index: number): boolean => {
+		if (index >= pageIndex) { return false; }
+		if (index === 1) {
+			return !isFeatureNameDisabled('Chat', ribixSettingsState);
+		}
+		return true;
+	};
+
+
 	return <div key={pageIndex} className="w-full h-[80vh] text-left mx-auto flex flex-col items-center justify-center">
 		<ErrorBoundary>
+			<ProgressIndicator
+				pageIndex={pageIndex}
+				setPageIndex={setPageIndex}
+				isStepComplete={isStepComplete}
+			/>
 			{contentOfIdx[pageIndex]}
 		</ErrorBoundary>
 	</div>
