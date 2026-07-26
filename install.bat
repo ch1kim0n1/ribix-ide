@@ -8,6 +8,8 @@ set "APP_ROOT=%INSTALL_ROOT%\app"
 set "ARCHIVE_PATH=%TEMP%\%ASSET_NAME%"
 set "RELEASE_JSON=%TEMP%\ribix-ide-release.json"
 set "SHORTCUT_PATH=%USERPROFILE%\Desktop\Ribix IDE.lnk"
+set "APP_DIR=%APP_ROOT%\VSCode-win32-x64"
+set "APP_EXE=%APP_DIR%\Ribix IDE.exe"
 set "TOTAL_STEPS=5"
 set "CURRENT_STEP=0"
 
@@ -70,9 +72,10 @@ if %ERRORLEVEL% NEQ 0 (
 call :step_done
 
 call :step_start "Verifying installation"
-if not exist "%APP_ROOT%\VSCode-win32-x64\Code.exe" (
+if not exist "%APP_EXE%" (
   call :step_fail
-  echo Verification failed: Code.exe not found at expected location
+  echo Verification failed: "Ribix IDE.exe" not found at expected location
+  echo Expected: %APP_EXE%
   exit /b 1
 )
 call :step_done
@@ -81,8 +84,8 @@ call :step_start "Creating desktop shortcut"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ws = New-Object -ComObject WScript.Shell;" ^
   "$shortcut = $ws.CreateShortcut('%SHORTCUT_PATH%');" ^
-  "$shortcut.TargetPath = '%APP_ROOT%\VSCode-win32-x64\Code.exe';" ^
-  "$shortcut.WorkingDirectory = '%APP_ROOT%\VSCode-win32-x64';" ^
+  "$shortcut.TargetPath = '%APP_EXE%';" ^
+  "$shortcut.WorkingDirectory = '%APP_DIR%';" ^
   "$shortcut.Save()"
 if %ERRORLEVEL% NEQ 0 (
   call :step_fail
@@ -95,7 +98,8 @@ echo ==================================
 echo   Installation Complete!
 echo ==================================
 echo.
-echo   Installed to: %APP_ROOT%\VSCode-win32-x64
+echo   Installed to: %APP_DIR%
+echo   Executable:   %APP_EXE%
 echo   Shortcut:     %SHORTCUT_PATH%
 echo.
 echo   Double-click the desktop shortcut to start Ribix IDE.
