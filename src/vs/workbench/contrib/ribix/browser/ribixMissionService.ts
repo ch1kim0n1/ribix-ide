@@ -23,9 +23,12 @@ import { ChangedChunk } from '../common/ribixChangedChunk.js';
 import { SemverBump, maxBump, semverBumpFromConventionalCommits, semverBumpFromDiff } from '../common/ribixSemver.js';
 import { IMetricsService } from '../common/metricsService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
+import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
+import { joinPath } from '../../../../base/common/resources.js';
 import { SubmitFindingsRequest } from '../common/ribixAuthTypes.js';
 import { SuppressionRules, EMPTY_SUPPRESSION_RULES, loadSuppressionRules, filterSuppressed } from '../common/ribixSuppression.js';
 import { agentProgressFeed } from './agentProgressFeed.js';
+import { MissionRecorder } from './missionReplay.js';
 
 export interface IRibixMissionService {
 	readonly _serviceBrand: undefined;
@@ -103,6 +106,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 	private maxConcurrentMissions: number = 3;
 	private ribixSCM: IRibixSCMService;
 	private _loadPromise: Promise<void>;
+	private readonly _recorders = new Map<string, MissionRecorder>();
 
 	constructor(
 		@IRibixMemoryService private readonly memoryService: IRibixMemoryService,
@@ -114,6 +118,7 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		@IHostService private readonly hostService: IHostService,
 		@IMetricsService private readonly metricsService: IMetricsService,
 		@IFileService private readonly fileService: IFileService,
+		@IUserDataProfilesService private readonly userDataProfilesService: IUserDataProfilesService,
 	) {
 		super();
 		this._register(this._onDidChangeMissions);
@@ -257,20 +262,34 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 	}
 
 	// ---------------------------------------------------------------------------
-	// TODO(replay): Wire up MissionRecorder here.
-	//
-	// 1. Import MissionRecorder and the REPLAY_STORAGE_FOLDER constant:
-	//      import { MissionRecorder } from './missionReplay.js';
-	//      import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
-	//      import { joinPath } from '../../../../base/common/uri.js';
-	//    Inject IUserDataProfilesService via the constructor.
-	//
-	// 2. Keep a Map<string, MissionRecorder> (missionId → recorder) on this class.
-	//
-	// 3. Call recorder.record() at each agent action — call sites are annotated
-	//    with "TODO(replay):" comments below.  The storageUri for save() is:
-	//      joinPath(profilesService.defaultProfile.globalStorageHome, 'ribix-replay')
+	// Mission replay: MissionRecorder accumulates stage events and flushes to
+	// globalStorageHome/ribix-replay on complete/abort.
 	// ---------------------------------------------------------------------------
+
+	private getReplayStorageUri() {
+		return joinPath(this.userDataProfilesService.defaultProfile.globalStorageHome, 'ribix-replay');
+	}
+
+	private recordMissionEvent(
+		missionId: string,
+		event: Parameters<MissionRecorder['record']>[0],
+	): void {
+		this._recorders.get(missionId)?.record(event);
+	}
+
+	private async flushRecorder(missionId: string): Promise<void> {
+		const recorder = this._recorders.get(missionId);
+		if (!recorder) {
+			return;
+		}
+		try {
+			await recorder.save(this.getReplayStorageUri());
+		} catch (e) {
+			console.warn('MissionRecorder.save failed:', e);
+		} finally {
+			this._recorders.delete(missionId);
+		}
+	}
 
 	async createMission(outcome: string, context: MissionContext): Promise<Mission> {
 		await this._loadPromise;
@@ -296,10 +315,14 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 		await this.saveMission(mission);
 
-		// TODO(replay): Create a recorder for this mission and record mission_start.
-		//   const recorder = new MissionRecorder(mission.id);
-		//   this._recorders.set(mission.id, recorder);
-		//   recorder.record({ agentId: '', agentRole: 'planner', type: 'mission_start', data: { outcome } });
+		const recorder = new MissionRecorder(mission.id);
+		this._recorders.set(mission.id, recorder);
+		recorder.record({
+			agentId: '',
+			agentRole: 'planner',
+			type: 'mission_start',
+			data: { outcome },
+		});
 
 		return mission;
 	}
@@ -371,8 +394,12 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 		agentProgressFeed.emit({ agentId: `${id}:Planner`, agentRole: 'Planner', stage: 'planning', message: 'Generating mission plan…', timestamp: Date.now() });
 
-		// TODO(replay): Record agent_stage_change → planning.
-		//   this._recorders.get(id)?.record({ agentId: '', agentRole: 'planner', type: 'agent_stage_change', data: { from: 'awaiting_outcome', to: 'planning' } });
+		this.recordMissionEvent(id, {
+			agentId: '',
+			agentRole: 'planner',
+			type: 'agent_stage_change',
+			data: { from: 'awaiting_outcome', to: 'planning' },
+		});
 
 		// Telemetry: mission started (fire-and-forget)
 		void this.metricsService.capture('mission:started', { agentTypes: mission.tasks.map((t: any) => t.agentType) });
@@ -407,7 +434,12 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 		agentProgressFeed.emit({ agentId: `${id}:Planner`, agentRole: 'Planner', stage: 'complete', message: `Plan ready — ${tasks.length} task(s) queued`, timestamp: Date.now() });
 
-		// TODO(replay): Record agent_stage_change → plan_ready.
+		this.recordMissionEvent(id, {
+			agentId: '',
+			agentRole: 'planner',
+			type: 'agent_stage_change',
+			data: { from: 'planning', to: 'plan_ready', taskCount: tasks.length },
+		});
 		//   this._recorders.get(id)?.record({ agentId: '', agentRole: 'planner', type: 'agent_stage_change', data: { from: 'planning', to: 'plan_ready', taskCount: tasks.length } });
 	}
 
@@ -452,8 +484,12 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 
 		agentProgressFeed.emit({ agentId: `${id}:Planner`, agentRole: 'Planner', stage: 'complete', message: 'Plan approved — agents starting', timestamp: Date.now() });
 
-		// TODO(replay): Record agent_stage_change → executing (plan approved, agents starting).
-		//   this._recorders.get(id)?.record({ agentId: '', agentRole: 'planner', type: 'agent_stage_change', data: { from: 'plan_ready', to: 'executing', branchName } });
+		this.recordMissionEvent(id, {
+			agentId: '',
+			agentRole: 'planner',
+			type: 'agent_stage_change',
+			data: { from: 'plan_ready', to: 'executing', branchName },
+		});
 	}
 
 	async abortMission(id: string): Promise<void> {
@@ -468,6 +504,14 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		await this.saveMission(mission);
 
 		agentProgressFeed.emit({ agentId: `${id}:Planner`, agentRole: 'Planner', stage: 'error', message: 'Mission aborted', timestamp: Date.now() });
+
+		this.recordMissionEvent(id, {
+			agentId: '',
+			agentRole: 'planner',
+			type: 'mission_complete',
+			data: { aborted: true },
+		});
+		void this.flushRecorder(id);
 
 		// Telemetry: mission aborted (fire-and-forget)
 		void this.metricsService.capture('mission:aborted', { reason: 'user_abort' });
@@ -488,15 +532,16 @@ export class RibixMissionService extends Disposable implements IRibixMissionServ
 		const findingCount = result?.reviewerFindings?.length ?? 0;
 		agentProgressFeed.emit({ agentId: `${id}:Release`, agentRole: 'Release', stage: 'complete', message: `Mission complete — ${findingCount} finding(s)`, timestamp: Date.now() });
 
-		// TODO(replay): Record mission_complete and flush the recorder to disk.
-		//   const recorder = this._recorders.get(id);
-		//   if (recorder) {
-		//     recorder.record({ agentId: '', agentRole: 'reviewer', type: 'mission_complete',
-		//       data: { findingCount: result?.reviewerFindings?.length ?? 0, durationMs: mission.completedAt! - mission.createdAt } });
-		//     const storageUri = joinPath(profilesService.defaultProfile.globalStorageHome, 'ribix-replay');
-		//     recorder.save(storageUri).catch(e => console.warn('MissionRecorder.save failed:', e));
-		//     this._recorders.delete(id);
-		//   }
+		this.recordMissionEvent(id, {
+			agentId: '',
+			agentRole: 'reviewer',
+			type: 'mission_complete',
+			data: {
+				findingCount,
+				durationMs: mission.completedAt! - mission.createdAt,
+			},
+		});
+		void this.flushRecorder(id);
 
 		// Telemetry: mission completed (fire-and-forget)
 		void this.metricsService.capture('mission:completed', {
