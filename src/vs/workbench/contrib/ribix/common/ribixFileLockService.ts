@@ -13,6 +13,8 @@ export interface IRibixFileLockService {
 	acquire(filePath: string, agentId: string): Promise<() => void>;
 	isLocked(filePath: string): boolean;
 	getLockHolder(filePath: string): string | null;
+	/** Force-release every lock held by an agent (used on abort). */
+	releaseAllForAgent(agentId: string): number;
 	onDidChangeLocks: Event<void>;
 }
 
@@ -128,6 +130,30 @@ class RibixFileLockService extends Disposable implements IRibixFileLockService {
 	getLockHolder(filePath: string): string | null {
 		const lock = this.locks.get(this.normalizePath(filePath));
 		return lock ? lock.agentId : null;
+	}
+
+	releaseAllForAgent(agentId: string): number {
+		let released = 0;
+		for (const [filePath, lock] of [...this.locks.entries()]) {
+			if (lock.agentId !== agentId) {
+				continue;
+			}
+			this.locks.delete(filePath);
+			released++;
+			// Reject waiters that were queued behind this agent so they don't
+			// inherit a half-aborted writer context.
+			const pending = this.pendingAcquisitions.get(filePath);
+			if (pending) {
+				for (const waiter of pending) {
+					waiter.reject(new Error(`Lock released because agent ${agentId} aborted`));
+				}
+				this.pendingAcquisitions.delete(filePath);
+			}
+		}
+		if (released > 0) {
+			this._onDidChangeLocks.fire();
+		}
+		return released;
 	}
 
 	private cleanupExpiredLocks(): void {

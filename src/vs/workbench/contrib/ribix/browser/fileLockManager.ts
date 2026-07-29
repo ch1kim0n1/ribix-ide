@@ -30,13 +30,11 @@ export interface FileLock {
 /**
  * Tracks which agent holds a write lock on each file path.
  *
- * Wire-up TODOs for agent execution:
- * - TODO(#37): Call fileLockManager.acquire(filePath, agentId, agentRole) before any
- *   write tool execution in RibixAgentService.runOneTool() (currently uses IRibixFileLockService).
- * - TODO(#37): Call fileLockManager.release(filePath, agentId) in the finally block of
- *   RibixAgentService.runOneTool() after write tools complete.
- * - TODO(#37): Call fileLockManager.getLocksForAgent(agentId) in abortAgent() to force-
- *   release all locks held by an aborted agent.
+ * Agent execution wiring (#37):
+ * - RibixAgentService.runOneTool() acquires via IRibixFileLockService before write tools.
+ * - Release runs in finally after write tools complete.
+ * - abortAgent() calls releaseAllForAgent() to force-clear locks for aborted agents.
+ * - pendingAcquisitions queue waiters (with deadlock-safe handoff on expiry).
  */
 export class FileLockManager {
 	private locks = new Map<string, FileLock>(); // filePath → lock
