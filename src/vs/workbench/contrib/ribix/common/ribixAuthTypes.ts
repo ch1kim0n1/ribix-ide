@@ -5,6 +5,9 @@
 
 import { MemoryEntry } from './ribixTypes.js';
 
+// #528 — Presence types are canonical in @ribix/shared.
+export type { PresenceEntry, PresenceSnapshot, PresenceClientType } from '@ribix/shared';
+
 // Auth session types
 export type RibixPlan = 'free' | 'pro' | 'team';
 

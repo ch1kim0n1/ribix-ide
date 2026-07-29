@@ -5,12 +5,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAccessor } from '../util/services.js';
+import { LoadingBlock, SkeletonRow } from '../util/Spinner.js';
 import { IRibixMissionService } from '../../../ribixMissionService.js';
 import { Mission } from '../../../../common/ribixTypes.js';
 import { RibixMissionCard } from './ribixMissionCard.js';
 import { RibixPlanReviewDialog } from './ribixPlanReviewDialog.js';
 import { RibixAggressionControl, Aggression } from './ribixAggressionControl.js';
 import { ICodeEditorService } from '../../../../../../../editor/browser/services/codeEditorService.js';
+import { MissionCollaboration } from '../../../missionCollaboration.js';
+
+const missionCollaboration = new MissionCollaboration();
 
 export const RibixMissionsPanel = () => {
 	const accessor = useAccessor();
@@ -18,6 +22,7 @@ export const RibixMissionsPanel = () => {
 	const codeEditorService = accessor.get(ICodeEditorService);
 
 	const [missions, setMissions] = useState<Mission[]>([]);
+	const [isLoadingMissions, setIsLoadingMissions] = useState(true);
 	const [outcome, setOutcome] = useState('');
 	const [aggression, setAggression] = useState<Aggression>('default');
 	const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
@@ -67,6 +72,7 @@ export const RibixMissionsPanel = () => {
 	useEffect(() => {
 		// Load missions on mount
 		setMissions(missionService.getAllMissions());
+		setIsLoadingMissions(false);
 
 		// Subscribe to mission changes
 		const disposable = missionService.onDidChangeMissions(() => {
@@ -139,6 +145,20 @@ export const RibixMissionsPanel = () => {
 
 	const handleMissionClick = (mission: Mission) => {
 		setSelectedMission(mission);
+	};
+
+	const handleShareMission = async (mission: Mission) => {
+		const email = window.prompt('Share mission with collaborator email:');
+		if (!email?.trim()) {
+			return;
+		}
+		try {
+			await missionCollaboration.addCollaborator(mission.id, email.trim());
+			window.alert(`Shared mission with ${email.trim()} (local until backend collaborators API is live).`);
+		} catch (error) {
+			console.error('Failed to share mission:', error);
+			window.alert('Failed to share mission.');
+		}
 	};
 
 	const handleCloseDetail = () => {
@@ -258,18 +278,42 @@ export const RibixMissionsPanel = () => {
 				<h3 className="text-sm font-semibold mb-3 text-[var(--ribix-text-secondary, #8A9E8A)]">
 					Missions
 				</h3>
-				{missions.length === 0 ? (
+				{isLoadingMissions ? (
+					<div className="space-y-3">
+						<SkeletonRow />
+						<SkeletonRow />
+						<SkeletonRow />
+						<LoadingBlock text="Loading missions…" />
+					</div>
+				) : missions.length === 0 ? (
 					<div className="text-center py-8 text-[var(--ribix-text-secondary, #8A9E8A)]">
 						No missions yet. Create your first mission above.
 					</div>
 				) : (
 					<div className="space-y-3">
 						{missions.map((mission) => (
-							<RibixMissionCard
-								key={mission.id}
-								mission={mission}
-								onClick={() => handleMissionClick(mission)}
-							/>
+							<div key={mission.id} className="relative">
+								<RibixMissionCard
+									mission={mission}
+									onClick={() => handleMissionClick(mission)}
+								/>
+								<button
+									type="button"
+									onClick={(e) => {
+										e.stopPropagation();
+										void handleShareMission(mission);
+									}}
+									className="absolute top-3 right-3 text-xs px-2 py-1 rounded"
+									style={{
+										backgroundColor: 'rgba(198,170,88,0.15)',
+										color: 'var(--ribix-gold, #C6AA58)',
+										border: '1px solid var(--ribix-gold-dim, #7A6830)',
+									}}
+									aria-label={`Share mission ${mission.id}`}
+								>
+									Share
+								</button>
+							</div>
 						))}
 					</div>
 				)}

@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { useIsDark, useAccessor } from '../util/services.js';
 import '../styles.css';
+import { Spinner } from '../util/Spinner.js';
 import { RibixMissionsPanel } from './ribixMissionsPanel.js';
 import { RibixAgentsPanel } from './ribixAgentsPanel.js';
 import { RibixMemoryPanel } from './ribixMemoryPanel.js';
@@ -98,11 +99,8 @@ export const RibixCommandCenter = ({ className }: { className: string }) => {
 				{/* Tab Content */}
 				<div className="w-full h-[calc(100%-48px)] overflow-auto">
 					<ErrorBoundary>
-						{/* TODO(#45): Add a "Share mission" button to the mission creation/detail UI in
-						    RibixMissionsPanel. Wire it to missionCollaboration.addCollaborator() and
-						    display the current collaborators list. The button should only appear for
-						    missions owned by the current user. */}
-						{activeTab === 'missions' && <RibixMissionsPanel />}
+				{/* Share is on each mission card; collaborators stored via MissionCollaboration. */}
+				{activeTab === 'missions' && <RibixMissionsPanel />}
 						{activeTab === 'agents' && <RibixAgentsPanel />}
 						{activeTab === 'memory' && <RibixMemoryPanel />}
 						{activeTab === 'settings' && (
@@ -176,7 +174,12 @@ export const RibixCommandCenter = ({ className }: { className: string }) => {
 											color: 'var(--ribix-bg-primary, #01311F)',
 										}}
 									>
-										{signingIn ? 'Opening browser…' : 'Sign In'}
+										{signingIn ? (
+										<span className="inline-flex items-center gap-2">
+											<Spinner className="w-3.5 h-3.5" />
+											Opening browser…
+										</span>
+									) : 'Sign In'}
 									</button>
 									<p className="text-xs text-[var(--ribix-text-secondary, #8A9E8A)] mt-2">
 										Sign in to enable org memory sync and PR creation. Leave URLs as default for ribix.dev.

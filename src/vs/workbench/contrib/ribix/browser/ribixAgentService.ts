@@ -369,6 +369,10 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			};
 		}
 		this.addActivityLog(agent, 'Aborted', 'Agent was manually aborted', null, null);
+		const released = this.fileLockService.releaseAllForAgent(agentId);
+		if (released > 0) {
+			this.addActivityLog(agent, 'File locks released', `${released} lock(s) force-released on abort`, null, null);
+		}
 		this._onDidChangeAgents.fire();
 		// Fire completion so event-driven orchestration tears down its listener
 		// (otherwise an aborted agent orphans the per-agent completion listener).

@@ -47,6 +47,17 @@
 	outline: none !important;
 }
 
+/* Spinner keyframes (used by util/Spinner.tsx) */
+@keyframes ribix-spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+@keyframes ribix-pulse {
+	0%, 100% { opacity: 0.4; }
+	50% { opacity: 0.8; }
+}
+
 
 
 .inherit-bg-all-restyle > * {

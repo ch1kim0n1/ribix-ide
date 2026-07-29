@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAccessor } from '../util/services.js';
+import { LoadingBlock } from '../util/Spinner.js';
 import { IRibixAgentService } from '../../../ribixAgentService.js';
 import { AgentInstance } from '../../../../common/ribixTypes.js';
 import { RibixAgentCard } from './ribixAgentCard.js';
@@ -13,10 +14,12 @@ export const RibixAgentsPanel = () => {
 	const accessor = useAccessor();
 	const agentService = accessor.get(IRibixAgentService);
 	const [agents, setAgents] = useState<AgentInstance[]>([]);
+	const [isLoadingAgents, setIsLoadingAgents] = useState(true);
 
 	useEffect(() => {
 		// Load agents on mount
 		setAgents(agentService.getAllActiveAgents());
+		setIsLoadingAgents(false);
 
 		// Subscribe to agent changes
 		const disposable = agentService.onDidChangeAgents(() => {
@@ -33,7 +36,9 @@ export const RibixAgentsPanel = () => {
 			<h3 className="text-sm font-semibold mb-3 text-[var(--ribix-text-secondary, #8A9E8A)]">
 				Active Agents
 			</h3>
-			{agents.length === 0 ? (
+			{isLoadingAgents ? (
+				<LoadingBlock text="Loading agent activity…" />
+			) : agents.length === 0 ? (
 				<div className="text-center py-8 text-[var(--ribix-text-secondary, #8A9E8A)]">
 					No active agents. Agents will appear here when missions are executing.
 				</div>
