@@ -5,6 +5,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { RibixMissionService } from '../../browser/ribixMissionService.js';
 import { Mission, MISSION_SCHEMA_VERSION } from '../../common/ribixTypes.js';
 
@@ -37,9 +38,10 @@ const hostStub = { onDidChangeFocus: () => ({ dispose() { } }) } as any;
 const metricsStub = { capture: async () => { } } as any;
 // .ribixignore loader probes exists(); return false so suppression is a no-op in these tests.
 const fileStub = { exists: async () => false, readFile: async () => ({ value: { toString: () => '' } }) } as any;
+const userDataProfilesStub = { defaultProfile: { globalStorageHome: URI.file('/ribix-test/globalStorage') } } as any;
 
 function makeMissionService(storage: FakeStorage, memory: FakeMemory) {
-	return new RibixMissionService(memory as any, mainProcessStub, authStub, planningStub, workspaceStub, storage as any, hostStub, metricsStub, fileStub);
+	return new RibixMissionService(memory as any, mainProcessStub, authStub, planningStub, workspaceStub, storage as any, hostStub, metricsStub, fileStub, userDataProfilesStub);
 }
 
 function makeMission(over: Partial<Mission> = {}): Mission {
@@ -73,7 +75,7 @@ suite('RibixMissionService — persistence', () => {
 		// does NOT auto-advance the mission to plan_ready — this test drives the
 		// transitions manually and asserts update-in-place persistence.
 		const pendingPlanning = { plan: () => new Promise<never>(() => { /* never resolves */ }) } as any;
-		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, pendingPlanning, workspaceStub, storage as any, hostStub, metricsStub, fileStub);
+		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, pendingPlanning, workspaceStub, storage as any, hostStub, metricsStub, fileStub, userDataProfilesStub);
 		const mission = await service.createMission('o', { attachedFiles: [], attachedSelections: [], issueUrls: [], notes: '' });
 
 		await service.submitForPlanning(mission.id);
@@ -185,7 +187,7 @@ suite('RibixMissionService — scoped auto-QA + context', () => {
 		const storage = new FakeStorage();
 		let capturedContext: any = null;
 		const planning = { plan: async (_id: string, _outcome: string, ctx: any) => { capturedContext = ctx; return []; } } as any;
-		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, planning, workspaceStub, storage as any, hostStub, metricsStub, fileStub);
+		const service = new RibixMissionService(new FakeMemory() as any, mainProcessStub, authStub, planning, workspaceStub, storage as any, hostStub, metricsStub, fileStub, userDataProfilesStub);
 
 		const mission = await service.createScopedQAMission(sampleChunk);
 		await service.submitForPlanning(mission!.id);

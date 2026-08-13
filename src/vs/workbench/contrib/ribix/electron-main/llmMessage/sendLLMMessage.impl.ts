@@ -847,6 +847,94 @@ const sendGeminiChat = async ({
 
 
 
+// ------------ RIBIX (managed, paid plan) ------------
+
+// Curated models proxied through the user's own Ribix account. The backend route
+// is POST /api/v1/ai/chat (see ribix/src/extensions/ideRouter.ts): it takes plain
+// user/assistant turns with the system prompt passed separately, requires a paid
+// plan, and answers with a complete message instead of a token stream - so the
+// whole reply arrives in a single onText immediately before onFinalMessage.
+const RIBIX_DEFAULT_ENDPOINT = 'https://api.ribix.dev'
+
+const _textOfRibixMessage = (message: LLMChatMessage): string => {
+	const { content, parts } = message as { content?: unknown; parts?: unknown }
+	if (typeof content === 'string') { return content }
+
+	const textOfPart = (part: unknown): string => {
+		if (typeof part === 'string') { return part }
+		const text = (part as { text?: unknown } | null)?.text
+		return typeof text === 'string' ? text : ''
+	}
+	if (Array.isArray(content)) { return content.map(textOfPart).join('') }
+	if (Array.isArray(parts)) { return parts.map(textOfPart).join('') }
+	return ''
+}
+
+const sendRibixChat = async ({ messages, onText, onFinalMessage, onError, settingsOfProvider, modelName, separateSystemMessage, _setAborter }: SendChatParams_Internal) => {
+	const thisConfig = settingsOfProvider.ribix
+	if (!thisConfig.apiKey) {
+		onError({ message: `Not signed in to Ribix. Open Settings and sign in under Ribix Command Center to use Ribix-hosted models.`, fullError: null })
+		return
+	}
+
+	const baseURL = (thisConfig.endpoint || RIBIX_DEFAULT_ENDPOINT).replace(/\/+$/, '')
+
+	// Tool calls and reasoning blocks have no representation in this route's
+	// schema, so only the plain text of user/assistant turns is forwarded.
+	const chatMessages: { role: 'user' | 'assistant'; content: string }[] = []
+	for (const message of messages) {
+		if (message.role !== 'user' && message.role !== 'assistant') { continue }
+		const text = _textOfRibixMessage(message)
+		if (text) { chatMessages.push({ role: message.role, content: text }) }
+	}
+	if (chatMessages.length === 0) {
+		onError({ message: `Ribix IDE: there was no message to send.`, fullError: null })
+		return
+	}
+
+	const controller = new AbortController()
+	_setAborter(() => controller.abort())
+
+	try {
+		const response = await fetch(`${baseURL}/api/v1/ai/chat`, {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				'authorization': `Bearer ${thisConfig.apiKey}`,
+			},
+			body: JSON.stringify({
+				model: modelName,
+				messages: chatMessages,
+				...separateSystemMessage ? { system: separateSystemMessage } : {},
+			}),
+			signal: controller.signal,
+		})
+
+		if (!response.ok) {
+			const detail = (await response.text().catch(() => '')).slice(0, 500)
+			const message = response.status === 401 || response.status === 403
+				? `Ribix denied this request (${response.status}). Ribix-hosted models require a signed-in account on a paid plan. ${detail}`
+				: `Ribix AI request failed (${response.status}). ${detail}`
+			onError({ message: message.trim(), fullError: null })
+			return
+		}
+
+		const fullText = ((await response.json()) as { content?: unknown })?.content
+		if (typeof fullText !== 'string' || !fullText) {
+			onError({ message: `Ribix IDE: Response from model was empty.`, fullError: null })
+			return
+		}
+
+		onText({ fullText, fullReasoning: '' })
+		onFinalMessage({ fullText, fullReasoning: '', anthropicReasoning: null })
+	}
+	catch (error) {
+		if (controller.signal.aborted) { return }
+		onError({ message: error + '', fullError: error instanceof Error ? error : null })
+	}
+}
+
+
 type CallFnOfProvider = {
 	[providerName in ProviderName]: {
 		sendChat: (params: SendChatParams_Internal) => Promise<void>;
@@ -935,6 +1023,11 @@ export const sendLLMMessageToProviderImplementation = {
 	},
 	awsBedrock: {
 		sendChat: (params) => _sendOpenAICompatibleChat(params),
+		sendFIM: null,
+		list: null,
+	},
+	ribix: {
+		sendChat: (params) => sendRibixChat(params),
 		sendFIM: null,
 		list: null,
 	},
