@@ -67,8 +67,11 @@ export const defaultProviderSettings = {
 	},
 
 	// Ribix-hosted AI: models proxied via user's Ribix account (paid plan required).
-	// The access token is injected automatically from IRibixAuthService — no manual key entry.
+	// `apiKey` holds the OAuth access token and is written by IRibixAuthService on
+	// sign-in — no manual key entry. `endpoint` only needs setting when pointing the
+	// IDE at a self-hosted or local Ribix backend.
 	ribix: {
+		apiKey: '',
 		endpoint: '',
 	},
 

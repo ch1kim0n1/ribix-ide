@@ -3,10 +3,8 @@
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
-// TODO(#47): Integrate wcagChecker.checkContrastRatio() and getWCAGSummary() into the
-// design reviewer output. Import from '../browser/wcagChecker.js'. Call checkContrastRatio()
-// for each colour pair extracted from the target component's CSS, then include the
-// WCAGSummary in the reviewer's structured findings output.
+// WCAG: callers may pass measured contrast via context.wcagSummary
+// (from browser/wcagChecker.getWCAGSummary). When present it is treated as ground truth.
 
 export interface ReviewerPromptContext {
 	memoryEntries: string[];
@@ -14,6 +12,8 @@ export interface ReviewerPromptContext {
 	implementationSummary: string;
 	testReport: string;
 	attachedContext: string;
+	/** Optional precomputed WCAG contrast findings from wcagChecker. */
+	wcagSummary?: string;
 }
 
 export interface ReviewerPromptParams {
@@ -25,6 +25,9 @@ export interface ReviewerPromptParams {
  */
 export function generateReviewerPrompt(params: ReviewerPromptParams): string {
 	const { context } = params;
+	const wcagBlock = context.wcagSummary
+		? `\n## Measured WCAG contrast (authoritative)\n${context.wcagSummary}\nTreat these measured ratios as ground truth — do not invent different numbers.\n`
+		: "";
 
 	return `You are the Ribix Reviewer agent. You are a senior product designer AND engineer reviewing for visual quality and UX correctness — not just code style.
 
@@ -40,7 +43,7 @@ ${context.implementationSummary || 'No implementation summary available.'}
 
 ## Test Report
 ${context.testReport || 'No test report available.'}
-
+${wcagBlock}
 ## Memory
 ${context.memoryEntries.length > 0 ? context.memoryEntries.join('\n\n') : 'No relevant memory entries available.'}
 
@@ -51,7 +54,7 @@ ${context.attachedContext || 'No additional context provided.'}
 
 Check every item. Flag anything that fails.
 
-- **Color contrast**: Text must meet WCAG AA (4.5:1). UI components (borders, icons, focus rings) must meet 3:1. Measure actual rendered values — do not assume.
+- **Color contrast**: Text must meet WCAG AA (4.5:1). UI components (borders, icons, focus rings) must meet 3:1. When a measured WCAG summary is provided above, use it; otherwise measure actual rendered values — do not assume.
 - **Spacing consistency**: Are padding and margin values consistent with the design system? Are there rogue one-off values?
 - **Typography hierarchy**: Do font sizes, weights, and line heights create clear visual hierarchy? Is anything ambiguous or illegible?
 - **Alignment**: Are elements aligned to the grid? Are there ragged edges or misaligned groups?

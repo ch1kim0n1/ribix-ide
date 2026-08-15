@@ -80,12 +80,25 @@ Each template includes a pre-configured Ribix mission (`.ribix/mission.md`) so y
 sudo apt-get install -y build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3
 ```
 
+**Windows users** — native modules (`tree-sitter`, `native-watchdog`, `node-pty`)
+are compiled with node-gyp, so install the C++ toolchain first, otherwise
+`npm install` fails partway through with `gyp ERR!`:
+```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+Python 3 must also be on `PATH`.
+
+**macOS users** — `xcode-select --install`.
+
 ```bash
 # 0. Clone the repository
 git clone https://github.com/ch1kim0n1/ribix-ide.git
 cd ribix-ide
 
 # 1. Install dependencies
+# The postinstall step also populates build/node_modules and every
+# extensions/*/node_modules. If it is skipped or fails, step 3 dies with
+# "Cannot find module 'jsonc-parser'" before it reaches any source file.
 nvm use 20.18.2
 npm install
 

@@ -369,6 +369,10 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			};
 		}
 		this.addActivityLog(agent, 'Aborted', 'Agent was manually aborted', null, null);
+		const released = this.fileLockService.releaseAllForAgent(agentId);
+		if (released > 0) {
+			this.addActivityLog(agent, 'File locks released', `${released} lock(s) force-released on abort`, null, null);
+		}
 		this._onDidChangeAgents.fire();
 		// Fire completion so event-driven orchestration tears down its listener
 		// (otherwise an aborted agent orphans the per-agent completion listener).
@@ -683,7 +687,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		}
 
 		// Route unknown tools through MCP (Playwright MCP, browser MCP, etc.)
-		if (!this.toolsService.validateParams[tool as keyof typeof this.toolsService.validateParams]) {
+		if (!this.toolsService.validateParams[tool as keyof IToolsService['validateParams']]) {
 			const mcpTools = this.mcpService.getMCPTools() ?? [];
 			const mcpTool = mcpTools.find(t => t.name === tool);
 			if (mcpTool?.mcpServerName) {
@@ -704,7 +708,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		// Validate raw string params → typed params (handles URI string → URI object conversion)
 		let validated: any;
 		try {
-			validated = this.toolsService.validateParams[tool as keyof typeof this.toolsService.validateParams](params);
+			validated = this.toolsService.validateParams[tool as keyof IToolsService['validateParams']](params);
 		} catch (err) {
 			this.addActivityLog(agent, 'Tool param validation failed', `${tool}: ${err}`, tool, null);
 			return `Error: invalid params for "${tool}": ${err instanceof Error ? err.message : String(err)}`;
@@ -732,7 +736,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 
 		const stringify = (result: unknown): string => {
 			try {
-				return this.toolsService.stringOfResult[tool as keyof typeof this.toolsService.stringOfResult](validated as never, result as never);
+				return this.toolsService.stringOfResult[tool as keyof IToolsService['stringOfResult']](validated as never, result as never);
 			} catch {
 				return typeof result === 'string' ? result : JSON.stringify(result);
 			}
@@ -743,7 +747,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			try {
 				await this.checkpointService.checkpoint(agent.missionId, agent.id, filePath);
 				this.addActivityLog(agent, 'Checkpoint created', filePath, null, filePath);
-				const { result } = await this.toolsService.callTool[tool as keyof typeof this.toolsService.callTool](validated as never);
+				const { result } = await this.toolsService.callTool[tool as keyof IToolsService['callTool']](validated as never);
 				const awaited = await result;
 				if (!agent.filesWritten.includes(filePath)) { agent.filesWritten.push(filePath); }
 				this.addActivityLog(agent, 'File written', filePath, tool, filePath);
@@ -753,7 +757,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 			}
 		}
 
-		const { result } = await this.toolsService.callTool[tool as keyof typeof this.toolsService.callTool](validated as never);
+		const { result } = await this.toolsService.callTool[tool as keyof IToolsService['callTool']](validated as never);
 		const awaited = await result;
 		if (tool === 'read_file' && filePath && !agent.filesRead.includes(filePath)) {
 			agent.filesRead.push(filePath);
@@ -1081,7 +1085,7 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		}
 		const baseUri = URI.joinPath(this.userDataProfilesService.defaultProfile.globalStorageHome, AGENT_RUNS_STORAGE_FOLDER);
 		try {
-			await this.fileService.createDirectory(baseUri);
+			await this.fileService.createFolder(baseUri);
 		} catch {
 			// Directory may already exist — ignore.
 		}
@@ -1141,9 +1145,9 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 	private async loadPersistedAgentRuns(): Promise<void> {
 		try {
 			const dir = await this.getAgentRunsStorageDir();
-			const entries = await this.fileService.readdir(dir);
+			const dirStat = await this.fileService.resolve(dir);
 			const loaded: AgentInstance[] = [];
-			for (const [name] of entries) {
+			for (const { name } of dirStat.children ?? []) {
 				if (!name.endsWith('.json')) { continue; }
 				try {
 					const content = await this.fileService.readFile(URI.joinPath(dir, name));
@@ -1208,8 +1212,8 @@ export class RibixAgentService extends Disposable implements IRibixAgentService 
 		// Delete JSON files from disk.
 		try {
 			const dir = await this.getAgentRunsStorageDir();
-			const entries = await this.fileService.readdir(dir);
-			for (const [name] of entries) {
+			const dirStat = await this.fileService.resolve(dir);
+			for (const { name } of dirStat.children ?? []) {
 				if (name.endsWith('.json')) {
 					try {
 						await this.fileService.del(URI.joinPath(dir, name));

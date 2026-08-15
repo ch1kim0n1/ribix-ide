@@ -6,6 +6,7 @@
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { Event } from '../../../../../base/common/event.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { RibixAgentService } from '../../browser/ribixAgentService.js';
 import { DEFAULT_AGENT_BUDGETS } from '../../common/ribixAgentLoopTypes.js';
 
@@ -71,6 +72,31 @@ const mcpStub = {
 	getMCPTools: () => [],
 } as any;
 
+const logStub = {
+	error: () => { /* noop */ },
+	warn: () => { /* noop */ },
+	info: () => { /* noop */ },
+	debug: () => { /* noop */ },
+	trace: () => { /* noop */ },
+} as any;
+
+/**
+ * The constructor loads persisted agent runs from disk. Reporting an empty
+ * storage directory keeps that startup path a no-op; run persistence itself is
+ * covered separately.
+ */
+const fileServiceStub = {
+	createFolder: async () => undefined,
+	resolve: async () => ({ children: [] }),
+	readFile: async () => ({ value: { toString: () => '{}' } }),
+	writeFile: async () => undefined,
+	del: async () => undefined,
+} as any;
+
+const userDataProfilesStub = {
+	defaultProfile: { globalStorageHome: URI.file('/ribix-test/globalStorage') },
+} as any;
+
 function makeAgentService(llm: any, tools: any) {
 	return new RibixAgentService(
 		tools,
@@ -83,6 +109,9 @@ function makeAgentService(llm: any, tools: any) {
 		undefined as any,
 		undefined as any,
 		undefined as any,
+		logStub,
+		fileServiceStub,
+		userDataProfilesStub,
 	);
 }
 
@@ -228,6 +257,7 @@ suite('RibixAgentService — agentic loop', () => {
 		const service = new RibixAgentService(
 			tools.service, llm.service, lock, { ...memoryStub, written: [] }, checkpoint, settingsStub, mcpStub,
 			undefined as any, undefined as any, undefined as any,
+			logStub, fileServiceStub, userDataProfilesStub,
 		);
 
 		const completion = waitForCompletion(service);
@@ -247,7 +277,8 @@ suite('RibixAgentService — agentic loop', () => {
 		const llm = makeLLMStub(['Summary: done.']);
 		const tools = makeToolsStub({});
 		const service = new RibixAgentService(tools.service, llm.service, lockStub, mem, checkpointStub, settingsStub, mcpStub,
-		undefined as any, undefined as any, undefined as any);
+		undefined as any, undefined as any, undefined as any,
+		logStub, fileServiceStub, userDataProfilesStub);
 
 		const completion = waitForCompletion(service);
 		await service.spawnAgent('m1', 't1', 'coder', 'noop');
